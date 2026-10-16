@@ -1,3 +1,5 @@
+> **GitLab migration (October 2026):** Current GitLab CI is defined in `.gitlab-ci.yml` and runs Linux offline tests. The GitHub Actions sections below document legacy automation, **not active GitLab workflows**. GitLab Windows packaging, automated releases and issue triage require separate migration.
+
 # Build and development reference
 
 Build instructions, source layout and test commands. See also [Windows installation](../WINDOWS.md) and [Contributing](../CONTRIBUTING.md).
@@ -22,7 +24,7 @@ PyInstaller creates a **folder-based** application:
 dist\PenX\PenX.exe
 ~~~
 
-Keep the **entire `dist\\PenX` folder** when moving the build. This is not a single-file executable. Nmap/Npcap, Ruby, Perl, WhatWeb and Nikto are **installed separately after approval at first EXE launch**, not bundled into the EXE. Public prebuilt ZIPs are available on the [Releases page](https://github.com/SLP-DEV1/PenX/releases) after a successful tagged release; the source tree itself does not contain a prebuilt EXE.
+Keep the **entire `dist\\PenX` folder** when moving the build. This is not a single-file executable. Nmap/Npcap, Ruby, Perl, WhatWeb and Nikto are **installed separately after approval at first EXE launch**, not bundled into the EXE. Prebuilt GitLab Windows ZIPs are **not yet published**; see [GitLab Releases](https://gitlab.com/SLP-DEV1/PenX/-/releases). The historical GitHub release workflow does not run in GitLab; the source tree itself does not contain a prebuilt EXE.
 
 The executable needs to be built and checked on Windows; Linux CI does not establish that the packaged EXE works on every Windows installation.
 

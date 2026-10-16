@@ -2,13 +2,13 @@
 
 **Status: package manifests are drafts, not public registry listings.**
 PenX is a Windows-first Python application; npm is not an appropriate primary distribution channel.
-The existing portable ZIP in [GitHub Releases](https://github.com/SLP-DEV1/PenX/releases) remains the supported download.
+GitLab currently has no published Windows binaries. Install from source until tested archives are available on [GitLab Releases](https://gitlab.com/SLP-DEV1/PenX/-/releases). The historical package drafts still reference immutable GitHub assets and are not current GitLab distribution channels.
 
 ## Release/version warning
 
 The checked-in WinGet and Scoop manifests deliberately target the **existing v0.4.4 Windows pre-release**.
 They pin the official `PenX-Windows-x64.zip` with the SHA-256 digest recorded by GitHub for that exact release.
-The present `pyproject.toml` independently declares Python package version `2.0.0`. These are **not** the same release!
+The current Python package version is tracked in `pyproject.toml` (check before release). These are **not** the same release!
 Before publishing a new stable version, align the Git tag, Python package version and Windows `--version` output,
 rebuild/test the ZIP, and update both manifests from the new immutable release asset and its hash.
 Do not retag/replace release assets without updating their hashes.
@@ -38,7 +38,7 @@ until a separate user-data directory and migration strategy are tested.
 The checked-in `packaging/scoop/penx.json` is an installable **draft** manifest.
 On Windows with Scoop installed, test it directly:
 ```powershell
-scoop install https://raw.githubusercontent.com/SLP-DEV1/PenX/main/packaging/scoop/penx.json
+scoop install https://gitlab.com/SLP-DEV1/PenX/-/raw/master/packaging/scoop/penx.json
 penx --version
 penx --setup-status
 ```
@@ -46,7 +46,7 @@ penx --setup-status
 Publish it through a Scoop bucket after validating first install, update, and uninstall.
 The manifest persists `PenX/.env`, `PenX/data`, `PenX/reports` and `PenX/vendor`
 to protect user settings, scan results and downloaded scanner tools across Scoop updates.
-The `checkver` block follows GitHub's stable-release channel; automatic update discovery
+The historical `checkver` block follows GitHub's stable-release channel (not GitLab); automatic update discovery
 will not use GitHub pre-releases until a stable release is available.
 
 ## PyPI (source distribution and wheel)
@@ -75,5 +75,5 @@ with user consent. Neither local AI models nor scanner binaries are bundled.
 
 Run `python scripts/validate_distributions.py` after updating a manifest; it verifies
 both manifests agree on version, official archive URL and pinned SHA-256.
-It performs no network downloads. GitHub Actions checks buildability and package imports,
+It performs no network downloads. GitLab CI checks offline regressions and dependency consistency,
 but **cannot replace native `winget validate` and install/upgrade testing on Windows**.
