@@ -170,7 +170,9 @@ Review each FINAL vulnerability and recommendation by its exact REVIEW THIS EXAC
 # SHARED LOCAL LLM API (LM Studio / Ollama / llama.cpp)
 # ─────────────────────────────────────────────
 
-def ask_llm(messages: list, settings: "Settings | None" = None) -> str:
+def ask_llm(messages: list, settings: "Settings | None" = None, *,
+            complete: Callable | None = None, emit: Callable | None = None,
+            stream_emit: Callable | None = None) -> str:
     """Analyze with a bounded retry for reasoning-only or otherwise empty output.
 
     On an empty SSE response, retry ONCE non-streaming. This also works around
@@ -189,17 +191,31 @@ def ask_llm(messages: list, settings: "Settings | None" = None) -> str:
         url, models_url, base_url = settings.LLM_URL, settings.LLM_MODELS_URL, settings.LLM_BASE_URL
         model_name, api_key = settings.MODEL_NAME, settings.LLM_API_KEY
         max_tokens, timeout, top_k = settings.MAX_TOKENS, settings.LLM_TIMEOUT, settings.TOP_K
+    transport = complete_chat if complete is None else complete
+    # The current terminal is the default adapter, not a use-case requirement.
+    # GUI/headless callers may supply progress and delta ports per request.
+    output = print if emit is None else emit
+
+    def write_chunk(chunk: str) -> None:
+        if stream_emit is None:
+            print(chunk, end="", flush=True)
+        else:
+            stream_emit(chunk)
+
     try:
         live = live_output()
         if live:
-            print("\n[AI STREAM] ", end="", flush=True)
+            if emit is None:
+                print("\n[AI STREAM] ", end="", flush=True)
+            else:
+                emit("\n[AI STREAM] ")
         try:
-            model_id, response = complete_chat(
+            model_id, response = transport(
                 messages, url=url, models_url=models_url,
                 model_name=model_name, api_key=api_key,
                 max_tokens=max_tokens, timeout=timeout,
                 top_k=top_k,
-                **({"stream_callback": lambda chunk: print(chunk, end="", flush=True)}
+                **({"stream_callback": write_chunk}
                    if live else {}),
             )
         except EmptyModelResponse as first_error:
@@ -208,8 +224,8 @@ def ask_llm(messages: list, settings: "Settings | None" = None) -> str:
             )
             if not retry_allowed:
                 raise
-            print(f"\n[!] {first_error}")
-            print("[*] Retrying the LLM response once without streaming or thinking output...")
+            output(f"\n[!] {first_error}")
+            output("[*] Retrying the LLM response once without streaming or thinking output...")
             # Do not mutate the caller's conversation or send any new scan data.
             # Qwen3 recognizes /no_think; other servers ignore it as ordinary text.
             retry_messages = [dict(message) for message in messages]
@@ -228,7 +244,7 @@ def ask_llm(messages: list, settings: "Settings | None" = None) -> str:
             except ValueError:
                 configured_retry_tokens = 16384
             retry_tokens = max(max_tokens, max(1024, min(configured_retry_tokens, 32768)))
-            model_id, response = complete_chat(
+            model_id, response = transport(
                 retry_messages, url=url, models_url=models_url,
                 model_name=model_name, api_key=api_key,
                 max_tokens=retry_tokens, timeout=timeout,
@@ -236,8 +252,8 @@ def ask_llm(messages: list, settings: "Settings | None" = None) -> str:
                 # Non-streaming deliberately avoids a second broken SSE path.
             )
             if live and response:
-                print("\n[AI RETRY RESPONSE]\n" + response)
-        print(f"\n[*] Response received from {model_id}.")
+                output("\n[AI RETRY RESPONSE]\n" + response)
+        output(f"\n[*] Response received from {model_id}.")
         return response
     except EmptyModelResponse as exc:
         return (
