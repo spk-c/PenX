@@ -126,11 +126,10 @@ def string_refs(path: Path) -> dict[str, int]:
         if isinstance(func, ast.Name):
             is_ref = func.id in {"patch", "__import__", "import_module"}
         elif isinstance(func, ast.Attribute):
-            if func.attr == "object":
-                inner = func.value
-                is_ref = (isinstance(inner, ast.Name) and inner.id == "patch")
-            else:
-                is_ref = func.attr in {"patch", "__import__", "import_module"}
+            # patch.object(target, attribute) receives an object, not a
+            # module path. Only patch("package.symbol") and dynamic imports
+            # can refer to legacy modules via their first string argument.
+            is_ref = func.attr in {"patch", "__import__", "import_module"}
         if is_ref and node.args:
             first = node.args[0]
             if isinstance(first, ast.Constant) and isinstance(first.value, str):
