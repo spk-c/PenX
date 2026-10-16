@@ -6,6 +6,8 @@ This file never evaluates directives as Python or executes arbitrary commands.
 from __future__ import annotations
 import re
 
+from penx_app.domain.scan_models import ScannerOutput
+
 
 def parse_directives(response: str) -> list:
     """Extract inline TOOL and SEARCH directives in their original order.
@@ -42,15 +44,25 @@ def dispatch_directives(calls: list, authorized_target: str | None = None, raw_c
         else:
             output = f"[!] Unknown call type: {call_type}"
 
-        # Provider adapters may legitimately return None or an unexpected
-        # non-string object. Never abort a whole assessment on .strip().
+        # Only completed, evidence-bearing typed scanner responses or
+        # nonempty legacy text without diagnostic prefixes can be retained.
+        # Never treat a failed/partial ScannerOutput or arbitrary object repr
+        # as scanner evidence merely because its text looks nonempty.
+        typed = isinstance(output, ScannerOutput)
+        trusted = (
+            output.status == "COMPLETE" and output.evidence if typed
+            else isinstance(output, str)
+        )
         if output is None:
             output = "[!] Tool returned no output."
         elif not isinstance(output, str):
-            output = str(output)
+            output = "[!] Tool returned unsupported output type."
+        diagnostic = not output.strip() or output.lstrip().startswith(
+            ("[!]", "[EXIT CODE", "[ERROR]", "Traceback ")
+        )
         if raw_collector is not None and call_type == "TOOL":
-            # Retain evidence for CVE re-discovery, bounded to avoid memory abuse.
-            if output and not output.lstrip().startswith("[!]"):
+            if trusted and not diagnostic:
+                # Tool text used for later CVE discovery must be real evidence.
                 raw_collector.append("\n[ADDITIONAL TOOL OUTPUT]\n" + output[:2_000_000])
         compressed = summarizer(output.strip())
         results += f"\n[{call_type} RESULT: {call_content}]\n"
