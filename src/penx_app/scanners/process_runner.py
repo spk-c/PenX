@@ -234,7 +234,12 @@ def _run_tool_live(command: list[str], timeout: int, cwd: str | None,
                     break
                 continue
             if chunk is None:
-                break
+                # EOF belongs to the output pipe, not necessarily to the
+                # scanner process. A scanner may close stdout/stderr and
+                # keep running; it must still obey cancellation and timeout.
+                if proc.poll() is not None:
+                    break
+                continue
             room = MAX_CAPTURE_BYTES - used
             # Count the same encoded UTF-8 bytes as the quiet runner.
             # Character counts understate memory consumption for Unicode text.
