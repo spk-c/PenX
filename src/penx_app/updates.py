@@ -1,12 +1,14 @@
-"""Conservative GitHub release updater for *installed* PenX on Windows.
+"""Conservative GitLab release updater for installed PenX on Windows.
 
-Checking never downloads or executes software. Installing always requires the
-user to explicitly agree, checks the release's SHA-256 and leaves rollback to
-the interactive Inno Setup installer. Portable users only get release notices.
+Release checks only read public metadata. Installing requires explicit user
+approval, validates official GitLab release asset URLs, verifies the SHA-256
+checksum, and starts the interactive Inno Setup installer. Portable users only
+receive notices; no scanner or release binary is installed automatically.
 """
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime, timezone
 import hashlib
 import json
 import os
@@ -22,13 +24,18 @@ from urllib.request import Request, urlopen
 from penx_app.app_paths import APP_ROOT, installed_mode
 from penx_app.version import VERSION
 
-API = "https://api.github.com/repos/SLP-DEV1/PenX/releases/latest"
-DOWNLOAD_PREFIX = "https://github.com/SLP-DEV1/PenX/releases/download/"
+PROJECT = "SLP-DEV1/PenX"
+PROJECT_ID = 87731916
+PROJECT_URL = "https://gitlab.com/" + PROJECT
+API = f"https://gitlab.com/api/v4/projects/{PROJECT_ID}/releases?per_page=100"
+DOWNLOAD_PREFIX = PROJECT_URL + "/-/releases/"
 INSTALLER_NAME = "PenX-Setup-x64.exe"
 CHECKSUM_NAME = "SHA256SUMS.txt"
 MAX_INSTALLER_BYTES = 250 * 1024 * 1024
 VERSION_RE = re.compile(r"^v(\d+)\.(\d+)\.(\d+)$")
 CHECK_INTERVAL = 24 * 60 * 60
+# GitLab may redirect project-owned artifacts to its Google Cloud object storage.
+DOWNLOAD_HOSTS = frozenset({"gitlab.com", "storage.googleapis.com"})
 
 
 @dataclass(frozen=True)
@@ -46,20 +53,26 @@ def version_tuple(value: str) -> tuple[int, int, int]:
     return tuple(int(part) for part in match.groups())
 
 
+def _asset_url(tag: str, asset: str) -> str:
+    version_tuple(tag)
+    if asset not in (INSTALLER_NAME, CHECKSUM_NAME):
+        raise ValueError("Unsupported release asset")
+    return f"{DOWNLOAD_PREFIX}{tag}/downloads/{asset}"
+
+
 def _safe_url(url: str, *, asset: str, tag: str) -> bool:
-    """Allow only the exact official release asset, never third-party URLs."""
-    return url == f"{DOWNLOAD_PREFIX}{tag}/{asset}"
+    return url == _asset_url(tag, asset)
 
 
 def _read_url(url: str, *, limit: int = 262144) -> bytes:
-    req = Request(url, headers={"User-Agent": f"PenX/{VERSION}", "Accept": "application/vnd.github+json"})
+    parsed = urlsplit(url)
+    if parsed.scheme != "https" or parsed.hostname != "gitlab.com":
+        raise ValueError("Unexpected release metadata host")
+    req = Request(url, headers={"User-Agent": f"PenX/{VERSION}", "Accept": "application/json"})
     with urlopen(req, timeout=8) as response:
-        # GitHub release downloads redirect to its own asset CDN.
-        parsed = urlsplit(response.geturl())
-        if parsed.scheme != "https" or parsed.hostname not in (
-            "api.github.com", "github.com", "release-assets.githubusercontent.com",
-        ):
-            raise ValueError("Unexpected update download host")
+        final = urlsplit(response.geturl())
+        if final.scheme != "https" or final.hostname not in DOWNLOAD_HOSTS:
+            raise ValueError("Unexpected release response host")
         data = response.read(limit + 1)
         if len(data) > limit:
             raise ValueError("Update response is too large")
@@ -68,24 +81,47 @@ def _read_url(url: str, *, limit: int = 262144) -> bytes:
 
 def fetch_latest() -> Release:
     payload = json.loads(_read_url(API))
-    if not isinstance(payload, dict) or payload.get("draft") or payload.get("prerelease"):
-        raise ValueError("No stable GitHub release found")
-    tag = payload.get("tag_name", "")
-    version_tuple(tag)
-    assets = payload.get("assets", [])
-    if not isinstance(assets, list):
-        raise ValueError("Invalid release assets")
-    urls = {a.get("name"): a.get("browser_download_url") for a in assets if isinstance(a, dict)}
-    installer = urls.get(INSTALLER_NAME)
-    checksums = urls.get(CHECKSUM_NAME)
-    if not isinstance(installer, str) or not _safe_url(installer, asset=INSTALLER_NAME, tag=tag):
-        # Earlier releases, including v0.4.5, have only a portable ZIP.
-        installer = ""
-        checksums = ""
-    elif not isinstance(checksums, str) or not _safe_url(checksums, asset=CHECKSUM_NAME, tag=tag):
-        raise ValueError("Official checksum asset missing")
-    page = f"https://github.com/SLP-DEV1/PenX/releases/tag/{tag}"
-    return Release(tag, installer, checksums, page)
+    if not isinstance(payload, list):
+        raise ValueError("Invalid GitLab Releases response")
+    candidates = []
+    for item in payload:
+        if not isinstance(item, dict):
+            continue
+        tag = item.get("tag_name", "")
+        if not isinstance(tag, str) or not VERSION_RE.fullmatch(tag):
+            continue
+        if item.get("upcoming_release"):
+            continue
+        when = item.get("released_at")
+        if isinstance(when, str):
+            try:
+                if datetime.fromisoformat(when.replace("Z", "+00:00")) > datetime.now(timezone.utc):
+                    continue
+            except ValueError:
+                continue
+        candidates.append((version_tuple(tag), item))
+    if not candidates:
+        raise ValueError("No stable GitLab release found")
+    _, release = max(candidates, key=lambda value: value[0])
+    tag = release["tag_name"]
+    assets = release.get("assets")
+    links = assets.get("links", []) if isinstance(assets, dict) else []
+    if not isinstance(links, list):
+        raise ValueError("Invalid GitLab release asset links")
+    urls = {}
+    for link in links:
+        if not isinstance(link, dict):
+            continue
+        name, url = link.get("name"), link.get("direct_asset_url")
+        if name in (INSTALLER_NAME, CHECKSUM_NAME) and isinstance(url, str):
+            if _safe_url(url, asset=name, tag=tag):
+                urls[name] = url
+    installer = urls.get(INSTALLER_NAME, "")
+    checksums = urls.get(CHECKSUM_NAME, "")
+    # Never offer an installer without the matching trusted checksum.
+    if installer and not checksums:
+        raise ValueError("Official GitLab release checksum asset missing")
+    return Release(tag, installer, checksums, f"{PROJECT_URL}/-/releases/{tag}")
 
 
 def is_newer(release: Release) -> bool:
@@ -121,9 +157,7 @@ def download_verified_installer(release: Release, *, root: Path = APP_ROOT) -> P
         req = Request(release.installer_url, headers={"User-Agent": f"PenX/{VERSION}"})
         with os.fdopen(fd, "wb") as out, urlopen(req, timeout=30) as response:
             final = urlsplit(response.geturl())
-            if final.scheme != "https" or final.hostname not in (
-                "github.com", "release-assets.githubusercontent.com"
-            ):
+            if final.scheme != "https" or final.hostname not in DOWNLOAD_HOSTS:
                 raise ValueError("Unexpected installer download host")
             while chunk := response.read(1024 * 1024):
                 total += len(chunk)
@@ -135,7 +169,6 @@ def download_verified_installer(release: Release, *, root: Path = APP_ROOT) -> P
             raise ValueError("Installer SHA-256 verification failed")
         return target
     except BaseException:
-        # Avoid leaving executable partial downloads behind after any failure.
         target.unlink(missing_ok=True)
         raise
 
@@ -145,28 +178,28 @@ def check_update(*, quiet: bool = False) -> Release | None:
         latest = fetch_latest()
     except (OSError, ValueError, TimeoutError, json.JSONDecodeError) as exc:
         if not quiet:
-            print(f"[WARN] Could not check GitHub Releases: {exc}")
+            print(f"[WARN] Could not check GitLab Releases: {exc}")
         return None
     if not quiet:
         print(f"Installed PenX version: v{VERSION}")
-        print(f"Latest stable GitHub release: {latest.tag}")
+        print(f"Latest stable GitLab release: {latest.tag}")
         if is_newer(latest):
             print(f"New release available: {latest.page_url}")
             if not latest.installer_url:
-                print("This release has no Windows installer; download it manually.")
+                print("This release has no verified Windows installer; download it manually.")
         else:
             print("[OK] PenX is up to date.")
     return latest if is_newer(latest) else None
 
 
 def update_interactive() -> bool:
-    """Only a positive explicit response can trigger an installer execution."""
+    """Only an explicit positive answer can start the installer."""
     latest = check_update()
     if latest is None:
         return False
     if os.name != "nt" or not installed_mode() or not latest.installer_url:
         print(f"Open {latest.page_url} for the available download.")
-        print("Automatic installation is only supported for the installed Windows edition.")
+        print("Automatic installation is only supported for verified installed Windows editions.")
         return False
     try:
         answer = input(f"Download, verify and install {latest.tag}? [y/N]: ").strip().lower()
@@ -185,7 +218,7 @@ def update_interactive() -> bool:
 
 
 def startup_notice() -> None:
-    """Best-effort once-per-day notice; no install/download and no portable traffic."""
+    """Read-only, once-per-day notice for installed copies."""
     if not installed_mode() or os.environ.get("PENX_AUTO_UPDATE_CHECK", "on").lower() in (
         "off", "0", "false", "no"
     ):
@@ -196,8 +229,6 @@ def startup_notice() -> None:
             return
     except (ValueError, OSError):
         pass
-    # Only a successful GitHub release lookup advances the throttle marker.
-    # A transient network failure must be retried at the next startup.
     try:
         latest = fetch_latest()
     except (OSError, ValueError, TimeoutError, json.JSONDecodeError):
