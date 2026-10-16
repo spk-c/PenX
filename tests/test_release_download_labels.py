@@ -21,7 +21,7 @@ class ReleaseDownloadLabelTests(unittest.TestCase):
         self.assertIn("PenX-Windows-x64.zip", guide)
         self.assertIn("SHA256SUMS.txt", guide)
         self.assertIn("No Windows binaries", guide)
-        self.assertIn("Source", guide)
+        self.assertIn("source installation", guide)
 
     def test_tag_windows_build_and_release_only_after_verified_artifacts(self):
         workflow = (ROOT / ".gitlab-ci.yml").read_text(encoding="utf-8")
