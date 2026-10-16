@@ -20,13 +20,14 @@ except ImportError:
 # ─────────────────────────────────────────────
 
 def web_search(query: str, max_results: int = 5, *,
-               ddgs_factory: Callable | None = None) -> str:
+               ddgs_factory: Callable | None = None,
+               emit: Callable | None = None) -> str:
     """
     Search DuckDuckGo and return formatted results.
     No API key. No rate limit issues for reasonable usage.
     Returns a string ready to paste into LLM prompt.
     """
-    print(f"  [*] Searching: {query}")
+    (print if emit is None else emit)(f"  [*] Searching: {query}")
     if DDGS is None and ddgs_factory is None:
         return "[!] Missing ddgs package. Install requirements.txt."
     try:
@@ -54,15 +55,22 @@ def web_search(query: str, max_results: int = 5, *,
 # ─────────────────────────────────────────────
 
 def search_cve(cve_id: str, *, web_search_client: Callable | None = None,
-               page_fetch_client: Callable | None = None) -> str:
+               page_fetch_client: Callable | None = None,
+               emit: Callable | None = None) -> str:
     """
     Search for a specific CVE.
     Queries DDG then also hits cve.mitre.org directly.
     """
-    print(f"  [*] Looking up {cve_id}...")
+    (print if emit is None else emit)(f"  [*] Looking up {cve_id}...")
 
     # DDG search first
-    search = web_search if web_search_client is None else web_search_client
+    # Keep the terminal default, but let application callers route progress to
+    # their own UI rather than printing from a research service.
+    if web_search_client is None:
+        def search(q: str, **kwargs) -> str:
+            return web_search(q, emit=emit, **kwargs)
+    else:
+        search = web_search_client
     fetch = fetch_page if page_fetch_client is None else page_fetch_client
     ddg_results = search(f"{cve_id} vulnerability exploit details", max_results=3)
 
@@ -140,13 +148,18 @@ def fetch_page(url: str, max_chars: int = 3000, *,
 # ─────────────────────────────────────────────
 
 def handle_search_dispatch(query: str, *, general_search: Callable | None = None,
-                           page_fetch: Callable | None = None) -> str:
+                           page_fetch: Callable | None = None,
+                           emit: Callable | None = None) -> str:
     """
     Called by llm.py when AI writes [SEARCH: something].
     Smartly routes to CVE lookup, exploit search, or general search.
     """
     query = query.strip()
-    search = web_search if general_search is None else general_search
+    if general_search is None:
+        def search(q: str, **kwargs) -> str:
+            return web_search(q, emit=emit, **kwargs)
+    else:
+        search = general_search
     fetch = fetch_page if page_fetch is None else page_fetch
 
     # CVE pattern — CVE-YYYY-NNNNN
@@ -155,7 +168,7 @@ def handle_search_dispatch(query: str, *, general_search: Callable | None = None
     cve_match = cve_pattern.search(query)
     if cve_match:
         return search_cve(cve_match.group(), web_search_client=search,
-                          page_fetch_client=fetch)
+                          page_fetch_client=fetch, emit=emit)
 
     # exploit keywords
     if any(word in query.lower() for word in ["exploit", "poc", "payload", "rce", "lfi", "sqli"]):
