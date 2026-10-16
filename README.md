@@ -9,22 +9,19 @@
 <p align="center">One terminal for authorized scans, evidence-based reviews, and locally saved HTML, PDF, JSON, and SARIF reports.</p>
 
 <p align="center">
-  <a href="https://github.com/SLP-DEV1/PenX/actions/workflows/ci.yml"><img alt="Offline tests" src="https://github.com/SLP-DEV1/PenX/actions/workflows/ci.yml/badge.svg"></a>
-  <a href="https://github.com/SLP-DEV1/PenX/releases"><img alt="GitHub release" src="https://img.shields.io/github/v/release/SLP-DEV1/PenX?include_prereleases&label=release"></a>
+  <a href="https://gitlab.com/SLP-DEV1/PenX/-/pipelines"><img alt="GitLab pipeline" src="https://gitlab.com/SLP-DEV1/PenX/badges/master/pipeline.svg"></a>
+  <a href="https://gitlab.com/SLP-DEV1/PenX/-/releases"><img alt="GitLab releases" src="https://img.shields.io/badge/Releases-GitLab-FC6D26?logo=gitlab"></a>
   <img alt="Windows 10 and 11" src="https://img.shields.io/badge/Windows-10%20%2F%2011-0078D6?logo=windows">
   <img alt="Python 3.10–3.13" src="https://img.shields.io/badge/Python-3.10--3.13-3776AB?logo=python">
   <a href="LICENSE"><img alt="MIT license" src="https://img.shields.io/badge/license-MIT-22A699"></a>
-  <a href="https://github.com/SLP-DEV1/PenX/stargazers"><img alt="GitHub stars" src="https://img.shields.io/github/stars/SLP-DEV1/PenX?style=social"></a>
 </p>
 
-> [!TIP]
-> **Which Windows download?** Most people should choose **[PenX-Setup-x64.exe](https://github.com/SLP-DEV1/PenX/releases/latest/download/PenX-Setup-x64.exe)** — the installer with Start menu shortcuts and optional, user-approved updates.
-> Prefer no installation? Choose **[PenX-Windows-x64.zip](https://github.com/SLP-DEV1/PenX/releases/latest/download/PenX-Windows-x64.zip)** and extract the entire folder. **Do not use GitHub's "Source code (zip)"** for the ready-to-run Windows version.
-> See the [Windows setup and migration guide](WINDOWS.md). Neither download bundles scanner binaries or local AI models.
+> [!NOTE]
+> **GitLab migration:** PenX source code is available here, but as of October 16, 2026 the GitLab project has **no published Windows release assets**. Install from source below until verified Windows binaries are published on [GitLab Releases](https://gitlab.com/SLP-DEV1/PenX/-/releases). Source archives are not ready-to-run EXEs.
 
 <p align="center">
-  <a href="https://github.com/SLP-DEV1/PenX/releases/latest/download/PenX-Setup-x64.exe"><strong>Windows Installer (recommended)</strong></a> ·
-  <a href="https://github.com/SLP-DEV1/PenX/releases/latest/download/PenX-Windows-x64.zip"><strong>Portable ZIP</strong></a> ·
+  <a href="#quick-start"><strong>Install from source</strong></a> ·
+  <a href="https://gitlab.com/SLP-DEV1/PenX/-/releases"><strong>GitLab Releases (binaries pending)</strong></a> ·
   <a href="docs/DEMO.md"><strong>View demo</strong></a> ·
   <a href="WINDOWS.md"><strong>Installation help</strong></a>
 </p>
@@ -39,58 +36,39 @@
 </p>
 
 > [!IMPORTANT]
-> **Authorized targets only.** PenX makes real network requests. Use it only on systems you own or are explicitly permitted to assess. AI-generated vulnerability findings are **not verified proof**; review the scanner evidence independently.
+> **Authorized targets only.** PenX makes real network requests. Use it only on systems you own or are explicitly permitted to assess. AI-generated vulnerability findings are **not verified proof**; review scanner evidence independently.
 
 ## Quick start
 
-### Option A: Windows installer (recommended)
+### Windows source installation (available now)
 
-1. Download **[PenX-Setup-x64.exe](https://github.com/SLP-DEV1/PenX/releases/latest/download/PenX-Setup-x64.exe)** from the latest stable release.
-2. Run the setup and follow the installation wizard; PenX creates a Start menu entry. This installer is not code-signed, so Windows SmartScreen may show a publisher warning.
-3. Start PenX. On first launch, it offers to set up missing scanner components **only with your consent**; local LLM configuration is optional.
-4. For future stable updates, use **[13] Check for Updates** in PenX. Updates download only after confirmation and are verified against GitHub's SHA-256 checksums.
-5. Your configuration, reports and scan history are kept under `%LOCALAPPDATA%\PenX`, separate from the installed application files. **If moving from an existing portable copy, back up and migrate those files manually** using [the migration guide](WINDOWS.md).
-
-### Option B: Portable Windows release (no installation)
-
-1. Open the **[GitHub Releases download page](https://github.com/SLP-DEV1/PenX/releases)**. Under the release's **Assets**, download **PenX-Windows-x64.zip**. Do **not** choose GitHub's automatic **Source code (zip)** archive if you want the ready-built EXE. Check the release label: a **Pre-release** is not a declared stable build.
-2. Download **SHA256SUMS.txt** from the **same release**. To check the ZIP's integrity in PowerShell, run the commands below and compare the two SHA-256 values.
-3. Extract the ZIP and run **PenX.exe** from the extracted **PenX** folder. **Keep the entire folder** (including `_internal`): this is a folder-based portable application, **not** a standalone single-file EXE.
-4. On first launch, PenX offers to install missing upstream scanner components **with your consent**. Internet access, Windows UAC approval, or the interactive Nmap/Npcap installer may be needed. **Scanner binaries are not bundled.**
-5. For optional AI-assisted review, run your own local [Ollama](https://ollama.com/), [LM Studio](https://lmstudio.ai/), or [llama.cpp](https://github.com/ggml-org/llama.cpp) API server and use the local model wizard. **No LLM is bundled or downloaded by PenX.**
-6. Select **[1] New Scan**, enter a target you are authorized to assess, and choose scanners.
+Clone the maintained GitLab repository and run the consent-based Windows setup:
 
 ~~~powershell
-(Get-FileHash .\PenX-Windows-x64.zip -Algorithm SHA256).Hash.ToLowerInvariant()
-Get-Content .\SHA256SUMS.txt
-~~~
-
-**Having trouble installing a scanner?** Run `PenX.exe --setup-status` to check dependencies without downloading anything, or see the [Windows troubleshooting guide](WINDOWS.md).
-
-**Useful EXE commands:**
-
-~~~powershell
-.\PenX.exe --setup-status   # Presence checks only; no downloads or scans
-.\PenX.exe --setup          # Consent-based scanner setup / repair
-.\PenX.exe --setup-native   # Native scanner setup only
-.\PenX.exe --llm-setup      # Reconfigure local LLM
-.\PenX.exe --check          # Local diagnostics
-~~~
-
-### Option C: Windows source checkout
-
-~~~powershell
-git clone https://github.com/SLP-DEV1/PenX.git
+git clone https://gitlab.com/SLP-DEV1/PenX.git
 cd PenX
 .\install-windows.bat
 .\start-windows.bat
 ~~~
 
-Python **3.13 is recommended** (supported source range: 3.10–3.13). The installer creates a virtual environment, installs Python dependencies, and sets up supported scanners. It may require <code>winget</code> and administrator approval. Use <code>check-windows.bat</code> for diagnostics or <code>install-scanners.bat</code> to retry missing scanners.
+Python **3.13 is recommended** (source support: 3.10–3.13). The setup configures a virtual environment and Python dependencies, and may offer third-party scanner installation **with your consent**. Internet access, `winget`, and administrator approval may be needed. Run `check-windows.bat` for diagnostics or `install-scanners.bat` to retry missing scanners. Preserve private `.env`, `data/`, and `reports/` files when updating.
 
-More details: [Windows setup and troubleshooting](WINDOWS.md). Preserve your private <code>.env</code>, <code>data/</code>, and <code>reports/</code> directories when updating.
+### Windows installer and portable ZIP (pending GitLab release)
 
-**Package managers (preview):** WinGet and Scoop manifests and PyPI build instructions are prepared in [distribution documentation](docs/PACKAGING.md). These are not yet published as registry packages; use GitHub Releases for the current Windows download.
+The intended release assets are **`PenX-Setup-x64.exe`** (installer), **`PenX-Windows-x64.zip`** (portable application folder), and **`SHA256SUMS.txt`** (integrity check). Verify they are actually attached to a published, tested [GitLab Release](https://gitlab.com/SLP-DEV1/PenX/-/releases) before using the binary installation instructions in [WINDOWS.md](WINDOWS.md). **No Windows release binaries are currently published on GitLab.** Do not use GitLab's automatic source archive as an EXE.
+
+When a portable ZIP becomes available, extract the **entire folder** (including `_internal`) and run `PenX.exe`. Scanner binaries and local AI models are not bundled. The in-app updater still requires migration to the GitLab release channel; use the GitLab Releases page for update availability until then.
+
+**Useful commands for a verified Windows binary (once available):**
+
+~~~powershell
+.\PenX.exe --setup-status   # Checks only, no downloads or scans
+.\PenX.exe --setup          # Consent-based scanner setup
+.\PenX.exe --llm-setup      # Optional local LLM setup
+.\PenX.exe --check          # Local diagnostics
+~~~
+
+**WinGet and Scoop manifests are historical drafts**, not evidence that PenX is available in a public package registry; see [distribution documentation](docs/PACKAGING.md).
 
 ## What is PenX?
 
@@ -175,7 +153,7 @@ Replace <code>32</code> with an existing session ID. <code>--redact</code> masks
 python scripts/generate_demo_report.py
 ~~~
 
-See the [offline demo walkthrough](docs/DEMO.md). For an up-to-date feature overview, use the README and the [release downloads](https://github.com/SLP-DEV1/PenX/releases), not an illustration as proof of a live scan.
+See the [offline demo walkthrough](docs/DEMO.md). For an up-to-date feature overview, use the README and the [GitLab Releases page](https://gitlab.com/SLP-DEV1/PenX/-/releases) (after binaries are published), not an illustration as proof of a live scan.
 
 ## Repository layout
 
@@ -192,10 +170,11 @@ PenX/
 ├── run-tests.bat           # Offline tests
 ├── build-exe.bat           # Folder-based EXE build
 ├── .env.example            # Configuration template (no secrets)
-└── .github/workflows/      # CI, security and releases
+├── .gitlab-ci.yml          # GitLab offline regression checks
+└── .github/workflows/      # Legacy GitHub Actions definitions
 ~~~
 
-Tagged releases produce **PenX-Setup-x64.exe** (recommended installer), **PenX-Windows-x64.zip** (portable), and **SHA256SUMS.txt** after successful build/test steps. The ZIP contains the Python application and first-run setup assistant, **not** the proprietary model or third-party scanner EXEs.
+Planned GitLab Windows releases should publish **PenX-Setup-x64.exe** (installer), **PenX-Windows-x64.zip** (portable), and **SHA256SUMS.txt** after Windows build/test verification. These files are **not yet available** on GitLab. The ZIP contains the Python application and first-run setup assistant, **not** the proprietary model or third-party scanner EXEs.
 
 ## Documentation
 
@@ -212,9 +191,9 @@ Tagged releases produce **PenX-Setup-x64.exe** (recommended installer), **PenX-W
 
 ## Contributing
 
-Issues and pull requests are welcome for Windows support, scanner integration, testing, docs, and reproducible bugs. Run <code>python offline_tests.py</code> before submitting a PR. Remove secrets, private-target details, and personally identifying content from logs and screenshots. Read [CONTRIBUTING.md](CONTRIBUTING.md) and use the [issue tracker](https://github.com/SLP-DEV1/PenX/issues).
+Issues and merge requests are welcome for Windows support, scanner integration, testing, docs, and reproducible bugs. Run <code>python offline_tests.py</code> before submitting a merge request. Remove secrets, private-target details, and personally identifying content from logs and screenshots. Read [CONTRIBUTING.md](CONTRIBUTING.md) and use the [issue tracker](https://gitlab.com/SLP-DEV1/PenX/-/issues).
 
-To report a security issue in PenX itself, follow [SECURITY.md](SECURITY.md) instead of public disclosure. If you find the project useful, consider [starring it](https://github.com/SLP-DEV1/PenX/stargazers). See the [community launch kit](docs/COMMUNITY_LAUNCH.md) for accurate sharing examples.
+To report a security issue in PenX itself, follow [SECURITY.md](SECURITY.md) instead of public disclosure. If you find the project useful, consider [starring it](https://gitlab.com/SLP-DEV1/PenX/-/starrers). See the [community launch kit](docs/COMMUNITY_LAUNCH.md) for accurate sharing examples.
 
 ## License and attribution
 
