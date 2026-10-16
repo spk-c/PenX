@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Callable
+from contextlib import closing
 import requests
 
 CVE_PATTERN = re.compile(r"\bCVE-\d{4}-\d{4,8}\b", re.IGNORECASE)
@@ -57,12 +58,21 @@ def lookup_nvd(cve: str, api_key: str = "", *, get: Callable | None = None) -> s
     if api_key:
         headers["apiKey"] = api_key
     try:
-        res = (requests.get if get is None else get)(NVD_API, params={"cveId": cve}, headers=headers,
-                           timeout=(3, 7), allow_redirects=False)
-        res.raise_for_status()
-        records = res.json().get("vulnerabilities", [])
+        with closing((requests.get if get is None else get)(
+            NVD_API, params={"cveId": cve}, headers=headers,
+            timeout=(3, 7), allow_redirects=False,
+        )) as res:
+            res.raise_for_status()
+            payload = res.json()
+        if not isinstance(payload, dict) or not isinstance(payload.get("vulnerabilities"), list):
+            raise ValueError("Invalid NVD response")
+        records = payload["vulnerabilities"]
+        # A malformed record is not evidence that a CVE is absent.
+        if any(not isinstance(v, dict) or not isinstance(v.get("cve"), dict)
+               or not isinstance(v["cve"].get("id"), str) for v in records):
+            raise ValueError("Invalid NVD vulnerability record")
         status = ("listed" if any(
-            str(v.get("cve", {}).get("id", "")).upper() == cve for v in records
+            v["cve"]["id"].upper() == cve.upper() for v in records
         ) else "not-listed")
     except (requests.RequestException, ValueError, KeyError, TypeError):
         status = "unavailable"
@@ -85,13 +95,20 @@ def verify_nvd_applicability(cve_id: str, raw_scan: str, *, api_key: str = "",
     if api_key:
         headers["apiKey"] = api_key
     try:
-        response = (requests.get if get is None else get)(NVD_API, params={"cveId": cve_id}, headers=headers,
-                                timeout=(3, 7), allow_redirects=False)
-        response.raise_for_status()
-        entries = response.json().get("vulnerabilities", [])
-        matching = [x["cve"] for x in entries if
-                    isinstance(x, dict) and isinstance(x.get("cve"), dict) and
-                    str(x["cve"].get("id", "")).upper() == cve_id.upper()]
+        with closing((requests.get if get is None else get)(
+            NVD_API, params={"cveId": cve_id}, headers=headers,
+            timeout=(3, 7), allow_redirects=False,
+        )) as response:
+            response.raise_for_status()
+            payload = response.json()
+        if not isinstance(payload, dict) or not isinstance(payload.get("vulnerabilities"), list):
+            raise ValueError("Invalid NVD response")
+        entries = payload["vulnerabilities"]
+        if any(not isinstance(x, dict) or not isinstance(x.get("cve"), dict)
+               or not isinstance(x["cve"].get("id"), str) for x in entries):
+            raise ValueError("Invalid NVD vulnerability record")
+        matching = [x["cve"] for x in entries
+                    if x["cve"]["id"].upper() == cve_id.upper()]
         if not matching:
             return "unavailable or not listed"
         status = [applicability(matching[0], product) for product in products]
@@ -112,16 +129,25 @@ def load_cisa_kev(*, get: Callable | None = None) -> set[str] | None:
     if get is None and _kev_cache is not None:
         return _kev_cache
     try:
-        res = (requests.get if get is None else get)(CISA_KEV_URL, headers={"User-Agent": "PenX/SourceVerification"},
-                           timeout=(3, 8), allow_redirects=False)
-        res.raise_for_status()
-        entries = res.json().get("vulnerabilities", [])
-        if not isinstance(entries, list):
+        with closing((requests.get if get is None else get)(
+            CISA_KEV_URL, headers={"User-Agent": "PenX/SourceVerification"},
+            timeout=(3, 8), allow_redirects=False,
+        )) as res:
+            res.raise_for_status()
+            payload = res.json()
+        if not isinstance(payload, dict) or not isinstance(payload.get("vulnerabilities"), list):
             return None
-        result = {
-            str(v["cveID"]).upper() for v in entries
-            if isinstance(v, dict) and CVE_PATTERN.fullmatch(str(v.get("cveID", "")).upper())
-        }
+        entries = payload["vulnerabilities"]
+        # A real KEV catalogue is nonempty. An empty upstream response must
+        # not assert that every known vulnerability is absent.
+        if not entries:
+            return None
+        # Missing or malformed records make KEV membership indeterminate.
+        if any(not isinstance(v, dict)
+               or not isinstance(v.get("cveID"), str)
+               or not CVE_PATTERN.fullmatch(v["cveID"].upper()) for v in entries):
+            return None
+        result = {v["cveID"].upper() for v in entries}
         if get is None:
             _kev_cache = result
         return result
