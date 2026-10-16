@@ -8,6 +8,9 @@ import re
 
 from penx_app.domain.scan_models import ScannerOutput
 
+# A single model response must not trigger unbounded search/scan calls.
+MAX_DIRECTIVES_PER_ROUND = 12
+
 
 def parse_directives(response: str) -> list:
     """Extract inline TOOL and SEARCH directives in their original order.
@@ -22,6 +25,8 @@ def parse_directives(response: str) -> list:
         command = match.group(2).strip()
         if command:
             calls.append((match.group(1).upper(), command))
+            if len(calls) >= MAX_DIRECTIVES_PER_ROUND:
+                break
     return calls
 
 
@@ -33,8 +38,9 @@ def dispatch_directives(calls: list, authorized_target: str | None = None, raw_c
     if not calls:
         return ""
 
+    limited = calls[:MAX_DIRECTIVES_PER_ROUND]
     results = ""
-    for call_type, call_content in calls:
+    for call_type, call_content in limited:
         print(f"\n  [DISPATCH] {call_type}: {call_content}")
 
         if call_type == "TOOL":
@@ -69,4 +75,9 @@ def dispatch_directives(calls: list, authorized_target: str | None = None, raw_c
         results += "─" * 40 + "\n"
         results += compressed + "\n"
 
+    if len(calls) > MAX_DIRECTIVES_PER_ROUND:
+        results += (
+            f"\n[!] Skipped {len(calls) - MAX_DIRECTIVES_PER_ROUND} "
+            "model tool/search requests: per-round limit reached.\n"
+        )
     return results
