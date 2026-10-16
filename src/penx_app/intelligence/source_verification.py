@@ -174,6 +174,10 @@ def verify_findings(findings: list[dict], raw_scan: str, *,
     load_kev = load_cisa_kev if kev_loader is None else kev_loader
     max_lookups = max(1, min(int(max_lookups), 30))
     seen: set[str] = set()
+    # Repeated CVE IDs can occur across many findings. Reuse lookup results
+    # within this assessment rather than issuing the same two HTTP requests
+    # for every row; never carry injected results into the process-wide cache.
+    source_results: dict[str, tuple[str, str]] = {}
     for finding in findings:
         matched = evidence_in_scan(finding.get("evidence", ""), raw_scan)
         blob = " ".join(str(finding.get(key, "")) for key in
@@ -194,10 +198,16 @@ def verify_findings(findings: list[dict], raw_scan: str, *,
             ),
         ]
         for cve in to_check:
-            lines.append(f"{cve}: NVD {lookup(cve, api_key=nvd_api_key)} "
-                         f"({NVD_PAGE}{cve})")
-            lines.append(f"{cve}: observed-version applicability: "
-                         f"{check_applicability(cve, raw_scan, api_key=nvd_api_key)}")
+            if cve not in source_results:
+                source_results[cve] = (
+                    lookup(cve, api_key=nvd_api_key),
+                    check_applicability(cve, raw_scan, api_key=nvd_api_key),
+                )
+            listing, applicability_status = source_results[cve]
+            lines.append(f"{cve}: NVD {listing} ({NVD_PAGE}{cve})")
+            lines.append(
+                f"{cve}: observed-version applicability: {applicability_status}"
+            )
         if len(to_check) < len(cves):
             lines.append(f"Additional CVEs skipped: {max_lookups} unique IDs maximum per assessment.")
         finding["_checked_cves"] = to_check
