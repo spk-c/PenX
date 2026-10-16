@@ -623,3 +623,17 @@ customer-backup tests or approved Windows/Npcap/large-PDF field checks.
 The upcoming maintenance source version is **v0.4.7**, distinct from the
 previously published v0.4.6 binaries. Release publication, hardware signing
 and full refactor acceptance must be verified independently.
+
+### Published maintenance release and tracked acceptance (16 October 2026)
+
+PenX [v0.4.7](https://github.com/spk-c/PenX/releases/tag/v0.4.7) completed the Windows tagged
+release workflow, with installer, portable ZIP and SHA-256 checksum.
+Remaining operator field evidence and incremental code work are recorded in
+[Windows/scanner acceptance](https://github.com/spk-c/PenX/issues/11),
+[backup/evidence/report acceptance](https://github.com/spk-c/PenX/issues/12),
+[model/CLI isolation](https://github.com/spk-c/PenX/issues/13) and
+[typing/legacy quality gates](https://github.com/spk-c/PenX/issues/14).
+The model-list HTTP client now accepts a call-local offline transport and
+three additional maintained CLI/parser/CVE modules have CI Ruff/mypy coverage.
+Neither published binaries nor green CI waive the physical Windows,
+historical-backup and report-review sign-off gates.

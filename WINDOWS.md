@@ -92,7 +92,7 @@ For a retry, run **`install-scanners.bat`**; it installs the same set of tools, 
 
 ### First launch of a downloaded Windows release (portable EXE)
 
-Once a verified binary is published on [GitHub Releases](https://github.com/spk-c/PenX/releases), download `PenX-Windows-x64.zip` and extract the **entire PenX directory** into a writable location, then start `PenX.exe`.
+Download the published verified binary from [GitHub Releases](https://github.com/spk-c/PenX/releases): choose `PenX-Windows-x64.zip` and extract the **entire PenX directory** into a writable location, then start `PenX.exe`.
 
 On **the first normal EXE launch only**, PenX checks whether Nmap, Npcap, Ruby, WhatWeb, Strawberry Perl, Nikto, Nuclei, httpx, ffuf, Subfinder and Katana appear to be installed. If any are missing, it **asks before downloading or installing** the upstream tools using the same Windows installer as the source install. Internet access, `winget` and Windows administrator/UAC approval may be needed; the Nmap/Npcap installer remains interactive. Missing scanners do not prevent PenX from opening. Declining the offer is remembered so users aren't prompted on every launch.
 
@@ -362,7 +362,7 @@ of complete anonymization.
 
 [GitHub Actions](https://github.com/spk-c/PenX/actions) is the primary CI. Offline regression tests run on Ubuntu and Windows. The [Windows Release workflow](.github/workflows/release.yml) builds and smoke-tests portable PenX and the installer. Version tags matching the application version publish the Windows installer, portable ZIP, and SHA256SUMS.txt to [GitHub Releases](https://github.com/spk-c/PenX/releases). Manual runs supply workflow artifacts rather than a public release.
 
-The installed Windows updater checks stable GitHub releases, verifies official asset URLs and SHA-256 checksums, and requires confirmation before installation. Windows binaries are published for v0.4.6; later code requires a new tagged release.
+The installed Windows updater checks stable GitHub releases, verifies official asset URLs and SHA-256 checksums, and requires confirmation before installation. Windows binaries are published for v0.4.7. Later code changes require a new tagged release.
 
 ## Cancelling a running scanner selection
 

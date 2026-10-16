@@ -1,8 +1,6 @@
 # PenX v0.4.7 – refactor stability maintenance
 
-**This is a source-side release plan, not proof of an already published binary.**
-The v0.4.7 Windows installer and portable ZIP must be compiled, tested and
-published by the matching tag workflow before they can be downloaded.
+**Published stable Windows release:** [v0.4.7](https://github.com/spk-c/PenX/releases/tag/v0.4.7). The tagged Windows build succeeded and published `PenX-Setup-x64.exe`, `PenX-Windows-x64.zip`, `SHA256SUMS.txt` and `CVE-QUALITY.json`. This confirms published automated build artifacts, **not** full hardware/field refactor sign-off.
 
 ## Changes since v0.4.6
 
