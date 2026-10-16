@@ -44,7 +44,10 @@ def specimen(key: str, old: bool) -> str:
 
 class SettingsMigrationMatrix(unittest.TestCase):
     def test_each_literal_loader_setting_supports_both_prefixes(self):
-        keys = sorted(set(KEY_PATTERN.findall(SOURCE.read_text(encoding="utf-8"))))
+        # Skip the two namespace literals in source.get('PENX_' + name,
+        # source.get('METATRON_' + name, ...)); those are not setting IDs.
+        keys = sorted(set(KEY_PATTERN.findall(SOURCE.read_text(encoding="utf-8")))
+                      - {"PENX_", "METATRON_"})
         self.assertGreaterEqual(len(keys), 25)
         with tempfile.TemporaryDirectory(prefix="penx matrix ") as folder:
             root = Path(folder)
