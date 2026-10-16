@@ -16,8 +16,11 @@ def _advisory_json(url: str, *, http_get=None):
     client = requests.get if http_get is None else http_get
     try:
         res = client(url, timeout=(3, 8), allow_redirects=False)
-        res.raise_for_status()
-        return res.json()
+        try:
+            res.raise_for_status()
+            return res.json()
+        finally:
+            res.close()
     except (requests.RequestException, ValueError, TypeError):
         return None
 
