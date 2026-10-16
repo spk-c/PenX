@@ -18,11 +18,11 @@
 </p>
 
 > [!NOTE]
-> **GitHub home:** This project is maintained at [spk-c/PenX](https://github.com/spk-c/PenX). The new GitHub repository does not yet have published Windows binaries. Install from source until a verified Windows installer and portable ZIP are attached under [GitHub Releases](https://github.com/spk-c/PenX/releases). GitHub source archives are not ready-to-run Windows applications.
+> **GitHub home:** The [v0.4.6 Windows installer and portable ZIP](https://github.com/spk-c/PenX/releases/tag/v0.4.6) are published. Newer v0.4.7 refactor fixes on `main` are **not downloadable binaries until a separate tagged release succeeds**. GitHub source archives are not ready-to-run EXEs.
 
 <p align="center">
   <a href="#quick-start"><strong>Install from source</strong></a> ·
-  <a href="https://github.com/spk-c/PenX/releases"><strong>GitHub Releases (binaries pending)</strong></a> ·
+  <a href="https://github.com/spk-c/PenX/releases"><strong>GitHub Releases (Windows downloads)</strong></a> ·
   <a href="docs/DEMO.md"><strong>View demo</strong></a> ·
   <a href="WINDOWS.md"><strong>Installation help</strong></a>
 </p>
@@ -54,9 +54,9 @@ cd PenX
 
 Python **3.13 is recommended** (source support: 3.10–3.13). The setup configures a virtual environment and Python dependencies, and may offer third-party scanner installation **with your consent**. Internet access, `winget`, and administrator approval may be needed. Run `check-windows.bat` for diagnostics or `install-scanners.bat` to retry missing scanners. Preserve private `.env`, `data/`, and `reports/` files when updating.
 
-### Windows installer and portable ZIP (pending GitHub release)
+### Windows installer and portable ZIP
 
-The intended release assets are **`PenX-Setup-x64.exe`** (installer), **`PenX-Windows-x64.zip`** (portable application folder), and **`SHA256SUMS.txt`** (integrity check). Verify they are actually attached to a published, tested [GitHub Release](https://github.com/spk-c/PenX/releases) before using the binary installation instructions in [WINDOWS.md](WINDOWS.md). **No Windows release binaries have been published on this new GitHub repository yet.** Do not use GitHub's automatic source archive as an EXE.
+The published [v0.4.6 release](https://github.com/spk-c/PenX/releases/tag/v0.4.6) contains **`PenX-Setup-x64.exe`**, **`PenX-Windows-x64.zip`** and **`SHA256SUMS.txt`**. These older downloads predate the v0.4.7 refactoring changes under review. Check the tag, hashes and [Windows instructions](WINDOWS.md) before downloading. Do not confuse source archives with the packaged EXE.
 
 When a portable ZIP becomes available, extract the **entire folder** (including `_internal`) and run `PenX.exe`. Scanner binaries and local AI models are not bundled. The in-app updater now checks **stable, verified GitHub releases**. It only offers a Windows installer when both the official release asset and its checksum exist, and never installs without explicit consent.
 
@@ -175,7 +175,7 @@ PenX/
 └── .github/workflows/      # Active GitHub tests, releases and issue triage
 ~~~
 
-Tagged GitHub Windows releases should publish **PenX-Setup-x64.exe** (installer), **PenX-Windows-x64.zip** (portable), and **SHA256SUMS.txt** after Windows build/test verification. These files are **not yet available** on GitHub. The ZIP contains the Python application and first-run setup assistant, **not** the proprietary model or third-party scanner EXEs.
+Tagged GitHub Windows releases should publish **PenX-Setup-x64.exe** (installer), **PenX-Windows-x64.zip** (portable), and **SHA256SUMS.txt** after Windows build/test verification. The v0.4.6 files are already available; new v0.4.7 downloads require their own successful release workflow. The ZIP contains the Python application and first-run setup assistant, **not** the proprietary model or third-party scanner EXEs.
 
 ## Documentation
 

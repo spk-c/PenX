@@ -1,6 +1,6 @@
 <!-- penx-download-options-v1 -->
 
-> **Availability:** The new GitHub repository has no published Windows release yet. Use [GitHub Releases](https://github.com/spk-c/PenX/releases) only after verified binaries are attached. GitHub's automatic source archives are not ready-to-run Windows applications.
+> **Availability:** [v0.4.6 Windows installer and portable ZIP](https://github.com/spk-c/PenX/releases/tag/v0.4.6) are published. Newer source code on `main` is not a downloadable binary until another successful tagged release. GitHub's automatic source archives are not executables.
 
 ## Which Windows download should I choose?
 

@@ -56,7 +56,7 @@ once every 24 hours when started. Disable the background check with
 
 Use `PenX.exe --check-update` to manually check or `PenX.exe --update`
 to review/install updates interactively. Menu **[13] Check for Updates**
-provides the same interactive flow. The updater accepts only official GitLab
+provides the same interactive flow. The updater accepts only official GitHub
 PenX release asset URLs, checks the supplied SHA-256 against the
 downloaded installer, then asks for confirmation before starting the
 **interactive** setup. The application exits so Setup can update its files.
@@ -273,7 +273,7 @@ PyInstaller is not a Windows cross-compiler. A Linux build does not create a val
 
 ### Automated Windows release builds
 
-The GitHub Actions [Windows Release workflow](.github/workflows/release.yml) triggers on pushed tags matching `v*`. It installs build dependencies, runs offline tests on a Windows runner, builds and smoke-tests `PenX.exe` (including the noninteractive scanner setup status command), packages the entire `dist/PenX` folder and publishes a ZIP plus SHA-256 checksum to the previous GitHub release channel. This workflow is active for GitHub version tags. The ZIP includes the consent-based first-run setup code, **not** the external scanner binaries. Manual runs provide a downloadable workflow artifact only.
+The GitHub Actions [Windows Release workflow](.github/workflows/release.yml) triggers on pushed tags matching `v*`. It installs build dependencies, runs offline tests on a Windows runner, builds and smoke-tests `PenX.exe` (including the noninteractive scanner setup status command), packages the entire `dist/PenX` folder and publishes the portable ZIP, Windows installer and SHA-256 checksum to [spk-c/PenX Releases](https://github.com/spk-c/PenX/releases). This workflow is active for GitHub version tags. The ZIP includes the consent-based first-run setup code, **not** the external scanner binaries. Manual runs provide a downloadable workflow artifact only.
 
 The compiled folder does **not** include Nmap/Npcap, WhatWeb/Ruby, Nikto/Perl or local model files. These dependencies need separate installation on the end user's Windows machine.
 
@@ -362,7 +362,7 @@ of complete anonymization.
 
 [GitHub Actions](https://github.com/spk-c/PenX/actions) is the primary CI. Offline regression tests run on Ubuntu and Windows. The [Windows Release workflow](.github/workflows/release.yml) builds and smoke-tests portable PenX and the installer. Version tags matching the application version publish the Windows installer, portable ZIP, and SHA256SUMS.txt to [GitHub Releases](https://github.com/spk-c/PenX/releases). Manual runs supply workflow artifacts rather than a public release.
 
-The installed Windows updater checks stable GitHub releases, verifies official asset URLs and SHA-256 checksums, and requires confirmation before installation. There are no published Windows binaries in the new GitHub repository yet.
+The installed Windows updater checks stable GitHub releases, verifies official asset URLs and SHA-256 checksums, and requires confirmation before installation. Windows binaries are published for v0.4.6; later code requires a new tagged release.
 
 ## Cancelling a running scanner selection
 

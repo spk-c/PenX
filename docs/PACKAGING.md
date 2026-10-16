@@ -2,7 +2,7 @@
 
 **Status: package manifests are drafts, not public registry listings.**
 PenX is a Windows-first Python application; npm is not an appropriate primary distribution channel.
-The new GitHub repository currently has no published Windows binaries. Install from source until tested archives are available on [GitHub Releases](https://github.com/spk-c/PenX/releases). The historical package drafts still reference immutable assets from the former GitHub account; they are **not** current downloads or supported registry listings for spk-c/PenX.
+The new GitHub repository has published verified Windows binaries for [v0.4.6](https://github.com/spk-c/PenX/releases/tag/v0.4.6). Newer v0.4.7 source requires its own successful tagged build. The historical package drafts still reference immutable assets from the former GitHub account; they are **not** current downloads or supported registry listings for spk-c/PenX.
 
 ## Release/version warning
 
@@ -46,7 +46,7 @@ penx --setup-status
 Publish it through a Scoop bucket after validating first install, update, and uninstall.
 The manifest persists `PenX/.env`, `PenX/data`, `PenX/reports` and `PenX/vendor`
 to protect user settings, scan results and downloaded scanner tools across Scoop updates.
-The archived draft Scoop manifest has **no automatic update discovery**. Once an actual GitHub release exists, publish a refreshed manifest with a verified new GitHub asset URL and checksum.
+The archived draft Scoop manifest has **no automatic update discovery**. For new releases, publish refreshed manifests only with verified GitHub asset URLs and checksums.
 
 ## PyPI (source distribution and wheel)
 
