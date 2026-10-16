@@ -609,3 +609,17 @@ within third-party WHOIS calls or Python HTTP/DNS/TLS socket operations.
 Existing per-request timeouts limit most HTTP/DNS/TLS latency, but WHOIS
 library internals are not under this token's direct control. Genuine
 Windows process cancellation and installed-scanner field tests remain open.
+
+### GitHub CI and acceptance follow-up (16 October 2026)
+
+PR #7 adds a loader-derived matrix for all current PENX_/METATRON_ setting
+names and a Windows field-evidence template. PR #8 verifies a real MariaDB
+logical dump/restore of disposable synthetic assessments inside CI, including
+a restored unique index and duplicate rejection. PR #9 executes the safe
+field-evidence collector against a Windows CI-built installer. These tests
+provide repeatable software evidence but do not replace historical sanitized
+customer-backup tests or approved Windows/Npcap/large-PDF field checks.
+
+The upcoming maintenance source version is **v0.4.7**, distinct from the
+previously published v0.4.6 binaries. Release publication, hardware signing
+and full refactor acceptance must be verified independently.

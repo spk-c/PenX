@@ -1,6 +1,6 @@
 # PenX community launch kit
 
-Check the [README](../README.md) and [GitHub Releases](https://github.com/spk-c/PenX/releases) before sharing download links. As of October 16, 2026 **no Windows binaries have yet been published on the new GitHub repository**.
+Check the [README](../README.md) and [GitHub Releases](https://github.com/spk-c/PenX/releases) before sharing download links. Version v0.4.6 Windows binaries are published. Newer refactoring changes require a separately verified tag build.
 
 ## GitHub project details
 
