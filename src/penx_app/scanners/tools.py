@@ -117,6 +117,17 @@ def _cancelled_before_start(cancel_event) -> ScannerOutput | None:
     return None
 
 
+def _cancelled_after_io(cancel_event) -> ScannerOutput | None:
+    """Do not promote results returned after a caller cancelled blocking I/O."""
+    if cancel_event is not None and cancel_event.is_set():
+        return ScannerOutput(
+            "[!] Scanner cancelled; in-flight network output is not completed evidence.",
+            status="PARTIAL", evidence=False,
+            diagnostics="Caller requested scanner cancellation during network I/O",
+        )
+    return None
+
+
 def run_nmap(target: str, *, cancel_event=None) -> str:
     cancelled = _cancelled_before_start(cancel_event)
     if cancelled is not None:
@@ -162,7 +173,10 @@ def run_nmap(target: str, *, cancel_event=None) -> str:
         )
 
 
-def run_whois(target: str) -> str:
+def run_whois(target: str, *, cancel_event=None) -> str:
+    cancelled = _cancelled_before_start(cancel_event)
+    if cancelled is not None:
+        return cancelled
     try:
         host = _host(target)
     except ValueError as exc:
@@ -187,11 +201,17 @@ def run_whois(target: str) -> str:
             status="FAILED", evidence=False)
     try:
         result = whois.whois(host)
+        cancelled = _cancelled_after_io(cancel_event)
+        if cancelled is not None:
+            return cancelled
         details = '\n'.join(f'{k}: {v}' for k, v in dict(result).items() if v)
         return ScannerOutput('[Python WHOIS]\n' + (details or 'No registration details returned.'),
                              status="COMPLETE" if details else "FAILED",
                              evidence=bool(details))
     except Exception as exc:
+        cancelled = _cancelled_after_io(cancel_event)
+        if cancelled is not None:
+            return cancelled
         return ScannerOutput(f'[!] WHOIS lookup failed: {exc}',
                              status="FAILED", evidence=False)
 
@@ -285,8 +305,11 @@ def _urls(target: str) -> list[str]:
 
 
 
-def run_curl_headers(target: str) -> str:
+def run_curl_headers(target: str, *, cancel_event=None) -> str:
     """Native Python HTTP-header requests; no curl or shell required."""
+    cancelled = _cancelled_before_start(cancel_event)
+    if cancelled is not None:
+        return cancelled
     try:
         urls = _urls(target)
     except ValueError as exc:
@@ -295,12 +318,18 @@ def run_curl_headers(target: str) -> str:
     lines = []
     observed = 0
     for url in urls:
+        cancelled = _cancelled_after_io(cancel_event)
+        if cancelled is not None:
+            return cancelled
         lines.append(f'[{url} headers — Python requests]')
         try:
             response = requests.head(url, timeout=(5, 10), allow_redirects=False,
                                      headers={'User-Agent': 'PenX/Windows'})
             if response.status_code in (405, 501):
                 response.close()
+                cancelled = _cancelled_after_io(cancel_event)
+                if cancelled is not None:
+                    return cancelled
                 response = requests.get(url, timeout=(5, 10), allow_redirects=False,
                                         stream=True, headers={'User-Agent': 'PenX/Windows'})
             try:
@@ -324,12 +353,18 @@ def run_curl_headers(target: str) -> str:
             lines.append(f'[!] TLS certificate validation failed: {exc}')
         except requests.RequestException as exc:
             lines.append(f'[!] Request failed: {exc}')
+        cancelled = _cancelled_after_io(cancel_event)
+        if cancelled is not None:
+            return cancelled
         lines.append('')
     status = ("COMPLETE" if observed == len(urls) else
               "PARTIAL" if observed else "FAILED")
     return ScannerOutput('\n'.join(lines), status=status, evidence=bool(observed))
 
-def run_dig(target: str) -> str:
+def run_dig(target: str, *, cancel_event=None) -> str:
+    cancelled = _cancelled_before_start(cancel_event)
+    if cancelled is not None:
+        return cancelled
     try:
         host = _host(target)
         if '/' in host:
@@ -347,6 +382,9 @@ def run_dig(target: str) -> str:
     observed = 0
     failed = 0
     for rrtype in ('A', 'AAAA', 'MX', 'NS', 'TXT'):
+        cancelled = _cancelled_after_io(cancel_event)
+        if cancelled is not None:
+            return cancelled
         try:
             answer = dns.resolver.resolve(host, rrtype, lifetime=8)
             values = [str(rdata) for rdata in answer]
@@ -357,6 +395,9 @@ def run_dig(target: str) -> str:
         except dns.exception.DNSException as exc:
             values = [f'(!) {exc}']
             failed += 1
+        cancelled = _cancelled_after_io(cancel_event)
+        if cancelled is not None:
+            return cancelled
         lines.append(f'[{rrtype} Records]\n' + '\n'.join(values))
     status = ("FAILED" if not observed else "PARTIAL" if failed else "COMPLETE")
     return ScannerOutput('\n\n'.join(lines), status=status, evidence=bool(observed))
@@ -601,8 +642,11 @@ def run_katana(target: str, *, cancel_event=None) -> ScannerOutput:
         return ScannerOutput(f"[!] katana: {exc}", status="FAILED", evidence=False)
 
 
-def run_tls_check(target: str) -> ScannerOutput:
+def run_tls_check(target: str, *, cancel_event=None) -> ScannerOutput:
     """Check verified HTTPS handshake, certificate expiry and negotiated TLS."""
+    cancelled = _cancelled_before_start(cancel_event)
+    if cancelled is not None:
+        return cancelled
     import socket
     import ssl
     from datetime import datetime, timezone
@@ -621,6 +665,9 @@ def run_tls_check(target: str) -> ScannerOutput:
         # One bounded retry for transient connect/TLS timeouts; continue to
         # require standard certificate verification and TLS >= 1.2.
         for attempt in range(2):
+            cancelled = _cancelled_after_io(cancel_event)
+            if cancelled is not None:
+                return cancelled
             try:
                 with socket.create_connection((host, port), timeout=6) as raw:
                     raw.settimeout(6)
@@ -632,6 +679,9 @@ def run_tls_check(target: str) -> ScannerOutput:
             except (TimeoutError, socket.timeout):
                 if attempt:
                     raise TimeoutError("TLS handshake timed out twice (6s per attempt)")
+        cancelled = _cancelled_after_io(cancel_event)
+        if cancelled is not None:
+            return cancelled
         expiry = cert.get("notAfter", "")
         expires = datetime.fromtimestamp(ssl.cert_time_to_seconds(expiry), timezone.utc) if expiry else None
         days_left = (expires - datetime.now(timezone.utc)).days if expires else None
@@ -644,6 +694,9 @@ def run_tls_check(target: str) -> ScannerOutput:
             "Note: This is not a full cipher-suite audit.",
             evidence=True)
     except (OSError, ValueError, ssl.SSLError) as exc:
+        cancelled = _cancelled_after_io(cancel_event)
+        if cancelled is not None:
+            return cancelled
         return ScannerOutput(f"[!] TLS verification failed: {exc}", status="FAILED", evidence=False)
 
 
