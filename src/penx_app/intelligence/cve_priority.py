@@ -33,8 +33,11 @@ def fetch_epss(ids, *, http_get=None):
         get = requests.get if http_get is None else http_get
         r = get(EPSS_URL, params={"cve": ",".join(ids)}, timeout=(3, 9),
                 allow_redirects=False)
-        r.raise_for_status()
-        payload = r.json()
+        try:
+            r.raise_for_status()
+            payload = r.json()
+        finally:
+            r.close()
         if not isinstance(payload, dict) or not isinstance(payload.get("data"), list):
             raise ValueError("Malformed EPSS response")
         out = {}
