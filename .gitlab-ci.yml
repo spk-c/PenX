@@ -55,3 +55,16 @@ publish-gitlab-release:
       artifacts: true
   script:
     - python scripts/gitlab_publish_release.py
+
+# GitLab does not create pipelines directly on issue events. Create a project
+# pipeline schedule with PENX_RUN_ISSUE_TRIAGE=1 to poll one unreviewed issue.
+# Add masked PENX_GITLAB_TRIAGE_TOKEN (api scope) in GitLab CI/CD variables.
+gitlab-issue-triage:
+  stage: test
+  image: python:3.13-slim
+  resource_group: gitlab-issue-triage
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "schedule" && $PENX_RUN_ISSUE_TRIAGE == "1"'
+    - when: never
+  script:
+    - python scripts/gitlab_issue_triage.py
