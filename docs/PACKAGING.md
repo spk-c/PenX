@@ -2,7 +2,7 @@
 
 **Status: package manifests are drafts, not public registry listings.**
 PenX is a Windows-first Python application; npm is not an appropriate primary distribution channel.
-The new GitHub repository has published verified Windows binaries for [v0.4.6](https://github.com/spk-c/PenX/releases/tag/v0.4.6). Newer v0.4.7 source requires its own successful tagged build. The historical package drafts still reference immutable assets from the former GitHub account; they are **not** current downloads or supported registry listings for spk-c/PenX.
+The GitHub repository has published verified Windows binaries for [v0.4.7](https://github.com/spk-c/PenX/releases/tag/v0.4.7). The historical package drafts still reference immutable assets from the former GitHub account; they are **not** current downloads or supported registry listings for spk-c/PenX.
 
 ## Release/version warning
 

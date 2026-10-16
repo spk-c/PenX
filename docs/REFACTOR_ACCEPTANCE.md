@@ -105,3 +105,13 @@ local mocks only; no real host, third-party service or database is accessed.
 Blocking-call interruption is **not** guaranteed, especially for WHOIS.
 Run real Windows/authorized-target timeout and child-process-tree field
 tests before marking Pk04/Pk05 complete. No field sign-off is asserted.
+
+## Tracked outstanding issues (16 October 2026)
+
+The full refactor remains **NOT SIGNED OFF**. To avoid treating published
+v0.4.7 binaries as proof of hardware/field acceptance, follow the dedicated
+checklists: [Windows/scanner + Npcap](https://github.com/spk-c/PenX/issues/11),
+[DB restores/evidence/report parity](https://github.com/spk-c/PenX/issues/12),
+[model/CLI refactor](https://github.com/spk-c/PenX/issues/13), and
+[static typing, legacy compatibility and benchmarks](https://github.com/spk-c/PenX/issues/14).
+Only close each issue after independent evidence is attached and reviewed.

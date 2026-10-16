@@ -18,7 +18,7 @@
 </p>
 
 > [!NOTE]
-> **GitHub home:** The [v0.4.6 Windows installer and portable ZIP](https://github.com/spk-c/PenX/releases/tag/v0.4.6) are published. Newer v0.4.7 refactor fixes on `main` are **not downloadable binaries until a separate tagged release succeeds**. GitHub source archives are not ready-to-run EXEs.
+> **Latest stable release:** [PenX v0.4.7](https://github.com/spk-c/PenX/releases/tag/v0.4.7) is published with the Windows installer, portable ZIP and SHA-256 checksums. Download the full package, not GitHub's automatic source archive. The refactor's physical Windows/database field acceptance is still **not signed off**.
 
 <p align="center">
   <a href="#quick-start"><strong>Install from source</strong></a> ·
@@ -56,11 +56,11 @@ Python **3.13 is recommended** (source support: 3.10–3.13). The setup configur
 
 ### Windows installer and portable ZIP
 
-The published [v0.4.6 release](https://github.com/spk-c/PenX/releases/tag/v0.4.6) contains **`PenX-Setup-x64.exe`**, **`PenX-Windows-x64.zip`** and **`SHA256SUMS.txt`**. These older downloads predate the v0.4.7 refactoring changes under review. Check the tag, hashes and [Windows instructions](WINDOWS.md) before downloading. Do not confuse source archives with the packaged EXE.
+The published [v0.4.7 release](https://github.com/spk-c/PenX/releases/tag/v0.4.7) contains **`PenX-Setup-x64.exe`** (Windows installer), **`PenX-Windows-x64.zip`** (portable folder) and **`SHA256SUMS.txt`** (integrity file). Check the release tag and SHA-256 hashes and read the [Windows instructions](WINDOWS.md). Do not confuse GitHub's auto-generated source archives with a packaged EXE.
 
-When a portable ZIP becomes available, extract the **entire folder** (including `_internal`) and run `PenX.exe`. Scanner binaries and local AI models are not bundled. The in-app updater now checks **stable, verified GitHub releases**. It only offers a Windows installer when both the official release asset and its checksum exist, and never installs without explicit consent.
+For the portable ZIP, extract the **entire folder** (including `_internal`) and run `PenX.exe`. Scanner binaries and local AI models are not bundled. The in-app updater now checks **stable, verified GitHub releases**. It only offers a Windows installer when both the official release asset and its checksum exist, and never installs without explicit consent.
 
-**Useful commands for a verified Windows binary (once available):**
+**Useful commands for the published Windows binary:**
 
 ~~~powershell
 .\PenX.exe --setup-status   # Checks only, no downloads or scans
@@ -154,7 +154,7 @@ Replace <code>32</code> with an existing session ID. <code>--redact</code> masks
 python scripts/generate_demo_report.py
 ~~~
 
-See the [offline demo walkthrough](docs/DEMO.md). For an up-to-date feature overview, use the README and the [GitHub Releases page](https://github.com/spk-c/PenX/releases) (after binaries are published), not an illustration as proof of a live scan.
+See the [offline demo walkthrough](docs/DEMO.md). For an up-to-date feature overview, use the README and the [GitHub Releases page](https://github.com/spk-c/PenX/releases) , not an illustration as proof of a live scan.
 
 ## Repository layout
 
@@ -175,7 +175,7 @@ PenX/
 └── .github/workflows/      # Active GitHub tests, releases and issue triage
 ~~~
 
-Tagged GitHub Windows releases should publish **PenX-Setup-x64.exe** (installer), **PenX-Windows-x64.zip** (portable), and **SHA256SUMS.txt** after Windows build/test verification. The v0.4.6 files are already available; new v0.4.7 downloads require their own successful release workflow. The ZIP contains the Python application and first-run setup assistant, **not** the proprietary model or third-party scanner EXEs.
+Tagged GitHub Windows releases should publish **PenX-Setup-x64.exe** (installer), **PenX-Windows-x64.zip** (portable), and **SHA256SUMS.txt** after Windows build/test verification. The v0.4.7 Windows assets are now published; every future version still requires its own successful release workflow. The ZIP contains the Python application and first-run setup assistant, **not** the proprietary model or third-party scanner EXEs.
 
 ## Documentation
 

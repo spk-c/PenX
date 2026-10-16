@@ -100,7 +100,7 @@ def parse_nmap_services(raw_scan: str, *, max_services: int = 8) -> list[Product
                 for tag in service.findall("cpe"):
                     cpe = normalize_cpe((tag.text or "").strip())
                     fields = cpe_components(cpe or "")
-                    if not fields:
+                    if not cpe or not fields:
                         continue
                     cpe_version = fields[3]
                     if cpe_version not in ("*", "-") and version and cpe_version.casefold() != version.casefold():

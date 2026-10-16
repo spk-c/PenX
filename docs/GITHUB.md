@@ -44,9 +44,4 @@ Issue triage retries one old issue per day and continues to respond to newly ope
 
 ## v0.4.7 release preparation
 
-The currently published Windows installer and portable ZIP are v0.4.6.
-After all current `main` commit checks pass, the repository owner can run
-`powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\configure_github.ps1 -PublishRelease`
-from an up-to-date local checkout. It creates the matching v0.4.7 tag,
-which triggers the existing Windows build and checksum publication workflow.
-A tagged release does not certify unsigned manual field acceptance.
+The stable [v0.4.7 release](https://github.com/spk-c/PenX/releases/tag/v0.4.7) has completed its tagged Windows build. For **future** versions, the owner can use `scripts/configure_github.ps1 -PublishRelease` after required checks pass. The release workflow publishes matching Windows binaries and checksums; manual Windows/Npcap/database field acceptance remains separate.
