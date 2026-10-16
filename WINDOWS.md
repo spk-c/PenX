@@ -378,3 +378,9 @@ interrupt behavior is retained. Only run scanners against authorized targets.
 
 The cancellation path has offline regression tests; real Windows/Npcap/UAC
 behavior still requires operator acceptance testing.
+
+The Python WHOIS, HTTP-header, DNS and TLS checks now honor cancellation
+between network calls and discard an in-flight result after cancellation.
+These network operations cannot always terminate instantly; a running
+request may complete or time out before the menu returns. Native
+subprocess scanners use process-tree cancellation instead.
