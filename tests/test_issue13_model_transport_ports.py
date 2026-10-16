@@ -125,6 +125,42 @@ class ModelTransportPortContracts(unittest.TestCase):
             self.invoke(post=Mock(return_value=response))
         response.close.assert_called_once()
 
+    def test_nonstream_typed_content_blocks_exclude_reasoning(self):
+        response = json_response({"choices": [{"finish_reason": "stop",
+            "message": {"content": [
+                {"type": "reasoning", "text": "SECRET internal thought"},
+                {"type": "tool", "text": "SECRET internal directive"},
+                {"type": "text", "text": "Safe final answer"},
+            ]}}]})
+        model, answer = self.invoke(post=Mock(return_value=response))
+        self.assertEqual((model, answer), ("synthetic-model", "Safe final answer"))
+        response.close.assert_called_once()
+
+    def test_nonstream_typed_reasoning_only_is_empty_not_final(self):
+        response = json_response({"choices": [{"finish_reason": "stop",
+            "message": {"content": [
+                {"type": "reasoning", "text": "SECRET internal thought"},
+            ]}}]})
+        with self.assertRaises(EmptyModelResponse):
+            self.invoke(post=Mock(return_value=response))
+        response.close.assert_called_once()
+
+    def test_stream_typed_content_blocks_are_not_forwarded(self):
+        response = sse([
+            {"choices": [{"delta": {"content": [
+                {"type": "reasoning", "text": "SECRET internal thought"},
+                {"type": "text", "text": "Safe"},
+            ]}}]},
+            {"choices": [{"delta": {}, "finish_reason": "stop"}]},
+        ])
+        chunks = []
+        self.assertEqual(
+            self.invoke(post=Mock(return_value=response), callback=chunks.append),
+            ("synthetic-model", "Safe"),
+        )
+        self.assertEqual(chunks, ["Safe"])
+        self.assertTrue(response.closed)
+
     def test_nonstream_empty_answer_does_not_promote_reasoning(self):
         response = json_response({"choices": [
             {"finish_reason": "length",
