@@ -67,7 +67,7 @@ def normalize_host(target: str, *, max_addresses: int = MAX_CIDR_ADDRESSES) -> s
                     or parsed.netloc.endswith(':') or port == 0):
                 raise ValueError('Invalid host or port.')
             if value.startswith('['):
-                if not value.startswith('[' + host + ']'):
+                if not value.casefold().startswith('[' + host.casefold() + ']'):
                     raise ValueError('Invalid bracketed IPv6 address.')
                 try:
                     ipaddress.IPv6Address(host)
