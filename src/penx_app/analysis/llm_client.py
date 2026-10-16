@@ -181,18 +181,31 @@ def _empty_response(data: dict) -> EmptyModelResponse:
     )
 
 
+def _validated_chat_payload(data: object) -> dict:
+    """Reject malformed provider JSON without exposing raw response bodies."""
+    if not isinstance(data, dict) or not isinstance(data.get("choices", []), list):
+        raise ValueError("Local LLM returned a malformed chat response.")
+    return data
+
+
 def complete_chat(messages: list, *, url: str, models_url: str, model_name: str,
                   api_key: str = "", max_tokens: int = 8192, timeout: int = 600,
                   temperature: float = 0.7, top_k: int = 10,
                   top_p: float = 0.9, response_format: dict | None = None,
-                  stream_callback=None) -> tuple[str, str]:
+                  stream_callback=None, http_post: Callable | None = None,
+                  model_list: Callable | None = None) -> tuple[str, str]:
     """Return model ID and FINAL response text for OpenAI-compatible backends.
 
     Supports SSE text deltas from llama.cpp, LM Studio and Ollama. Reasoning
     deltas are tracked for diagnostics but never displayed, returned as
     findings or interpreted as tool directives.
     """
-    model_id = resolve_model_name(model_name, models_url, api_key)
+    # Keep the old production call signature for existing consumers. Tests and
+    # integrations can supply transport ports without patching process globals.
+    model_id = (resolve_model_name(model_name, models_url, api_key)
+                if model_list is None else resolve_model_name(
+                    model_name, models_url, api_key, model_list=model_list))
+    post = requests.post if http_post is None else http_post
     stream = stream_callback is not None
     payload = {
         "model": model_id,
@@ -206,35 +219,41 @@ def complete_chat(messages: list, *, url: str, models_url: str, model_name: str,
     if response_format is not None:
         payload["response_format"] = response_format
     if not stream:
-        response = requests.post(url, json=payload, headers=api_headers(api_key), timeout=timeout)
-        response.raise_for_status()
-        data = response.json()
-        text = extract_chat_text(data)
-        if not text:
-            raise _empty_response(data)
-        choices = data.get("choices") or []
-        if isinstance(choices, list) and choices and isinstance(choices[0], dict) and (
-            choices[0].get("finish_reason") == "length"
-        ):
-            raise IncompleteModelResponse(
-                completion_tokens=(data.get("usage") or {}).get("completion_tokens")
-                if isinstance(data.get("usage"), dict) else None
-            )
-        return model_id, text
+        response = post(url, json=payload, headers=api_headers(api_key), timeout=timeout)
+        try:
+            response.raise_for_status()
+            data = _validated_chat_payload(response.json())
+            text = extract_chat_text(data)
+            if not text:
+                raise _empty_response(data)
+            choices = data.get("choices") or []
+            if choices and isinstance(choices[0], dict):
+                finish = choices[0].get("finish_reason")
+                if finish not in (None, "", "stop"):
+                    raise IncompleteModelResponse(
+                        finish_reason=str(finish),
+                        completion_tokens=(data.get("usage") or {}).get("completion_tokens")
+                        if isinstance(data.get("usage"), dict) else None,
+                    )
+            return model_id, text
+        finally:
+            # The non-stream requests path is not a context manager. Always
+            # release its connection, even for malformed or truncated JSON.
+            response.close()
 
-    with requests.post(url, json=payload, headers=api_headers(api_key),
-                       timeout=timeout, stream=True) as response:
+    with post(url, json=payload, headers=api_headers(api_key),
+              timeout=timeout, stream=True) as response:
         response.raise_for_status()
         if "text/event-stream" not in response.headers.get("content-type", "").lower():
-            data = response.json()
+            data = _validated_chat_payload(response.json())
             body = extract_chat_text(data)
             if not body:
                 raise _empty_response(data)
             choices = data.get("choices") or []
-            if isinstance(choices, list) and choices and isinstance(choices[0], dict) and (
-                choices[0].get("finish_reason") == "length"
-            ):
-                raise IncompleteModelResponse()
+            if choices and isinstance(choices[0], dict):
+                finish = choices[0].get("finish_reason")
+                if finish not in (None, "", "stop"):
+                    raise IncompleteModelResponse(finish_reason=str(finish))
             stream_callback(body)
             return model_id, body
 
@@ -299,6 +318,8 @@ def complete_chat(messages: list, *, url: str, models_url: str, model_name: str,
                         parts.append(content)
                         stream_callback(content)
                 except (ValueError, IndexError, KeyError, TypeError):
+                    # Malformed SSE data is not positive completion evidence.
+                    stream_failed = True
                     continue
 
         # SSE data is UTF-8. requests may otherwise decode text/event-stream
