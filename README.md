@@ -186,6 +186,7 @@ Planned GitLab Windows releases should publish **PenX-Setup-x64.exe** (installer
 | [Demo](docs/DEMO.md) | Illustrated flow and synthetic reports |
 | [Community launch kit](docs/COMMUNITY_LAUNCH.md) | Sharing guidance, repository metadata and social-preview setup |
 | [Development](docs/DEVELOPMENT.md) | Architecture, offline tests, CI and Windows builds |
+| [GitLab workflow](docs/GITLAB.md) | GitLab pipelines, Windows release procedure, and opt-in issue triage |
 | [Contributing](CONTRIBUTING.md) | Pull requests and development guidelines |
 | [Security policy](SECURITY.md) | Responsible vulnerability disclosure |
 
