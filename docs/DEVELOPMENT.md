@@ -1,4 +1,4 @@
-> **GitLab migration (October 2026):** Current GitLab CI is defined in `.gitlab-ci.yml` and runs Linux offline tests. The GitHub Actions sections below document legacy automation, **not active GitLab workflows**. GitLab Windows packaging, automated releases and issue triage require separate migration.
+> **GitLab migration (October 2026):** Current GitLab CI is defined in `.gitlab-ci.yml` and runs Linux offline tests. The GitHub Actions sections below document legacy automation, **not active GitLab workflows**. Windows packaging and automatic release publishing are configured in GitLab CI for tested version tags, but hosted-runner execution still requires end-to-end verification. Automated GitLab issue triage has **not** been migrated from the historical GitHub workflow.
 
 # Build and development reference
 

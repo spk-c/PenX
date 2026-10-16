@@ -57,7 +57,7 @@ Python **3.13 is recommended** (source support: 3.10–3.13). The setup configur
 
 The intended release assets are **`PenX-Setup-x64.exe`** (installer), **`PenX-Windows-x64.zip`** (portable application folder), and **`SHA256SUMS.txt`** (integrity check). Verify they are actually attached to a published, tested [GitLab Release](https://gitlab.com/SLP-DEV1/PenX/-/releases) before using the binary installation instructions in [WINDOWS.md](WINDOWS.md). **No Windows release binaries are currently published on GitLab.** Do not use GitLab's automatic source archive as an EXE.
 
-When a portable ZIP becomes available, extract the **entire folder** (including `_internal`) and run `PenX.exe`. Scanner binaries and local AI models are not bundled. The in-app updater still requires migration to the GitLab release channel; use the GitLab Releases page for update availability until then.
+When a portable ZIP becomes available, extract the **entire folder** (including `_internal`) and run `PenX.exe`. Scanner binaries and local AI models are not bundled. The in-app updater now checks **stable, verified GitLab releases**. It only offers a Windows installer when both the official release asset and its checksum exist, and never installs without explicit consent.
 
 **Useful commands for a verified Windows binary (once available):**
 
@@ -170,7 +170,7 @@ PenX/
 ├── run-tests.bat           # Offline tests
 ├── build-exe.bat           # Folder-based EXE build
 ├── .env.example            # Configuration template (no secrets)
-├── .gitlab-ci.yml          # GitLab offline regression checks
+├── .gitlab-ci.yml          # GitLab regression and Windows release pipeline
 └── .github/workflows/      # Legacy GitHub Actions definitions
 ~~~
 

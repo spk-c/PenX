@@ -357,3 +357,9 @@ scanner quote is found. **No raw scan log or secret configuration is exported.**
 identifiers, URLs, evidence and personal data may remain. Inspect machine
 reports before sharing. This is not a fully automatic scan mode or a guarantee
 of complete anonymization.
+
+## GitLab CI and Windows release publishing (2026 migration)
+
+The active GitLab CI entry point is [`.gitlab-ci.yml`](.gitlab-ci.yml). On pushes it runs offline Python tests and safety lint. The `windows-package` job uses GitLab.com's hosted Windows runner (`saas-windows-medium-amd64`): it is **manual for normal branch pipelines** and triggered automatically for strict version tags. It builds and smoke-tests the portable executable and Inno Setup installer, generates `SHA256SUMS.txt`, and uploads only tag builds to the GitLab generic package registry. The `publish-gitlab-release` job runs after the Windows artifacts pass verification and adds stable named release download links. See `scripts/gitlab_windows_release.ps1` and `scripts/gitlab_publish_release.py`.
+
+**Important:** Defining a pipeline does not mean binaries already exist. Check [GitLab Releases](https://gitlab.com/SLP-DEV1/PenX/-/releases) for a successful tagged release and attached assets. The in-app updater checks the GitLab API and does not download installers automatically.
