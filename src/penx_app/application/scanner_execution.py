@@ -72,9 +72,22 @@ def run_selected(request: ScanRequest, *, menu: dict, emit=lambda *_: None,
         try:
             output = _call_adapter(runner, request.target, cancel_event)
             if not isinstance(output, ScannerOutput):
-                failed = str(output).lstrip().startswith(('[!', '[EXIT CODE', '[ERROR]', 'Traceback '))
-                output = ScannerOutput(str(output), status='FAILED' if failed else 'COMPLETE',
-                                       evidence=bool(str(output).strip()) and not failed)
+                # Legacy adapters may return plain text, but None, false,
+                # empty containers and arbitrary object reprs are never
+                # trustworthy completed scanner evidence.
+                if not isinstance(output, str):
+                    output = ScannerOutput(
+                        f"[!] Unsupported scanner result type: {type(output).__name__}",
+                        status="FAILED", evidence=False,
+                        diagnostics="Adapter did not return ScannerOutput or text",
+                    )
+                else:
+                    failed = (not output.strip() or
+                              output.lstrip().startswith(('[!', '[EXIT CODE', '[ERROR]', 'Traceback ')))
+                    output = ScannerOutput(
+                        output, status='FAILED' if failed else 'COMPLETE',
+                        evidence=not failed,
+                    )
             results[name] = ScannerOutput(
                 str(output), status=output.status, evidence=output.evidence,
                 scanner_id=SCANNERS[key].id,
