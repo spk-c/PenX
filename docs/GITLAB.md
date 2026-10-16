@@ -48,7 +48,7 @@ To enable it in GitLab:
 
 1. Create a project or personal access token with access to this project and the **api** scope. Store it in **Settings → CI/CD → Variables** as the *masked* `PENX_GITLAB_TRIAGE_TOKEN` variable. Never commit the token.
 2. Optionally configure a *masked* `PENX_TRIAGE_GROQ_API_KEY` for source-grounded AI review. Without it, reviews are conservative and unverified; untrusted issue text may be sent to Groq when the key is enabled.
-3. Create a **CI/CD pipeline schedule** in GitLab and set its variable `PENX_RUN_ISSUE_TRIAGE=1`. Use a moderate cadence, such as daily. The opt-in job is otherwise skipped.
+3. Create a **CI/CD pipeline schedule** in GitLab with the exact description **`PenX Daily Issue Triage`**, branch **`master`**, and a daily cron interval such as **`0 8 * * *`** in timezone **Europe/Berlin**. No custom schedule variables or pipeline inputs are needed; the job checks GitLab's predefined `CI_PIPELINE_SCHEDULE_DESCRIPTION`. The job is skipped for other schedules and ordinary pipelines.
 
 The bot requires these GitLab project settings. A committed script **does not automatically create a schedule or provision credentials**.
 

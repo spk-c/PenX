@@ -43,6 +43,12 @@ class GitLabTriageTests(unittest.TestCase):
         with patch.object(adapter, "api_json", side_effect=fake):
             self.assertEqual(adapter.choose_issue("secret"), 2)
 
+    def test_schedule_uses_description_not_user_supplied_variables(self):
+        from pathlib import Path
+        ci = (Path(__file__).resolve().parents[1] / ".gitlab-ci.yml").read_text(encoding="utf-8")
+        self.assertIn('CI_PIPELINE_SCHEDULE_DESCRIPTION == "PenX Daily Issue Triage"', ci)
+        self.assertNotIn("PENX_RUN_ISSUE_TRIAGE", ci)
+
     def test_disallows_wrong_project_and_missing_token(self):
         with patch.dict(adapter.os.environ, {"CI_PROJECT_PATH": "other/penx"}, clear=True):
             with self.assertRaises(SystemExit):
