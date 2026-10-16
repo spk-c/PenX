@@ -75,7 +75,9 @@ def _read_chars(prompt: str, getch, *, posix_fd: int | None = None) -> str:
 
 def _read_windows(prompt: str) -> str:
     import msvcrt
-    return _read_chars(prompt, msvcrt.getwch)
+    # Resolve this Windows-only API dynamically: the Linux type stub for
+    # msvcrt cannot expose getwch, but native Windows consoles provide it.
+    return _read_chars(prompt, getattr(msvcrt, "getwch"))
 
 
 def _read_posix(prompt: str) -> str:
