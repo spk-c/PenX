@@ -138,6 +138,10 @@ def load_cisa_kev(*, get: Callable | None = None) -> set[str] | None:
         if not isinstance(payload, dict) or not isinstance(payload.get("vulnerabilities"), list):
             return None
         entries = payload["vulnerabilities"]
+        # A real KEV catalogue is nonempty. An empty upstream response must
+        # not assert that every known vulnerability is absent.
+        if not entries:
+            return None
         # Missing or malformed records make KEV membership indeterminate.
         if any(not isinstance(v, dict)
                or not isinstance(v.get("cveID"), str)
