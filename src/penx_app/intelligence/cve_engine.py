@@ -312,7 +312,10 @@ def osv_candidates(package: Package, *, limit: int = MAX_RESULTS,
                 })
                 if len(results) >= limit:
                     return results, ""
-            token = str(obj.get("next_page_token", ""))
+            next_token = obj.get("next_page_token")
+            if next_token is not None and not isinstance(next_token, str):
+                return results, "OSV returned a malformed pagination token for " + package.purl
+            token = next_token or ""
             if not token:
                 break
     except (requests.RequestException, ValueError, KeyError, TypeError):
@@ -342,6 +345,8 @@ def github_candidates(package: Package, *, token: str = "",
                 return result, "GitHub Advisories returned malformed records for " + package.purl
             ident = item.get("cve_id") or item.get("ghsa_id")
             url = item.get("html_url", "")
+            if not isinstance(ident, str) or not isinstance(url, str):
+                return result, "GitHub Advisories returned malformed records for " + package.purl
             if not ident or not url.startswith("https://github.com/advisories/"):
                 continue
             result.append({
