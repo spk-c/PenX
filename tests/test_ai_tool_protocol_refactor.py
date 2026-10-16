@@ -4,6 +4,7 @@ import unittest
 from unittest.mock import Mock, patch
 
 from penx_app.analysis import ai_tool_protocol
+from penx_app.domain.scan_models import ScannerOutput
 import llm
 
 
@@ -42,6 +43,49 @@ class ToolProtocolRefactorTests(unittest.TestCase):
         )
         self.assertEqual(collected, [])
         self.assertIn("Tool returned no output", result)
+
+    def test_failed_or_partial_typed_scanner_output_is_never_archived(self):
+        for status, evidence, body in (
+            ("FAILED", False, "[EXIT CODE 2]\\nsynthetic data"),
+            ("PARTIAL", True, "partial output before timeout"),
+            ("PARTIAL", False, "partial output"),
+            ("COMPLETE", False, "diagnostic without verified evidence"),
+        ):
+            with self.subTest(status=status, evidence=evidence):
+                value = ScannerOutput(body, status=status, evidence=evidence)
+                collected = []
+                result = ai_tool_protocol.dispatch_directives(
+                    [("TOOL", "nmap fixture.invalid")], raw_collector=collected,
+                    scanner_runner=lambda *_args, **_kwargs: value,
+                    search_runner=lambda _query: "",
+                    summarizer=lambda value: value,
+                )
+                self.assertEqual(collected, [])
+                self.assertIn("TOOL RESULT", result)
+
+    def test_valid_typed_scanner_output_remains_archivable(self):
+        output = ScannerOutput("443/tcp open HTTPS", status="COMPLETE", evidence=True)
+        collected = []
+        ai_tool_protocol.dispatch_directives(
+            [("TOOL", "nmap fixture.invalid")], raw_collector=collected,
+            scanner_runner=lambda *_args, **_kwargs: output,
+            search_runner=lambda _query: "", summarizer=lambda value: value,
+        )
+        self.assertEqual(len(collected), 1)
+        self.assertIn("443/tcp", collected[0])
+
+    def test_legacy_diagnostics_and_nontext_results_are_not_archived(self):
+        for value in ("[EXIT CODE 1] failed", "[ERROR] broken",
+                      "Traceback synthetic", "", "  ", False, ["fake"], {}):
+            with self.subTest(value=value):
+                collected = []
+                ai_tool_protocol.dispatch_directives(
+                    [("TOOL", "nmap fixture.invalid")], raw_collector=collected,
+                    scanner_runner=lambda *_args, **_kwargs: value,
+                    search_runner=lambda _query: "",
+                    summarizer=lambda text: text,
+                )
+                self.assertEqual(collected, [])
 
     def test_public_llm_patch_points_still_work(self):
         with patch("llm.run_tool_by_command", return_value="fixture") as scanner, \
