@@ -9,19 +9,20 @@
 <p align="center">One terminal for authorized scans, evidence-based reviews, and locally saved HTML, PDF, JSON, and SARIF reports.</p>
 
 <p align="center">
-  <a href="https://gitlab.com/SLP-DEV1/PenX/-/pipelines"><img alt="GitLab pipeline" src="https://gitlab.com/SLP-DEV1/PenX/badges/master/pipeline.svg"></a>
-  <a href="https://gitlab.com/SLP-DEV1/PenX/-/releases"><img alt="GitLab releases" src="https://img.shields.io/badge/Releases-GitLab-FC6D26?logo=gitlab"></a>
+  <a href="https://github.com/spk-c/PenX/actions/workflows/ci.yml"><img alt="Offline tests" src="https://github.com/spk-c/PenX/actions/workflows/ci.yml/badge.svg"></a>
+  <a href="https://github.com/spk-c/PenX/releases"><img alt="GitHub releases" src="https://img.shields.io/badge/Releases-GitHub-181717?logo=github"></a>
+  <a href="https://github.com/spk-c/PenX/stargazers"><img alt="GitHub stars" src="https://img.shields.io/github/stars/spk-c/PenX?style=social"></a>
   <img alt="Windows 10 and 11" src="https://img.shields.io/badge/Windows-10%20%2F%2011-0078D6?logo=windows">
   <img alt="Python 3.10–3.13" src="https://img.shields.io/badge/Python-3.10--3.13-3776AB?logo=python">
   <a href="LICENSE"><img alt="MIT license" src="https://img.shields.io/badge/license-MIT-22A699"></a>
 </p>
 
 > [!NOTE]
-> **GitLab migration:** PenX source code is available here, but as of October 16, 2026 the GitLab project has **no published Windows release assets**. Install from source below until verified Windows binaries are published on [GitLab Releases](https://gitlab.com/SLP-DEV1/PenX/-/releases). Source archives are not ready-to-run EXEs.
+> **GitHub home:** This project is maintained at [spk-c/PenX](https://github.com/spk-c/PenX). The new GitHub repository does not yet have published Windows binaries. Install from source until a verified Windows installer and portable ZIP are attached under [GitHub Releases](https://github.com/spk-c/PenX/releases). GitHub source archives are not ready-to-run Windows applications.
 
 <p align="center">
   <a href="#quick-start"><strong>Install from source</strong></a> ·
-  <a href="https://gitlab.com/SLP-DEV1/PenX/-/releases"><strong>GitLab Releases (binaries pending)</strong></a> ·
+  <a href="https://github.com/spk-c/PenX/releases"><strong>GitHub Releases (binaries pending)</strong></a> ·
   <a href="docs/DEMO.md"><strong>View demo</strong></a> ·
   <a href="WINDOWS.md"><strong>Installation help</strong></a>
 </p>
@@ -45,7 +46,7 @@
 Clone the maintained GitLab repository and run the consent-based Windows setup:
 
 ~~~powershell
-git clone https://gitlab.com/SLP-DEV1/PenX.git
+git clone https://github.com/spk-c/PenX.git
 cd PenX
 .\install-windows.bat
 .\start-windows.bat
@@ -53,11 +54,11 @@ cd PenX
 
 Python **3.13 is recommended** (source support: 3.10–3.13). The setup configures a virtual environment and Python dependencies, and may offer third-party scanner installation **with your consent**. Internet access, `winget`, and administrator approval may be needed. Run `check-windows.bat` for diagnostics or `install-scanners.bat` to retry missing scanners. Preserve private `.env`, `data/`, and `reports/` files when updating.
 
-### Windows installer and portable ZIP (pending GitLab release)
+### Windows installer and portable ZIP (pending GitHub release)
 
-The intended release assets are **`PenX-Setup-x64.exe`** (installer), **`PenX-Windows-x64.zip`** (portable application folder), and **`SHA256SUMS.txt`** (integrity check). Verify they are actually attached to a published, tested [GitLab Release](https://gitlab.com/SLP-DEV1/PenX/-/releases) before using the binary installation instructions in [WINDOWS.md](WINDOWS.md). **No Windows release binaries are currently published on GitLab.** Do not use GitLab's automatic source archive as an EXE.
+The intended release assets are **`PenX-Setup-x64.exe`** (installer), **`PenX-Windows-x64.zip`** (portable application folder), and **`SHA256SUMS.txt`** (integrity check). Verify they are actually attached to a published, tested [GitHub Release](https://github.com/spk-c/PenX/releases) before using the binary installation instructions in [WINDOWS.md](WINDOWS.md). **No Windows release binaries are currently published on GitHub.** Do not use GitHub's automatic source archive as an EXE.
 
-When a portable ZIP becomes available, extract the **entire folder** (including `_internal`) and run `PenX.exe`. Scanner binaries and local AI models are not bundled. The in-app updater now checks **stable, verified GitLab releases**. It only offers a Windows installer when both the official release asset and its checksum exist, and never installs without explicit consent.
+When a portable ZIP becomes available, extract the **entire folder** (including `_internal`) and run `PenX.exe`. Scanner binaries and local AI models are not bundled. The in-app updater now checks **stable, verified GitHub releases**. It only offers a Windows installer when both the official release asset and its checksum exist, and never installs without explicit consent.
 
 **Useful commands for a verified Windows binary (once available):**
 
@@ -153,7 +154,7 @@ Replace <code>32</code> with an existing session ID. <code>--redact</code> masks
 python scripts/generate_demo_report.py
 ~~~
 
-See the [offline demo walkthrough](docs/DEMO.md). For an up-to-date feature overview, use the README and the [GitLab Releases page](https://gitlab.com/SLP-DEV1/PenX/-/releases) (after binaries are published), not an illustration as proof of a live scan.
+See the [offline demo walkthrough](docs/DEMO.md). For an up-to-date feature overview, use the README and the [GitHub Releases page](https://github.com/spk-c/PenX/releases) (after binaries are published), not an illustration as proof of a live scan.
 
 ## Repository layout
 
@@ -170,11 +171,11 @@ PenX/
 ├── run-tests.bat           # Offline tests
 ├── build-exe.bat           # Folder-based EXE build
 ├── .env.example            # Configuration template (no secrets)
-├── .gitlab-ci.yml          # GitLab regression and Windows release pipeline
-└── .github/workflows/      # Legacy GitHub Actions definitions
+├── .gitlab-ci.yml          # Optional GitLab mirror pipeline
+└── .github/workflows/      # Active GitHub tests, releases and issue triage
 ~~~
 
-Planned GitLab Windows releases should publish **PenX-Setup-x64.exe** (installer), **PenX-Windows-x64.zip** (portable), and **SHA256SUMS.txt** after Windows build/test verification. These files are **not yet available** on GitLab. The ZIP contains the Python application and first-run setup assistant, **not** the proprietary model or third-party scanner EXEs.
+Tagged GitHub Windows releases should publish **PenX-Setup-x64.exe** (installer), **PenX-Windows-x64.zip** (portable), and **SHA256SUMS.txt** after Windows build/test verification. These files are **not yet available** on GitHub. The ZIP contains the Python application and first-run setup assistant, **not** the proprietary model or third-party scanner EXEs.
 
 ## Documentation
 
@@ -186,15 +187,16 @@ Planned GitLab Windows releases should publish **PenX-Setup-x64.exe** (installer
 | [Demo](docs/DEMO.md) | Illustrated flow and synthetic reports |
 | [Community launch kit](docs/COMMUNITY_LAUNCH.md) | Sharing guidance, repository metadata and social-preview setup |
 | [Development](docs/DEVELOPMENT.md) | Architecture, offline tests, CI and Windows builds |
-| [GitLab workflow](docs/GITLAB.md) | GitLab pipelines, Windows release procedure, and opt-in issue triage |
+| [GitHub workflow](docs/GITHUB.md) | GitHub Actions, releases and issue triage |
+| [GitLab mirror](docs/GITLAB.md) | Optional GitLab workflow and mirror setup |
 | [Contributing](CONTRIBUTING.md) | Pull requests and development guidelines |
 | [Security policy](SECURITY.md) | Responsible vulnerability disclosure |
 
 ## Contributing
 
-Issues and merge requests are welcome for Windows support, scanner integration, testing, docs, and reproducible bugs. Run <code>python offline_tests.py</code> before submitting a merge request. Remove secrets, private-target details, and personally identifying content from logs and screenshots. Read [CONTRIBUTING.md](CONTRIBUTING.md) and use the [issue tracker](https://gitlab.com/SLP-DEV1/PenX/-/issues).
+Issues and pull requests are welcome for Windows support, scanner integration, testing, docs, and reproducible bugs. Run <code>python offline_tests.py</code> before submitting a pull request. Remove secrets, private-target details, and personally identifying content from logs and screenshots. Read [CONTRIBUTING.md](CONTRIBUTING.md) and use the [issue tracker](https://github.com/spk-c/PenX/issues).
 
-To report a security issue in PenX itself, follow [SECURITY.md](SECURITY.md) instead of public disclosure. If you find the project useful, consider [starring it](https://gitlab.com/SLP-DEV1/PenX/-/starrers). See the [community launch kit](docs/COMMUNITY_LAUNCH.md) for accurate sharing examples.
+To report a security issue in PenX itself, follow [SECURITY.md](SECURITY.md) instead of public disclosure. If you find the project useful, consider [starring it](https://github.com/spk-c/PenX/stargazers). See the [community launch kit](docs/COMMUNITY_LAUNCH.md) for accurate sharing examples.
 
 ## License and attribution
 

@@ -4,7 +4,7 @@ Thanks for considering a contribution! PenX is a Windows-focused, open-source se
 
 ## Before you start
 
-- Open a [feature request](https://gitlab.com/SLP-DEV1/PenX/-/issues/new) to discuss substantial behavior changes before investing in a large patch. Check for duplicates first.
+- Open a [feature request](https://github.com/spk-c/PenX/issues/new/choose) to discuss substantial behavior changes before investing in a large patch. Check for duplicates first.
 - Only test PenX against systems you own or have explicit permission to assess.
 - Do not include scan output from third-party hosts, secret keys, .env files, local databases, or compiled scanner binaries in your contribution.
 - Keep original upstream license notices intact; do not vendor third-party scanners into the repository.
@@ -24,11 +24,11 @@ Thanks for considering a contribution! PenX is a Windows-focused, open-source se
 4. Keep UI strings, comments, documentation, and new features **in English**.
 5. Update documentation and tests when changing behavior. Preserve explicit reporting for missing scanners or restricted fallbacks.
 
-## Merge requests
+## Pull requests
 
-- Complete the merge request description: explain the problem, the change, how it was tested, and whether scanner scope, permissions, or external downloads changed.
+- Complete the pull request description: explain the problem, the change, how it was tested, and whether scanner scope, permissions, or external downloads changed.
 - For Windows-specific installation fixes, include the Windows version, Python version, relevant command output, and sanitized error messages.
-- Keep merge requests focused and avoid unrelated formatting changes.
-- Use GitLab CI and the offline test suite as a baseline; a green offline test suite is not a substitute for verifying scanner behavior on Windows.
+- Keep pull requests focused and avoid unrelated formatting changes.
+- Use GitHub Actions and the offline test suite as a baseline; a green offline test suite is not a substitute for verifying scanner behavior on Windows.
 
 For sensitive security issues, follow [SECURITY.md](SECURITY.md) rather than posting exploit details in a public issue.

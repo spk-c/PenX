@@ -4,8 +4,8 @@
   #define MyAppVersion "0.4.6"
 #endif
 #define MyAppName "PenX"
-#define MyAppPublisher "SLP-DEV1"
-#define MyAppURL "https://gitlab.com/SLP-DEV1/PenX"
+#define MyAppPublisher "spk-c"
+#define MyAppURL "https://github.com/spk-c/PenX"
 
 [Setup]
 AppId={{FCF9D8F6-64E9-4783-8E7F-9106E194C841}
