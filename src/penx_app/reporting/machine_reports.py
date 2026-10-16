@@ -58,7 +58,7 @@ def _finding(row, raw_scan: str, target: str, redact: bool) -> dict:
         "severity": str(row[3] or "unknown").lower(),
         "confidence": confidence,
         "status": "review-required" if not matched else "scanner-quote-matched",
-        "port": str(row[5] or "")[:40],
+        "port": _mask(str(row[5] or "")[:40], target, redact),
         "service": _mask(str(row[6] or "")[:120], target, redact),
         "description": _mask(desc[:16000], target, redact),
         "evidence": _mask(evidence, target, redact) if matched else "",
