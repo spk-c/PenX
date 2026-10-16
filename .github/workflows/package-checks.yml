@@ -1,0 +1,40 @@
+name: Distribution package checks
+
+on:
+  pull_request:
+    paths:
+      - 'packaging/**'
+      - 'pyproject.toml'
+      - 'requirements.txt'
+      - 'src/penx_app/**'
+      - 'scripts/validate_distributions.py'
+      - '.github/workflows/package-checks.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.13'
+          cache: pip
+          cache-dependency-path: requirements.txt
+      - name: Validate pinned package manifests
+        run: python scripts/validate_distributions.py
+      - name: Build and inspect Python distribution
+        run: |
+          python -m pip install --disable-pip-version-check build twine
+          python -m build
+          python -m twine check dist/*
+      - name: Install wheel and smoke-test the Python entry points
+        run: |
+          python -m pip install --disable-pip-version-check dist/*.whl
+          penx --version
+          penx --setup-status
+          python -m penx_app --version

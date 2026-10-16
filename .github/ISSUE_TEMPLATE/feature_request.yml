@@ -1,0 +1,49 @@
+name: "Feature request"
+description: "Propose a focused improvement to PenX"
+title: "[Feature] "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for your idea. Please describe the defensive use case, not an
+        unauthorized scanning or exploitation target. Do not submit secrets,
+        private scan data, credentials, or personal information.
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or use case
+      description: What problem would this solve for an authorized PenX user?
+      placeholder: "During a local assessment, I need to …"
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behavior
+      description: Explain the intended UI, commands, or workflow.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Existing workarounds or other approaches (optional).
+    validations:
+      required: false
+  - type: textarea
+    id: safety
+    attributes:
+      label: Scope, privacy, and performance
+      description: If this changes scanning, what authorization, opt-in, request limits, or data-handling rules are needed?
+    validations:
+      required: false
+  - type: checkboxes
+    id: agreement
+    attributes:
+      label: Checklist
+      options:
+        - label: I searched existing issues and pull requests for similar proposals.
+          required: true
+        - label: This request contains no secrets or private target details.
+          required: true

@@ -1,0 +1,111 @@
+{
+  "schema": 1,
+  "provenance": "Curated version-boundary scenarios. Linked advisories are real; synthetic RPM ordering cases are explicitly marked and not claims of a specific CVE.",
+  "cases": [
+    {
+      "id": "debian-regresshion-pre-fix",
+      "kind": "debian",
+      "installed": "1:9.2p1-2+deb12u2",
+      "fixed": "1:9.2p1-2+deb12u3",
+      "expected": "below-published-fix",
+      "cve": "CVE-2024-6387",
+      "source": "https://security-tracker.debian.org/tracker/CVE-2024-6387"
+    },
+    {
+      "id": "debian-regresshion-at-fix",
+      "kind": "debian",
+      "installed": "1:9.2p1-2+deb12u3",
+      "fixed": "1:9.2p1-2+deb12u3",
+      "expected": "at-or-above-published-fix",
+      "cve": "CVE-2024-6387",
+      "source": "https://security-tracker.debian.org/tracker/CVE-2024-6387"
+    },
+    {
+      "id": "debian-regresshion-later",
+      "kind": "debian",
+      "installed": "1:9.2p1-2+deb12u9",
+      "fixed": "1:9.2p1-2+deb12u3",
+      "expected": "at-or-above-published-fix",
+      "cve": "CVE-2024-6387",
+      "source": "https://security-tracker.debian.org/tracker/CVE-2024-6387"
+    },
+    {
+      "id": "ubuntu-jammy-regresshion-pre",
+      "kind": "ubuntu",
+      "installed": "1:8.9p1-3ubuntu0.9",
+      "fixed": "1:8.9p1-3ubuntu0.10",
+      "expected": "below-published-fix",
+      "cve": "CVE-2024-6387",
+      "source": "https://ubuntu.com/security/CVE-2024-6387"
+    },
+    {
+      "id": "ubuntu-jammy-regresshion-fixed",
+      "kind": "ubuntu",
+      "installed": "1:8.9p1-3ubuntu0.10",
+      "fixed": "1:8.9p1-3ubuntu0.10",
+      "expected": "at-or-above-published-fix",
+      "cve": "CVE-2024-6387",
+      "source": "https://ubuntu.com/security/CVE-2024-6387"
+    },
+    {
+      "id": "ubuntu-jammy-regresshion-later",
+      "kind": "ubuntu",
+      "installed": "1:8.9p1-3ubuntu0.12",
+      "fixed": "1:8.9p1-3ubuntu0.10",
+      "expected": "at-or-above-published-fix",
+      "cve": "CVE-2024-6387",
+      "source": "https://ubuntu.com/security/CVE-2024-6387"
+    },
+    {
+      "id": "debian-tilde-negative-control",
+      "kind": "debian",
+      "installed": "1.0~rc1-1",
+      "fixed": "1.0-1",
+      "expected": "below-published-fix",
+      "source": "https://www.debian.org/doc/debian-policy/ch-controlfields.html#version"
+    },
+    {
+      "id": "debian-epoch-positive-control",
+      "kind": "debian",
+      "installed": "2:1.0-1",
+      "fixed": "1:9.9-9",
+      "expected": "at-or-above-published-fix",
+      "source": "https://www.debian.org/doc/debian-policy/ch-controlfields.html#version"
+    },
+    {
+      "id": "debian-unparsed-version",
+      "kind": "debian",
+      "installed": "??bad",
+      "fixed": "1:9.2p1-2+deb12u3",
+      "expected": "unknown-version-comparison",
+      "source": "https://www.debian.org/doc/debian-policy/ch-controlfields.html#version"
+    },
+    {
+      "id": "rpm-release-pre-fix",
+      "kind": "rhel",
+      "installed": "9.0p1-5.el9",
+      "fixed": "9.0p1-6.el9",
+      "expected": "below-published-fix",
+      "source": "https://rpm.org/docs/latest/api/group__rpmver.html",
+      "synthetic": true
+    },
+    {
+      "id": "rpm-epoch-negative-control",
+      "kind": "rhel",
+      "installed": "1:2.0-1.el9",
+      "fixed": "2:1.0-1.el9",
+      "expected": "below-published-fix",
+      "source": "https://rpm.org/docs/latest/api/group__rpmver.html",
+      "synthetic": true
+    },
+    {
+      "id": "rpm-caret-uncertain",
+      "kind": "rhel",
+      "installed": "1.0^git-1.el9",
+      "fixed": "1.0-1.el9",
+      "expected": "unknown-version-comparison",
+      "source": "https://rpm.org/docs/latest/api/group__rpmver.html",
+      "synthetic": true
+    }
+  ]
+}

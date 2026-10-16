@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1080" height="250" viewBox="0 0 1080 250" role="img" aria-labelledby="title desc">
+<title id="title">PenX demo workflow diagram</title><desc id="desc">Illustration, not a live scan: authorized target, recon, local AI, human review and HTML/PDF reports.</desc>
+<rect width="1080" height="250" rx="20" fill="#0e1829"/>
+<g font-family="Segoe UI,Arial,sans-serif" text-anchor="middle">
+  <g fill="#142a38" stroke="#4bd8b6" stroke-width="2"><rect x="24" y="65" width="188" height="123" rx="14"/><rect x="242" y="65" width="188" height="123" rx="14"/><rect x="460" y="65" width="188" height="123" rx="14"/><rect x="678" y="65" width="188" height="123" rx="14"/><rect x="896" y="65" width="160" height="123" rx="14"/></g>
+  <g fill="#eef6ff" font-size="23" font-weight="700"><text x="118" y="111">Authorized</text><text x="118" y="139">target</text><text x="336" y="111">Recon</text><text x="336" y="139">tools</text><text x="554" y="111">Local AI</text><text x="554" y="139">analysis</text><text x="772" y="111">Human</text><text x="772" y="139">review</text><text x="976" y="111">HTML +</text><text x="976" y="139">PDF</text></g>
+  <g stroke="#79e6cc" stroke-width="4" stroke-linecap="round"><path d="M215 128h22m-9-8 9 8-9 8"/><path d="M433 128h22m-9-8 9 8-9 8"/><path d="M651 128h22m-9-8 9 8-9 8"/><path d="M869 128h22m-9-8 9 8-9 8"/></g>
+  <text x="540" y="36" fill="#b0c5da" font-size="17">ILLUSTRATIVE WORKFLOW · NOT A LIVE SCAN</text>
+  <text x="540" y="224" fill="#9fb9d0" font-size="16">Evidence and generated findings require independent validation</text>
+</g></svg>

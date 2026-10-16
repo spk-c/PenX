@@ -1,0 +1,136 @@
+name: Security audit
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+  schedule:
+    - cron: '21 5 * * 1'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: security-${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  # Scans the git history, not just the working tree. No secrets are uploaded
+  # as build artifacts or posted in automatic pull request comments.
+  secrets:
+    name: Gitleaks history and change scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Detect committed credentials
+        uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3.0.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_ENABLE_COMMENTS: "false"
+          GITLEAKS_ENABLE_UPLOAD_ARTIFACT: "false"
+
+  dependency-review-prerequisite:
+    name: Dependency Graph prerequisite
+    if: github.event_name == 'pull_request' && vars.PENX_DEP_GRAPH_READY != 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Surface required repository setting
+        run: |
+          echo "::warning::Dependency Review is not available until the repository owner enables GitHub Dependency Graph under Settings > Code security and analysis. After activation, set repository Actions variable PENX_DEP_GRAPH_READY=true to enforce dependency-review-action on PRs. Pip-audit still runs and fails on known vulnerabilities."
+
+  dependency-review:
+    name: Dependency changes policy
+    # Dependency Review hard-errors when the repository's Dependency Graph is
+    # disabled, which an ordinary GitHub App cannot change. The prerequisite
+    # warning above ensures this intentional skip is visible to maintainers.
+    if: github.event_name == 'pull_request' && vars.PENX_DEP_GRAPH_READY == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Reject vulnerable dependency introductions
+        uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
+        with:
+          fail-on-severity: high
+
+  installed-dependencies:
+    name: Audit installed Python dependencies
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.13'
+      - name: Check resolved packages for public vulnerability advisories
+        run: |
+          python -m pip install --disable-pip-version-check --prefer-binary -r requirements.txt
+          python -m pip install --disable-pip-version-check "pip-audit==2.10.1"
+          python -m pip_audit --local
+
+  codeql:
+    name: CodeQL Python security analysis
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: github/codeql-action/init@24c54180a607b1449ed407dd24f251e4e9147c8d # v4
+        with:
+          languages: python
+          queries: security-extended
+      - uses: github/codeql-action/analyze@24c54180a607b1449ed407dd24f251e4e9147c8d # v4
+        with:
+          category: /language:python
+      - name: Summarize CodeQL findings without source snippets
+        # The connected GitHub integration cannot enumerate Code Scanning
+        # alerts. Print only rule IDs and locations; no code, logs or secrets.
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          # CodeQL v4 puts its default results directory next to, rather
+          # than inside, the checkout workspace on GitHub-hosted runners.
+          candidates = [Path("../results/python.sarif"),
+                        Path("results/python.sarif")]
+          p = next((candidate for candidate in candidates if candidate.is_file()), None)
+          if p is None:
+              print("CodeQL SARIF file unavailable; check analyze action logs.")
+              raise SystemExit(0)
+          data = json.loads(p.read_text(encoding="utf-8"))
+          found = 0
+          for run in data.get("runs", []):
+              for result in run.get("results", []):
+                  rule = str(result.get("ruleId") or "").replace("\n", " ")[:110]
+                  if rule.startswith(("py/diagnostics/", "py/summary/")):
+                      continue
+                  locations = result.get("locations") or []
+                  physical = locations[0].get("physicalLocation", {}) if locations else {}
+                  artifact = physical.get("artifactLocation", {})
+                  region = physical.get("region", {})
+                  path = str(artifact.get("uri", "?")).replace("\n", " ")[:220]
+                  line = region.get("startLine", "?")
+                  level = str(result.get("level", "warning"))[:20]
+                  print(f"CodeQL finding: {rule} | {level} | {path}:{line}")
+                  found += 1
+                  if found >= 100:
+                      print("CodeQL results truncated after 100 findings")
+                      break
+              if found >= 100:
+                  break
+          print(f"CodeQL SARIF findings shown: {found}")
+          PY

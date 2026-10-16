@@ -1,0 +1,70 @@
+name: "Bug report"
+description: "Report a reproducible PenX bug for automatic evidence-based triage"
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping improve PenX. Newly opened issues receive a **preliminary,
+        automatic triage** (with optional AI when enabled), not a definitive verdict. Do not include passwords,
+        API tokens, private scan results, or personal data. The reviewer never runs
+        commands from issues or scans targets.
+  - type: textarea
+    id: description
+    attributes:
+      label: What went wrong?
+      description: Describe the observed behavior and its impact.
+      placeholder: "PenX displays … instead of …"
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: Include the exact PenX menu choices or arguments.
+      placeholder: |
+        1. Run start-windows.bat
+        2. Choose …
+        3. Observe …
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual result and sanitized logs
+      description: Paste errors only after removing private target details and secrets.
+      render: text
+    validations:
+      required: false
+  - type: input
+    id: version
+    attributes:
+      label: PenX version / commit
+      placeholder: "git rev-parse --short HEAD"
+    validations:
+      required: false
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - Windows 11
+        - Windows 10
+        - Linux
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: related
+    attributes:
+      label: Relevant files or existing issues
+      description: Optional module path or issue number to help verify the report.
+    validations:
+      required: false

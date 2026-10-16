@@ -1,0 +1,71 @@
+# Personal configuration (publish .env.example only)
+.env
+.env.*
+!.env.example
+
+# Virtual environments, including the Python repair backup
+.venv/
+.qwen
+QWEN.md
+.venv-*/
+venv/
+env/
+
+# Scans and other potentially sensitive local output
+/data/
+/reports/
+/demo_output/
+/localhost_demo_video/
+/exports/
+/training/
+/evals/
+*.db
+*.db-*
+*.sqlite
+*.sqlite3
+*.sqlite3-*
+*.log
+
+# Third-party scanner downloads and installed tooling
+/vendor/
+/downloads/
+/dist/
+/build/
+*.exe
+*.msi
+*.zip
+*.whl
+*.spec
+
+# Python/test artifacts
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.coverage*
+htmlcov/
+.tox/
+.nox/
+
+# Local editors and OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Local certificates and keys (avoid accidentally committing credentials)
+*.pem
+*.p12
+*.pfx
+*.key
+id_rsa*
+id_ed25519*
+
+# Generated quality reports and release checksums
+CVE-QUALITY.json
+cve-quality-report.json
+SHA256SUMS.txt
+
+# Additional local test/build caches
+.ruff_cache/
+.mypy_cache/

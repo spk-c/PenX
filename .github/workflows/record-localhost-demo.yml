@@ -1,0 +1,36 @@
+name: Record PenX localhost workflow demo
+
+# Expensive demo/video rendering is intentionally manual, not tied to an
+# old one-off feature branch.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  real-localhost-demo:
+    runs-on: windows-latest
+    timeout-minutes: 18
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.13'
+          cache: pip
+          cache-dependency-path: requirements.txt
+      - name: Install PenX and video dependencies
+        run: python -m pip install --disable-pip-version-check --prefer-binary -r requirements.txt pillow imageio-ffmpeg pypdfium2
+      - name: Scan real local training HTTP server and render actual workflow
+        shell: pwsh
+        run: |
+          python -u scripts/record_localhost_workflow.py
+          if ($LASTEXITCODE -ne 0) { throw "Localhost workflow validation or video render failed" }
+          Get-ChildItem localhost_demo_video
+      - name: Upload video, reports and transcript
+        uses: actions/upload-artifact@v7
+        with:
+          name: PenX-localhost-scan-workflow
+          path: localhost_demo_video/
+          if-no-files-found: error
+          retention-days: 7

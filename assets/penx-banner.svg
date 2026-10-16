@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="420" viewBox="0 0 1200 420" role="img" aria-label="PenX: local AI-powered security reconnaissance for Windows">
+  <defs>
+    <linearGradient id="background" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#10132a"/>
+      <stop offset=".58" stop-color="#0e1830"/>
+      <stop offset="1" stop-color="#0b2b32"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#aa76ff"/>
+      <stop offset="1" stop-color="#57e4e0"/>
+    </linearGradient>
+    <pattern id="grid" width="34" height="34" patternUnits="userSpaceOnUse">
+      <path d="M 34 0 L 0 0 0 34" fill="none" stroke="#9cacc8" stroke-opacity=".07" stroke-width="1"/>
+    </pattern>
+    <filter id="glow"><feGaussianBlur stdDeviation="24"/></filter>
+  </defs>
+  <rect width="1200" height="420" rx="18" fill="url(#background)"/>
+  <rect width="1200" height="420" rx="18" fill="url(#grid)"/>
+  <circle cx="1100" cy="54" r="165" fill="#7c59fa" fill-opacity=".11" filter="url(#glow)"/>
+  <circle cx="415" cy="382" r="180" fill="#3bccca" fill-opacity=".08" filter="url(#glow)"/>
+  <rect x="56" y="52" width="7" height="22" rx="3" fill="#63e6d7"/>
+  <text x="79" y="69" fill="#94a3c1" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="700" letter-spacing="3">OPEN SOURCE SECURITY TOOLKIT</text>
+  <text x="53" y="198" fill="#f4f6ff" font-family="Arial, Helvetica, sans-serif" font-size="112" font-weight="800" letter-spacing="-5">Pen</text>
+  <text x="252" y="198" fill="url(#accent)" font-family="Arial, Helvetica, sans-serif" font-size="112" font-weight="800">X</text>
+  <path d="M57 219 H509" stroke="url(#accent)" stroke-width="3" stroke-linecap="round" opacity=".85"/>
+  <text x="57" y="266" fill="#e0e7f2" font-family="Arial, Helvetica, sans-serif" font-size="29" font-weight="600">Reconnaissance. Analysis. Reporting.</text>
+  <text x="57" y="303" fill="#a0afc7" font-family="Arial, Helvetica, sans-serif" font-size="21">Real security tools + your own local AI model.</text>
+  <rect x="56" y="330" width="131" height="36" rx="18" fill="#ae8aff" fill-opacity=".16" stroke="#ae8aff" stroke-opacity=".55"/>
+  <text x="121" y="354" fill="#e4d8ff" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="15" font-weight="700">WINDOWS 10/11</text>
+  <rect x="199" y="330" width="127" height="36" rx="18" fill="#56d5c9" fill-opacity=".12" stroke="#56d5c9" stroke-opacity=".55"/>
+  <text x="262" y="354" fill="#a9f4ee" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="15" font-weight="700">LOCAL LLM</text>
+  <rect x="338" y="330" width="113" height="36" rx="18" fill="#ffffff" fill-opacity=".05" stroke="#6c7e9e" stroke-opacity=".6"/>
+  <text x="394" y="354" fill="#ced7e7" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="15" font-weight="700">PYTHON</text>
+  <rect x="642" y="58" width="507" height="302" rx="17" fill="#090f1e" stroke="#516179" stroke-opacity=".75" stroke-width="1.5"/>
+  <path d="M659 58 H1132 Q1149 58 1149 75 V100 H642 V75 Q642 58 659 58 Z" fill="#172137"/>
+  <circle cx="665" cy="81" r="6" fill="#ff6b7c"/>
+  <circle cx="688" cy="81" r="6" fill="#ffd36e"/>
+  <circle cx="711" cy="81" r="6" fill="#5ddbab"/>
+  <text x="740" y="86" fill="#acbad1" font-family="Consolas, Monaco, monospace" font-size="16">penx.exe · local terminal</text>
+  <text x="673" y="143" fill="#77e2cf" font-family="Consolas, Monaco, monospace" font-size="23" font-weight="700">PenX &gt; main menu</text>
+  <text x="673" y="187" fill="#b8a0ff" font-family="Consolas, Monaco, monospace" font-size="20">[1]</text>
+  <text x="727" y="187" fill="#eef4ff" font-family="Consolas, Monaco, monospace" font-size="20">New Scan</text>
+  <text x="673" y="225" fill="#b8a0ff" font-family="Consolas, Monaco, monospace" font-size="20">[2]</text>
+  <text x="727" y="225" fill="#eef4ff" font-family="Consolas, Monaco, monospace" font-size="20">View History</text>
+  <text x="673" y="263" fill="#b8a0ff" font-family="Consolas, Monaco, monospace" font-size="20">[3]</text>
+  <text x="727" y="263" fill="#eef4ff" font-family="Consolas, Monaco, monospace" font-size="20">Export Eval Package</text>
+  <text x="673" y="324" fill="#71e6d4" font-family="Consolas, Monaco, monospace" font-size="20">penx&gt; <tspan fill="#e8efff">_</tspan></text>
+</svg>

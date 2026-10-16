@@ -1,0 +1,2 @@
+# Run only on Windows: PyInstaller does not cross-compile Windows EXEs on Linux.
+pyinstaller>=6.15,<7

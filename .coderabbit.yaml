@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+# Reviews run on eligible PRs; CodeRabbit may skip bot-authored Renovate PRs.
+language: en-US
+
+reviews:
+  profile: chill
+  high_level_summary: true
+  request_changes_workflow: false
+  review_progress: true
+
+  auto_review:
+    enabled: true
+    auto_incremental_review: true
+    drafts: false
+
+  path_instructions:
+    - path: "**/*.py"
+      instructions: |
+        PenX supports Python 3.10 through 3.13 and runs on Windows and Linux.
+        Prioritize functional bugs, error handling, platform-specific paths,
+        command injection risks, subprocess safety, secrets exposure and
+        compatibility with local LLM APIs (including llama.cpp).
+        Avoid suggesting live scans: tests should remain offline and mocked.
+
+    - path: "**/*.bat"
+      instructions: |
+        Pay special attention to Windows quoting, paths containing spaces,
+        PowerShell/CMD compatibility, interpreter selection, exit codes,
+        environment variables and repeatable installation.
+
+    - path: ".github/workflows/**"
+      instructions: |
+        Check GitHub Actions permissions, untrusted pull-request inputs,
+        action version changes and compatibility with the Windows/Ubuntu
+        offline test matrix. Do not recommend exposing secrets to forked PRs.
+
+    - path: "requirements*.txt"
+      instructions: |
+        Check Python 3.10-3.13 compatibility, transitive dependency risks,
+        Windows availability and breaking changes before recommending upgrades.

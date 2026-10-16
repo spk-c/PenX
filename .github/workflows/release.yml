@@ -1,0 +1,147 @@
+name: Windows Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+# Manual builds may supersede older manual builds, but must NEVER cancel a
+# tagged release even when workflow_dispatch targets that same tag.
+concurrency:
+  group: windows-release-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'workflow_dispatch' }}
+
+env:
+  PYTHONUTF8: "1"
+
+jobs:
+  windows-release:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.13'
+          cache: 'pip'
+          cache-dependency-path: |
+            requirements.txt
+            requirements.lock.txt
+            requirements-build.txt
+      - name: Check release tag matches application version
+        if: github.ref_type == 'tag'
+        shell: pwsh
+        run: |
+          $env:PYTHONPATH = 'src'
+          python -c "import sys; from penx_app.version import VERSION; assert sys.argv[1] == 'v' + VERSION, f'Release tag {sys.argv[1]} != v{VERSION}'" "$env:GITHUB_REF_NAME"
+          if ($LASTEXITCODE -ne 0) { throw "Release tag/version mismatch" }
+      - name: Install build dependencies
+        shell: pwsh
+        run: |
+          # Build-tool dependencies are not yet hash-locked; runtime dependencies are.
+          python -m pip install --disable-pip-version-check --prefer-binary -r requirements-build.txt
+          if ($LASTEXITCODE -ne 0) { throw "Build dependencies failed" }
+          python -m pip install --disable-pip-version-check --prefer-binary --require-hashes -r requirements.lock.txt
+          if ($LASTEXITCODE -ne 0) { throw "Locked runtime dependencies failed" }
+          python -m pip check
+          if ($LASTEXITCODE -ne 0) { throw "Dependency conflicts in release build" }
+      - name: Run offline regression tests
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          python offline_tests.py
+          if ($LASTEXITCODE -ne 0) { throw "Offline regression suite failed" }
+      - name: Generate CVE quality fixture report
+        shell: pwsh
+        run: |
+          python cve_quality.py --json | Out-File -FilePath CVE-QUALITY.json -Encoding utf8
+          if ($LASTEXITCODE -ne 0) { throw "Quality fixture gate failed" }
+      - name: Build portable Windows folder
+        shell: pwsh
+        run: |
+          python scripts/build_windows.py
+          if ($LASTEXITCODE -ne 0) { throw "PyInstaller failed" }
+          Copy-Item .env.example dist/PenX/.env.example
+          New-Item -Type Directory -Force dist/PenX/data | Out-Null
+          & .\dist\PenX\PenX.exe --version
+          if ($LASTEXITCODE -ne 0) { throw "EXE version smoke test failed" }
+          # No downloads or consent prompts during CI.
+          & .\dist\PenX\PenX.exe --setup-status
+          if ($LASTEXITCODE -ne 0) { throw "EXE setup-status smoke test failed" }
+      - name: Build Windows installer (Inno Setup)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $compiler = "${env:ProgramFiles(x86)}\\Inno Setup 6\\ISCC.exe"
+          if (-not (Test-Path $compiler)) {
+            choco install innosetup --yes --no-progress --limit-output
+            if ($LASTEXITCODE -ne 0) { throw "Inno Setup installation failed" }
+          }
+          if (-not (Test-Path $compiler)) { throw "Inno Setup compiler not found" }
+          $env:PYTHONPATH = 'src'
+          $version = python -c "from penx_app.version import VERSION; print(VERSION)"
+          if ($LASTEXITCODE -ne 0) { throw "Version lookup failed" }
+          & $compiler "/DMyAppVersion=$version" "installer/penx.iss"
+          if ($LASTEXITCODE -ne 0) { throw "Inno Setup compile failed" }
+          if (-not (Test-Path "dist/PenX-Setup-x64.exe")) { throw "Installer missing" }
+          $smoke = Join-Path $env:RUNNER_TEMP "PenX-Installer-Smoke"
+          $install = Start-Process -FilePath (Resolve-Path "dist/PenX-Setup-x64.exe") -ArgumentList @("/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/DIR=$smoke") -PassThru -Wait
+          if ($install.ExitCode -ne 0) { throw "Installer smoke test failed: $($install.ExitCode)" }
+          if (-not (Test-Path (Join-Path $smoke ".penx-installed"))) { throw "Installed-mode marker missing" }
+          & (Join-Path $smoke "PenX.exe") --version
+          if ($LASTEXITCODE -ne 0) { throw "Installed EXE version test failed" }
+          & (Join-Path $smoke "PenX.exe") --setup-status
+          if ($LASTEXITCODE -ne 0) { throw "Installed EXE setup-status test failed" }
+      - name: Package and checksum
+        shell: pwsh
+        run: |
+          # Windows includes bsdtar; substantially faster than Compress-Archive
+          # for PyInstaller onedir's many small files.
+          tar.exe -a -cf PenX-Windows-x64.zip -C dist PenX
+          if ($LASTEXITCODE -ne 0) { throw "ZIP packaging failed" }
+          # Verify it is a readable ZIP and contains the executable.
+          python -c "import zipfile; p='PenX-Windows-x64.zip'; z=zipfile.ZipFile(p); assert 'PenX/PenX.exe' in z.namelist(), 'PenX.exe missing'; assert z.testzip() is None, 'Damaged ZIP'; print('[OK] Validated Windows ZIP')"
+          if ($LASTEXITCODE -ne 0) { throw "ZIP validation failed" }
+          $hash = (Get-FileHash PenX-Windows-x64.zip -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$hash  PenX-Windows-x64.zip" | Out-File -FilePath SHA256SUMS.txt -Encoding ascii
+          $setupHash = (Get-FileHash dist/PenX-Setup-x64.exe -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$setupHash  PenX-Setup-x64.exe" | Add-Content -Path SHA256SUMS.txt -Encoding ascii
+          Copy-Item dist/PenX-Setup-x64.exe PenX-Setup-x64.exe
+      # Tagged releases already store the ZIP/quality report permanently.
+      # Keep a short-lived Actions artifact only for manual preview runs.
+      - name: Upload manual workflow artifact
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v7
+        with:
+          name: PenX-Windows-x64
+          path: |
+            PenX-Windows-x64.zip
+            PenX-Setup-x64.exe
+            SHA256SUMS.txt
+            CVE-QUALITY.json
+          if-no-files-found: error
+          retention-days: 3
+      - name: Publish tagged GitHub Release
+        if: github.ref_type == 'tag'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          # Generate a changelog, then prepend clear download guidance to the release body.
+          # GitHub's Assets retain their stable filenames for the in-app updater.
+          $generated = gh api --method POST "repos/$env:GITHUB_REPOSITORY/releases/generate-notes" -f tag_name="$env:TAG" --jq '.body'
+          if ($LASTEXITCODE -ne 0) { throw "Could not generate GitHub release notes" }
+          $guide = Get-Content ".github/RELEASE_DOWNLOAD_GUIDE.md" -Raw -Encoding UTF8
+          if (-not $guide.Contains("penx-download-options-v1")) { throw "Release download guide missing" }
+          $body = $guide.TrimEnd() + [Environment]::NewLine + [Environment]::NewLine + ($generated -join [Environment]::NewLine)
+          [System.IO.File]::WriteAllText((Join-Path (Get-Location) "RELEASE-NOTES.md"), $body, [System.Text.UTF8Encoding]::new($false))
+          gh release create "$env:TAG" PenX-Windows-x64.zip PenX-Setup-x64.exe SHA256SUMS.txt CVE-QUALITY.json --verify-tag --title "PenX $env:TAG" --notes-file RELEASE-NOTES.md
+          if ($LASTEXITCODE -ne 0) { throw "GitHub release publication failed" }

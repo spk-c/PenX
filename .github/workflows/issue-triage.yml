@@ -1,0 +1,76 @@
+name: AI issue triage
+
+on:
+  # Retry one open deferred/unverified issue per run; avoid large API bursts.
+  schedule:
+    - cron: '17,47 * * * *'
+  issues:
+    types: [opened]
+  # Maintainer-only re-review command on an existing issue.
+  issue_comment:
+    types: [created]
+  workflow_dispatch:
+    inputs:
+      issue_number:
+        description: "Existing issue number to review again (maintainers only)"
+        required: true
+        type: number
+
+# Serializes runs for one issue, not all new issues.
+concurrency:
+  group: ai-issue-triage-${{ github.event.issue.number || inputs.issue_number }}
+  cancel-in-progress: false
+
+jobs:
+  review:
+    name: Read-only code review
+    if: >-
+      github.event_name != 'issue_comment' ||
+      (github.event.issue.pull_request == null &&
+       github.event.comment.body == '/penx-triage' &&
+       github.event.comment.author_association == 'OWNER')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: read
+    outputs:
+      report: ${{ steps.triage.outputs.report }}
+      issue_number: ${{ steps.triage.outputs.issue_number }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.13'
+      - name: Triage issue (optional AI when secret is configured)
+        id: triage
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          PENX_TRIAGE_GROQ_API_KEY: ${{ secrets.PENX_TRIAGE_GROQ_API_KEY }}
+          PENX_TRIAGE_MODEL: ${{ vars.PENX_TRIAGE_MODEL }}
+        run: python scripts/issue_triage.py review
+
+  publish:
+    name: Publish advisory comment and label
+    needs: review
+    if: needs.review.outputs.report != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.13'
+      - name: Update issue triage comment and label
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          TRIAGE_REPORT_B64: ${{ needs.review.outputs.report }}
+          TRIAGE_ISSUE_NUMBER: ${{ needs.review.outputs.issue_number }}
+        run: python scripts/issue_triage.py publish

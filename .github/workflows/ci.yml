@@ -1,0 +1,151 @@
+name: Offline tests
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - '**/*.md'
+      - 'assets/**'
+  pull_request:
+    paths-ignore:
+      - '**/*.md'
+      - 'assets/**'
+  workflow_dispatch:
+
+# Automatic feature-branch validation happens on PRs rather than on every
+# feature-branch push, avoiding duplicate runs and PR runner queue contention.
+# Manual branch test runs remain available via workflow_dispatch.
+concurrency:
+  group: offline-tests-${{ github.workflow }}-${{ github.event.pull_request.head.repo.full_name || github.repository }}-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+env:
+  PYTHONUTF8: "1"
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.13'
+          cache: 'pip'
+          cache-dependency-path: |
+            requirements.txt
+            requirements-build.txt
+            requirements.lock.txt
+      - name: Install hash-locked runtime dependencies
+        run: python -m pip install --disable-pip-version-check --prefer-binary --require-hashes -r requirements.lock.txt
+      - name: Verify active runtime uses the locked dependency set
+        run: |
+          python -m pip check
+          python -c "import requests, bs4, reportlab, reportlab.platypus, defusedxml, jsonschema, dotenv, dns.resolver, whois, debian.debian_support, rpm_vercmp, ddgs; print('locked runtime dependencies import successfully')"
+      - name: Verify Python syntax
+        run: python -m compileall -q penx.py src scripts tests
+      - name: Check fatal lint defects
+        if: runner.os == 'Linux'
+        run: |
+          python -m pip install --disable-pip-version-check "ruff>=0.13,<1"
+          python -m ruff check --select E9,F63,F7,F82 penx.py src scripts tests
+          # Gradually enforce unused-import hygiene in the extracted modules
+          # without mixing a repository-wide formatting change into refactoring.
+          python -m ruff check --select F401 src/penx_app/application/scan_outcome.py src/penx_app/reporting/report_batch.py src/penx_app/application/scanner_execution.py src/penx_app/scanners/scan_results.py src/penx_app/analysis/llm_client.py src/penx_app/analysis/analysis_pipeline.py src/penx_app/analysis/structured_scan_evidence.py src/penx_app/analysis/scan_input_budget.py src/penx_app/application/risk_assessment.py src/penx_app/application/scan_recovery.py src/penx_app/application/scan_trends.py src/penx_app/storage/schema_migrations.py src/penx_app/storage/correction_repository.py src/penx_app/reporting/export.py src/penx_app/reporting/report_design.py src/penx_app/intelligence/search.py src/penx_app/storage/db_backend.py src/penx_app/storage/evaluation_repository.py src/penx_app/cli/scanner_menu.py src/penx_app/cli/db_display.py src/penx_app/intelligence/source_verification.py src/penx_app/intelligence/vendor_status.py src/penx_app/intelligence/wordpress_advisories.py src/penx_app/intelligence/shodan_enrichment.py src/penx_app/intelligence/cve_priority.py src/penx_app/scanners/process_runner.py
+      - name: Type check critical Windows installer modules
+        if: runner.os == 'Linux'
+        run: |
+          python -m pip install --disable-pip-version-check "mypy>=1.15,<2"
+          python -m mypy --follow-imports=skip --ignore-missing-imports --no-incremental src/penx_app/setup/windows_python_setup.py src/penx_app/setup/native_scanner_setup.py src/penx_app/scanners/native_web_scanners.py src/penx_app/domain src/penx_app/application/assessment_service.py src/penx_app/settings.py src/penx_app/storage/session_repository.py src/penx_app/application/scan_outcome.py src/penx_app/application/scanner_execution.py src/penx_app/reporting/report_batch.py src/penx_app/scanners/scan_results.py src/penx_app/analysis/llm_client.py src/penx_app/analysis/scan_input_budget.py src/penx_app/application/scan_recovery.py src/penx_app/storage/schema_migrations.py src/penx_app/storage/correction_repository.py src/penx_app/reporting/export.py src/penx_app/reporting/report_design.py src/penx_app/intelligence/search.py src/penx_app/storage/db_backend.py src/penx_app/storage/evaluation_repository.py src/penx_app/cli/scanner_menu.py src/penx_app/cli/db_display.py src/penx_app/intelligence/source_verification.py src/penx_app/application/scan_trends.py src/penx_app/application/risk_assessment.py src/penx_app/analysis/structured_scan_evidence.py src/penx_app/analysis/analysis_pipeline.py
+      - name: All offline regression tests
+        run: python offline_tests.py
+      - name: Measure synthetic refactor baseline
+        run: >
+          python scripts/refactor_benchmarks.py --runs 3
+          --check-thresholds scripts/benchmark_thresholds.json
+          --output refactor-benchmark.json
+      - name: Upload synthetic baseline
+        if: github.ref == 'refs/heads/main' || github.event_name == 'pull_request'
+        uses: actions/upload-artifact@v7
+        with:
+          name: refactor-baseline-${{ matrix.os }}
+          path: refactor-benchmark.json
+          if-no-files-found: error
+          retention-days: 7
+      - name: Generate CVE fixture quality report
+        run: python cve_quality.py --json > cve-quality-report.json
+      - name: Upload CVE quality report
+        if: github.ref == 'refs/heads/main' || github.event_name == 'pull_request'
+        uses: actions/upload-artifact@v7
+        with:
+          name: cve-quality-${{ matrix.os }}
+          path: cve-quality-report.json
+          if-no-files-found: error
+          retention-days: 3
+
+  # Building PyInstaller and the Inno Setup installer used to run in the
+  # Windows regression-test matrix job, delaying the Windows test check.
+  # Run independent packaging verification in parallel instead. Keep the
+  # same EXE and installed-mode smoke checks on PRs and main.
+  windows-package-smoke:
+    name: Windows packaged app & installer
+    if: github.ref == 'refs/heads/main' || github.event_name == 'pull_request'
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.13'
+          cache: pip
+          cache-dependency-path: |
+            requirements.lock.txt
+            requirements-build.txt
+      - name: Install hash-locked runtime dependencies
+        run: |
+          python -m pip install --disable-pip-version-check --prefer-binary --require-hashes -r requirements.lock.txt
+          python -m pip check
+      - name: Windows portable EXE import smoke test
+        shell: pwsh
+        run: |
+          python -m pip install --disable-pip-version-check --prefer-binary -r requirements-build.txt
+          python scripts/build_windows.py
+          if ($LASTEXITCODE -ne 0) { throw "PyInstaller failed" }
+          & .\dist\PenX\PenX.exe --version
+          if ($LASTEXITCODE -ne 0) { throw "Packaged EXE import/version smoke failed" }
+          & .\dist\PenX\PenX.exe --setup-status
+          if ($LASTEXITCODE -ne 0) { throw "Packaged EXE setup-status smoke failed" }
+      - name: Windows installer build and installed EXE smoke test (PR)
+        if: github.event_name == 'pull_request'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $compiler = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $compiler)) {
+            choco install innosetup --yes --no-progress --limit-output
+            if ($LASTEXITCODE -ne 0) { throw "Inno Setup installation failed" }
+          }
+          if (-not (Test-Path $compiler)) { throw "Inno Setup compiler not found" }
+          $env:PYTHONPATH = 'src'
+          $version = python -c "from penx_app.version import VERSION; print(VERSION)"
+          if ($LASTEXITCODE -ne 0) { throw "Version lookup failed" }
+          & $compiler "/DMyAppVersion=$version" "installer/penx.iss"
+          if ($LASTEXITCODE -ne 0) { throw "Installer build failed" }
+          $installer = (Resolve-Path "dist/PenX-Setup-x64.exe").Path
+          $smoke = Join-Path $env:RUNNER_TEMP "PenX-PR-Installer-Smoke"
+          $install = Start-Process -FilePath $installer -ArgumentList @("/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/DIR=$smoke") -PassThru -Wait
+          if ($install.ExitCode -ne 0) { throw "Installer smoke failed: $($install.ExitCode)" }
+          if (-not (Test-Path (Join-Path $smoke ".penx-installed"))) { throw "Installed-mode marker missing" }
+          & (Join-Path $smoke "PenX.exe") --version
+          if ($LASTEXITCODE -ne 0) { throw "Installed EXE version smoke failed" }
+          & (Join-Path $smoke "PenX.exe") --setup-status
+          if ($LASTEXITCODE -ne 0) { throw "Installed EXE setup-status smoke failed" }

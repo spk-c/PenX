@@ -1,0 +1,79 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended"
+  ],
+  "timezone": "Europe/Berlin",
+  "dependencyDashboard": true,
+  "enabledManagers": [
+    "github-actions",
+    "pip_requirements"
+  ],
+  "prConcurrentLimit": 4,
+  "prHourlyLimit": 2,
+  "separateMinorPatch": true,
+  "minimumReleaseAge": "3 days",
+  "platformAutomerge": false,
+  "ignoreTests": false,
+  "automerge": false,
+  "packageRules": [
+    {
+      "description": "Only auto-merge patch updates after successful checks and a seven-day release age",
+      "matchManagers": [
+        "github-actions",
+        "pip_requirements"
+      ],
+      "matchUpdateTypes": [
+        "patch"
+      ],
+      "automerge": true,
+      "automergeType": "pr",
+      "minimumReleaseAge": "7 days"
+    },
+    {
+      "description": "Keep Python 3.10 runtime dependencies within compatible ranges until the minimum Python version is raised",
+      "matchManagers": [
+        "pip_requirements"
+      ],
+      "matchPackageNames": [
+        "dnspython"
+      ],
+      "allowedVersions": "<2.9",
+      "automerge": false
+    },
+    {
+      "description": "Soup Sieve 3 requires Python 3.11.5 and is incompatible with the current 3.10 matrix",
+      "matchManagers": [
+        "pip_requirements"
+      ],
+      "matchPackageNames": [
+        "soupsieve"
+      ],
+      "allowedVersions": "<3",
+      "automerge": false
+    },
+    {
+      "description": "Prevent rpds-py releases requiring Python >=3.11 from breaking Python 3.10 installs",
+      "matchManagers": [
+        "pip_requirements"
+      ],
+      "matchPackageNames": [
+        "rpds-py"
+      ],
+      "allowedVersions": "<2026",
+      "automerge": false
+    },
+    {
+      "description": "Minor and major updates require manual review",
+      "matchUpdateTypes": [
+        "minor",
+        "major"
+      ],
+      "automerge": false
+    }
+  ],
+  "dependencyDashboardAutoclose": true,
+  "ignoreDeps": [
+    "python"
+  ]
+}

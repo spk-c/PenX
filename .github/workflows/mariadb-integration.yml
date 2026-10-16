@@ -1,0 +1,75 @@
+name: MariaDB integration
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/penx_app/storage/**'
+      - 'src/penx_app/domain/**'
+      - 'src/db.py'
+      - 'src/db_backend.py'
+      - 'src/db_evals.py'
+      - 'src/db_training.py'
+      - 'migrations/**'
+      - 'tests/mariadb_integration.py'
+      - '.github/workflows/mariadb-integration.yml'
+  pull_request:
+    paths:
+      - 'src/penx_app/storage/**'
+      - 'src/penx_app/domain/**'
+      - 'src/db.py'
+      - 'src/db_backend.py'
+      - 'src/db_evals.py'
+      - 'src/db_training.py'
+      - 'migrations/**'
+      - 'tests/mariadb_integration.py'
+      - '.github/workflows/mariadb-integration.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mariadb-${{ github.event.pull_request.head.repo.full_name || github.repository }}-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      mariadb:
+        image: mariadb:13.0
+        env:
+          MARIADB_ROOT_PASSWORD: integration-root-only
+          MARIADB_DATABASE: penx_ci_test
+          MARIADB_USER: penx_ci
+          MARIADB_PASSWORD: integration-only
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=15
+    env:
+      PYTHONPATH: src
+      PENX_MARIADB_TEST: '1'
+      PENX_DB_ENGINE: mariadb
+      PENX_DB_HOST: 127.0.0.1
+      PENX_DB_USER: penx_ci
+      PENX_DB_PASS: integration-only
+      PENX_DB_NAME: penx_ci_test
+      PYTHONUTF8: '1'
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.13'
+          cache: 'pip'
+          cache-dependency-path: requirements.txt
+      - name: Install runtime and optional MariaDB connector
+        run: |
+          python -m pip install --disable-pip-version-check --prefer-binary -r requirements.txt
+          python -m pip install --disable-pip-version-check --prefer-binary "mysql-connector-python>=9,<10"
+      - name: Exercise real MariaDB migrations and CRUD
+        run: python tests/mariadb_integration.py
