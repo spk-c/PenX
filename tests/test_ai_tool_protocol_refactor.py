@@ -87,6 +87,25 @@ class ToolProtocolRefactorTests(unittest.TestCase):
                 )
                 self.assertEqual(collected, [])
 
+    def test_model_generated_directives_are_bounded_per_round(self):
+        limit = ai_tool_protocol.MAX_DIRECTIVES_PER_ROUND
+        response = " ".join("[SEARCH: fixture-%d]" % i for i in range(limit + 40))
+        calls = ai_tool_protocol.parse_directives(response)
+        self.assertEqual(len(calls), limit)
+        self.assertEqual(calls[0], ("SEARCH", "fixture-0"))
+        self.assertEqual(calls[-1], ("SEARCH", "fixture-%d" % (limit - 1)))
+
+    def test_direct_dispatch_is_bounded_even_without_parser(self):
+        limit = ai_tool_protocol.MAX_DIRECTIVES_PER_ROUND
+        calls = [("SEARCH", "fixture-%d" % i) for i in range(limit + 40)]
+        search = Mock(return_value="fixture")
+        result = ai_tool_protocol.dispatch_directives(
+            calls, scanner_runner=Mock(),
+            search_runner=search, summarizer=lambda text: text)
+        self.assertEqual(search.call_count, limit)
+        self.assertIn("Skipped 40 model tool/search requests", result)
+        self.assertNotIn("SEARCH RESULT: fixture-%d" % limit, result)
+
     def test_public_llm_patch_points_still_work(self):
         with patch("llm.run_tool_by_command", return_value="fixture") as scanner, \
              patch("llm.summarize_tool_output", side_effect=lambda x: x):
