@@ -6,7 +6,7 @@ PenX is intended for authorized reconnaissance, defensive security research, and
 
 ## Reporting a vulnerability
 
-Please **do not disclose a new sensitive vulnerability or working exploit against PenX in a public issue**. If GitHub's **Report a vulnerability** / private vulnerability reporting feature is enabled for this repository, use it. Otherwise, open a public issue with **no sensitive technical details** requesting a private reporting channel.
+Please **do not disclose a new sensitive vulnerability or working exploit against PenX in a public issue**. Contact a maintainer privately to disclose sensitive details. If you need to request a secure channel, open a GitLab issue **without any exploit details, credentials or sensitive evidence**.
 
 When a private contact channel is available, include a clear impact summary, affected component, reproducible steps, and relevant version information. Remove tokens, hosts you do not control, credentials, and personal data from examples.
 

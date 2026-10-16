@@ -65,7 +65,7 @@ update first. Portable installs display the release link instead and are
 not overwritten by the installed-edition updater.
 
 The installer is not Authenticode-signed. Windows SmartScreen may warn about
-an unfamiliar publisher; only download from the official GitHub repository
+an unfamiliar publisher; only download from verified official PenX release assets
 and inspect the release's SHA256SUMS.txt. Hash verification detects download
 corruption but is **not** a substitute for code signing.
 
@@ -92,7 +92,7 @@ For a retry, run **`install-scanners.bat`**; it installs the same set of tools, 
 
 ### First launch of a downloaded Windows release (portable EXE)
 
-Download `PenX-Windows-x64.zip` from [GitHub Releases](https://github.com/SLP-DEV1/PenX/releases), extract the **entire PenX directory** into a writable location, then start `PenX.exe`.
+Once a verified binary is published on [GitLab Releases](https://gitlab.com/SLP-DEV1/PenX/-/releases), download `PenX-Windows-x64.zip` and extract the **entire PenX directory** into a writable location, then start `PenX.exe`.
 
 On **the first normal EXE launch only**, PenX checks whether Nmap, Npcap, Ruby, WhatWeb, Strawberry Perl, Nikto, Nuclei, httpx, ffuf, Subfinder and Katana appear to be installed. If any are missing, it **asks before downloading or installing** the upstream tools using the same Windows installer as the source install. Internet access, `winget` and Windows administrator/UAC approval may be needed; the Nmap/Npcap installer remains interactive. Missing scanners do not prevent PenX from opening. Declining the offer is remembered so users aren't prompted on every launch.
 
@@ -273,7 +273,7 @@ PyInstaller is not a Windows cross-compiler. A Linux build does not create a val
 
 ### Automated Windows release builds
 
-The [Windows Release workflow](.github/workflows/release.yml) triggers on pushed tags matching `v*`. It installs build dependencies, runs offline tests on a Windows runner, builds and smoke-tests `PenX.exe` (including the noninteractive scanner setup status command), packages the entire `dist/PenX` folder and publishes a ZIP plus SHA-256 checksum to GitHub Releases. The ZIP includes the consent-based first-run setup code, **not** the external scanner binaries. Manual runs provide a downloadable workflow artifact only.
+The legacy GitHub Actions [Windows Release workflow](.github/workflows/release.yml) triggers on pushed tags matching `v*`. It installs build dependencies, runs offline tests on a Windows runner, builds and smoke-tests `PenX.exe` (including the noninteractive scanner setup status command), packages the entire `dist/PenX` folder and publishes a ZIP plus SHA-256 checksum to the previous GitHub release channel. This workflow **does not execute on GitLab**; Windows release publishing still needs migration. The ZIP includes the consent-based first-run setup code, **not** the external scanner binaries. Manual runs provide a downloadable workflow artifact only.
 
 The compiled folder does **not** include Nmap/Npcap, WhatWeb/Ruby, Nikto/Perl or local model files. These dependencies need separate installation on the end user's Windows machine.
 
@@ -290,7 +290,7 @@ If Nmap setup fails, retry from the [official Nmap download page](https://nmap.o
 
 ## 7. Test coverage and known limitations
 
-The automated offline test suite runs on Windows and Ubuntu through GitHub Actions. It **does not** install Windows kernel drivers or verify live scans against external systems. The success of `winget`, Npcap/UAC dialogs, Ruby/Perl dependencies, antivirus rules, and a Windows PyInstaller build can vary by machine. Verify these components locally before relying on the tool for an assessment.
+GitLab CI runs the offline regression suite on Linux. Legacy GitHub Actions also defined Windows and Ubuntu tests, but those workflows do not run on GitLab. It **does not** install Windows kernel drivers or verify live scans against external systems. The success of `winget`, Npcap/UAC dialogs, Ruby/Perl dependencies, antivirus rules, and a Windows PyInstaller build can vary by machine. Verify these components locally before relying on the tool for an assessment.
 
 PenX is an MIT-licensed derivative of [METATRON](https://github.com/sooryathejas/METATRON); see [LICENSE](LICENSE). Third-party scanners retain their upstream licenses. **Only scan systems or networks you own or are explicitly authorized to assess.**
 
