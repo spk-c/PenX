@@ -136,6 +136,16 @@ def resolve_model_name(model_name: str, models_url: str, api_key: str = "", *,
     return models[0]
 
 
+def _plain_text_parts(content: list, *, separator: str = "") -> str:
+    """Use explicit final text parts only, never typed reasoning/tool blocks."""
+    return separator.join(
+        item["text"] for item in content
+        if isinstance(item, dict)
+        and item.get("type") in (None, "text", "output_text")
+        and isinstance(item.get("text"), str)
+    )
+
+
 def extract_chat_text(data: dict) -> str:
     """Read only final assistant content; never promote internal reasoning.
 
@@ -156,10 +166,7 @@ def extract_chat_text(data: dict) -> str:
     if isinstance(content, str):
         return content.strip()
     if isinstance(content, list):
-        return "\n".join(
-            item.get("text", "") for item in content
-            if isinstance(item, dict) and isinstance(item.get("text"), str)
-        ).strip()
+        return _plain_text_parts(content, separator="\n").strip()
     return ""
 
 
@@ -330,8 +337,9 @@ def complete_chat(messages: list, *, url: str, models_url: str, model_name: str,
                     if content is None:
                         content = delta.get("text")
                     if isinstance(content, list):
-                        content = "".join(x.get("text", "") for x in content
-                                          if isinstance(x, dict))
+                        # Do not forward provider-typed reasoning/tool blocks to
+                        # the streaming callback or completed assessment.
+                        content = _plain_text_parts(content)
                     if isinstance(content, str) and content:
                         parts.append(content)
                         stream_callback(content)
