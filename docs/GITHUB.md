@@ -41,3 +41,12 @@ The ruleset requires pull requests and the current Linux/Windows test checks bef
 To publish the first official Windows release **after the latest main checks pass**, run the same script with `-PublishRelease`. It validates the current `main` workflow results, checks that the tag matches the version in `src/penx_app/version.py`, then creates only the appropriate Git tag. The tag triggers `.github/workflows/release.yml`, which builds and publishes the release **only on successful tests and packaging**. Do not manually upload unverified binaries or create a release with just GitHub's source code archive.
 
 Issue triage retries one old issue per day and continues to respond to newly opened issues and manual owner re-reviews. Groq AI reviews require the separately configured `PENX_TRIAGE_GROQ_API_KEY` secret; without it, triage remains conservative.
+
+## v0.4.7 release preparation
+
+The currently published Windows installer and portable ZIP are v0.4.6.
+After all current `main` commit checks pass, the repository owner can run
+`powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\configure_github.ps1 -PublishRelease`
+from an up-to-date local checkout. It creates the matching v0.4.7 tag,
+which triggers the existing Windows build and checksum publication workflow.
+A tagged release does not certify unsigned manual field acceptance.
