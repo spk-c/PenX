@@ -78,7 +78,11 @@ class MultiFindingTriageTests(unittest.TestCase):
         migration_source = (ROOT / "src/penx_app/storage/schema_migrations.py").read_text(encoding="utf-8")
         self.assertIn("('vulnerabilities', 'confidence'", migration_source)
         self.assertIn("finish_reason", excerpt)
-        self.assertIn("value = value.split(\':\')[0]", excerpt)
+        # The historical silent-port-stripping bug has been corrected in
+        # scanner_targets. Validate current source rather than requiring the
+        # old vulnerable implementation to remain present.
+        self.assertIn("FILE src/penx_app/scanners/scanner_targets.py:", excerpt)
+        self.assertIn("port = parsed.port", excerpt)
         self.assertLessEqual(len(excerpt), it.MAX_FILE_CHARS)
         for filename, indexed in lines.items():
             for number, value in indexed.items():

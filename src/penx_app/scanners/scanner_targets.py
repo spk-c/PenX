@@ -21,6 +21,15 @@ def normalize_host(target: str, *, max_addresses: int = MAX_CIDR_ADDRESSES) -> s
         parsed = urlsplit(value)
         if parsed.scheme not in ('http', 'https') or not parsed.hostname:
             raise ValueError('Only http:// or https:// URLs are accepted.')
+        # Never reinterpret credentials or a malformed port as a scan target.
+        if parsed.username is not None or parsed.password is not None or parsed.fragment:
+            raise ValueError('Userinfo and URL fragments are unsupported.')
+        try:
+            url_port = parsed.port
+        except ValueError as exc:
+            raise ValueError('Invalid URL port.') from exc
+        if url_port == 0 or parsed.netloc.endswith(':'):
+            raise ValueError('Invalid URL port.')
         value = parsed.hostname
     else:
         # Distinguish network syntax from a domain URL path. Invalid IP/CIDR
@@ -42,10 +51,31 @@ def normalize_host(target: str, *, max_addresses: int = MAX_CIDR_ADDRESSES) -> s
                     )
                 return str(network)
         # Handle host:port, preserving bracketed IPv6.
-        if value.startswith('['):
-            value = value.split(']')[0][1:]
-        elif value.count(':') == 1:
-            value = value.split(':')[0]
+        if value.startswith('[') or value.count(':') == 1:
+            # Validate the *whole* authority. Previously the suffix of
+            # '[::1]junk' and the invalid port in 'host:garbage' were silently
+            # discarded, potentially scanning a different target.
+            try:
+                parsed = urlsplit('//' + value)
+                port = parsed.port
+                host = parsed.hostname
+            except ValueError as exc:
+                raise ValueError('Invalid host or port.') from exc
+            if (not host or parsed.netloc != value or parsed.path or parsed.query
+                    or parsed.fragment or parsed.username is not None
+                    or parsed.password is not None
+                    or parsed.netloc.endswith(':') or port == 0):
+                raise ValueError('Invalid host or port.')
+            if value.startswith('['):
+                if not value.casefold().startswith('[' + host.casefold() + ']'):
+                    raise ValueError('Invalid bracketed IPv6 address.')
+                try:
+                    ipaddress.IPv6Address(host)
+                except ValueError as exc:
+                    raise ValueError('Invalid bracketed IPv6 address.') from exc
+            elif port is None:
+                raise ValueError('Invalid host port.')
+            value = host
     if '/' in value:
         raise ValueError('Invalid CIDR or URL path.')
     try:
