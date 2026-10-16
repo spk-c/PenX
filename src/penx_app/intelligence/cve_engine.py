@@ -7,6 +7,7 @@ research candidates, never proof of target exploitability.
 from __future__ import annotations
 
 from functools import lru_cache
+from collections.abc import Callable
 from penx_app.intelligence.nvd_disk_cache import load as load_nvd_cache, store as store_nvd_cache
 import json
 import time
@@ -156,8 +157,11 @@ def applicability(cve: dict, product: Product) -> str:
         return "version-or-configuration-uncertain"
     return "conditional-platform-match" if complex_expression else "version-or-configuration-uncertain"
 
-def _get(url: str, *, params: dict, headers: dict, timeout: int = 9) -> dict | list:
-    response = requests.get(url, params=params, headers=headers,
+def _get(url: str, *, params: dict, headers: dict, timeout: int = 9,
+         http_get: Callable | None = None) -> dict | list:
+    """Bounded catalogue HTTP GET with optional call-local transport."""
+    client = requests.get if http_get is None else http_get
+    response = client(url, params=params, headers=headers,
                             timeout=(3, timeout), allow_redirects=False)
     if response.status_code == 429:
         # One bounded retry for upstream throttling.
@@ -166,12 +170,13 @@ def _get(url: str, *, params: dict, headers: dict, timeout: int = 9) -> dict | l
             time.sleep(min(max(float(retry_after), 0), 1))
         except ValueError:
             time.sleep(1)
-        response = requests.get(url, params=params, headers=headers,
+        response = client(url, params=params, headers=headers,
                                 timeout=(3, timeout), allow_redirects=False)
     response.raise_for_status()
     return response.json()
 
-def _fetch_nvd(cpe: str, api_key: str) -> tuple[dict, ...]:
+def _fetch_nvd(cpe: str, api_key: str, *,
+               http_get: Callable | None = None) -> tuple[dict, ...]:
     """Get NVD catalogue data; called only when a valid cache is unavailable."""
     headers = dict(USER_AGENT)
     if api_key:
@@ -179,7 +184,8 @@ def _fetch_nvd(cpe: str, api_key: str) -> tuple[dict, ...]:
     results: list[dict] = []
     for page in range(MAX_PAGES):
         data = _get(NVD, params={"cpeName": cpe, "resultsPerPage": PAGE_SIZE,
-                                 "startIndex": page * PAGE_SIZE}, headers=headers)
+                                 "startIndex": page * PAGE_SIZE}, headers=headers,
+                    http_get=http_get)
         if not isinstance(data, dict):
             raise ValueError("Invalid NVD response shape")
         items = data.get("vulnerabilities", [])
@@ -232,9 +238,12 @@ def _vendor_refs(cve: dict) -> list[str]:
     return links[:2]
 
 def nvd_candidates(product: Product, *, api_key: str = "",
-                   limit: int = MAX_RESULTS) -> tuple[list[dict], str]:
+                   limit: int = MAX_RESULTS,
+                   http_get: Callable | None = None) -> tuple[list[dict], str]:
     try:
-        results = _cached_nvd(product.cpe, api_key)
+        # Injected clients bypass production memory and disk caches.
+        results = (_cached_nvd(product.cpe, api_key) if http_get is None
+                   else _fetch_nvd(product.cpe, api_key, http_get=http_get))
     except (requests.RequestException, ValueError, KeyError, TypeError):
         return [], "NVD unavailable for " + product.cpe
     candidates = []
@@ -262,15 +271,17 @@ def nvd_candidates(product: Product, *, api_key: str = "",
             break
     return candidates, ("NVD returned malformed candidate records" if malformed else "")
 
-def osv_candidates(package: Package, *, limit: int = MAX_RESULTS) -> tuple[list[dict], str]:
+def osv_candidates(package: Package, *, limit: int = MAX_RESULTS,
+                   http_post: Callable | None = None) -> tuple[list[dict], str]:
     results = []
+    post = requests.post if http_post is None else http_post
     token = ""
     try:
         for _ in range(MAX_PAGES):
             payload = {"package": {"purl": package.purl}}
             if token:
                 payload["page_token"] = token
-            response = requests.post(OSV, json=payload, headers=USER_AGENT,
+            response = post(OSV, json=payload, headers=USER_AGENT,
                                      timeout=(3, 9), allow_redirects=False)
             response.raise_for_status()
             obj = response.json()
@@ -299,7 +310,8 @@ def osv_candidates(package: Package, *, limit: int = MAX_RESULTS) -> tuple[list[
     return results, ""
 
 def github_candidates(package: Package, *, token: str = "",
-                      limit: int = MAX_RESULTS) -> tuple[list[dict], str]:
+                      limit: int = MAX_RESULTS,
+                      http_get: Callable | None = None) -> tuple[list[dict], str]:
     ecosystem = github_ecosystem(package.purl)
     if not ecosystem:
         return [], ""
@@ -311,7 +323,7 @@ def github_candidates(package: Package, *, token: str = "",
         items = _get(GH, params={"ecosystem": ecosystem,
                                  "affects": f"{package.name}@{package.version}",
                                  "type": "reviewed", "per_page": limit},
-                     headers=headers)
+                     headers=headers, http_get=http_get)
         if not isinstance(items, list):
             return [], "Unexpected GitHub advisory response."
         result = []
@@ -338,7 +350,12 @@ def discover(raw_scan: str, *, enabled: bool = True,
              max_services: int = 3, max_packages: int = 4,
              max_results: int = MAX_RESULTS, priority: bool = True,
              distro_hint: str = "", inventory_file: str = "",
-             debian_tracker_file: str = "") -> dict:
+             debian_tracker_file: str = "",
+             nvd_lookup: Callable | None = None,
+             osv_lookup: Callable | None = None,
+             github_lookup: Callable | None = None,
+             priority_lookup: Callable | None = None,
+             vendor_lookup: Callable | None = None) -> dict:
     """Run limited, version-specific catalogue searches; never scan a host."""
     if not enabled:
         return {"observations": [], "candidates": [], "warnings": []}
@@ -369,26 +386,32 @@ def discover(raw_scan: str, *, enabled: bool = True,
             if key not in seen and len(candidates) < max_results:
                 seen.add(key)
                 candidates.append(result)
+    # Scoped research ports preserve legacy defaults for production callers.
+    nvd_client = nvd_candidates if nvd_lookup is None else nvd_lookup
+    osv_client = osv_candidates if osv_lookup is None else osv_lookup
+    github_client = github_candidates if github_lookup is None else github_lookup
+    priority_client = enrich_priority if priority_lookup is None else priority_lookup
+    vendor_client = vendor_guidance if vendor_lookup is None else vendor_lookup
     for prod in products:
-        hits, warn = nvd_candidates(prod, api_key=nvd_api_key, limit=max_results)
+        hits, warn = nvd_client(prod, api_key=nvd_api_key, limit=max_results)
         absorb(hits)
         if warn:
             warnings.append(warn)
     for pkg in packages:
-        hits, warn = osv_candidates(pkg, limit=max_results)
+        hits, warn = osv_client(pkg, limit=max_results)
         absorb(hits)
         if warn:
             warnings.append(warn)
-        hits, warn = github_candidates(pkg, token=github_token, limit=max_results)
+        hits, warn = github_client(pkg, token=github_token, limit=max_results)
         absorb(hits)
         if warn:
             warnings.append(warn)
     if candidates and priority:
-        candidates, issues = enrich_priority(candidates)
+        candidates, issues = priority_client(candidates)
         warnings.extend(issues)
     if (distro_hint or inventory) and candidates:
         for candidate in candidates[:12]:
-            candidate["vendor_status"] = vendor_guidance(
+            candidate["vendor_status"] = vendor_client(
                 candidate, distro_hint=distro_hint, inventory=inventory,
                 debian_tracker_file=debian_tracker_file)
     return {"observations": observations, "candidates": candidates, "warnings": warnings}

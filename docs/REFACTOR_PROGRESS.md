@@ -579,6 +579,18 @@ of these source paths from either quality gate. This improves typed
 coverage at the interactive scan boundary without claiming full tree
 mypy cleanliness or end-to-end physical Windows sign-off.
 
+### CVE research provider boundary (Pk08, 16 October 2026)
+
+The NVD, OSV and GitHub Advisory catalogue adapters support independently
+injectable per-call HTTP clients. An injected NVD client never reads or writes
+the production in-memory or persistent catalogue cache. The `discover`
+orchestrator can independently receive injected catalogue, priority and
+vendor functions, without changing production defaults, scanner scope,
+consent or source status semantics. Offline tests enforce fixed URLs,
+no redirects, bounded timeouts, source-unavailable warnings, no secret
+leakage and disabled-mode no-op behavior. This improves Pk08 isolation,
+but real external-provider lifecycle and platform acceptance remain open.
+
 ### Python network adapter cancellation boundaries (Pk04/Pk05, 16 October 2026)
 
 WHOIS, Python HTTP-header, DNS and TLS wrappers now accept an optional
