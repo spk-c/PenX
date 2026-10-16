@@ -97,11 +97,14 @@ class CatalogueFailClosedTests(unittest.TestCase):
                         self.assertIsNone(function(
                             get=lambda *args, **kwargs: response))
                     else:
-                        value = function(
-                            url, *("synthetic" if False else []),
-                            **({"raw_scan": "synthetic"} if function == sources.verify_nvd_applicability else {}),
-                            get=lambda *args, **kwargs: response)
-                        self.assertIn(value, {"unavailable"})
+                        if function == sources.verify_nvd_applicability:
+                            value = function(
+                                url, "synthetic",
+                                get=lambda *args, **kwargs: response)
+                        else:
+                            value = function(
+                                url, get=lambda *args, **kwargs: response)
+                        self.assertEqual(value, "unavailable")
                 response.close.assert_called_once()
 
 
