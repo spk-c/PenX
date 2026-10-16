@@ -4,6 +4,7 @@ from __future__ import annotations
 import os
 import unittest
 from unittest.mock import patch
+from urllib.parse import urlsplit
 
 from penx_app.scanners import passive_recon as passive
 
@@ -11,7 +12,7 @@ from penx_app.scanners import passive_recon as passive
 class PassiveCensysShapeTests(unittest.TestCase):
     def invoke(self, payload):
         def catalog(url, **_kwargs):
-            if "search.censys.io" in url:
+            if urlsplit(url).hostname == "search.censys.io":
                 return payload
             return {"name": "Synthetic RDAP fixture"}
 
