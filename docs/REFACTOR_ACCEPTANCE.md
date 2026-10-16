@@ -77,3 +77,12 @@ consume it. A cancelled interactive selection does not proceed to assessment
 creation, even if some earlier adapters completed. This is tested with
 synthetic adapters and a simulated SIGINT. It is **not** independent
 Windows/real-scanner confirmation; Pk04 and Pk05 remain NOT SIGNED OFF.
+
+## Incremental Ruff/mypy coverage extension (Pk12)
+
+The pure scanner-selection policy, CLI cancellation token boundary,
+Esc/Back navigation reader and scanner registry have dedicated F401 and
+mypy CI coverage, guarded by offline regression tests. Remaining Pk12
+criteria still require complete maintained-tree coverage, a reviewed
+Windows build toolchain lock and independent field benchmarks; this is
+**not** a final sign-off.

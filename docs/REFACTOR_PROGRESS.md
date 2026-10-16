@@ -568,3 +568,13 @@ and consent refusal.
 authorized Windows targets, Npcap/UAC/installed-console behavior, and
 adapters using bounded blocking Python HTTP/DNS/WHOIS/TLS requests rather
 than native subprocess cancellation. This PR does not sign off Pk04/Pk05.
+
+### CLI/selection quality-gate extension (16 October 2026)
+
+The Linux CI Ruff F401 and mypy checks now include four more maintained,
+testable modules: `application/scanner_selection.py`,
+`cli/scanner_cancellation.py`, `cli/cli_navigation.py` and
+`scanners/registry.py`. A regression test prevents accidental removal
+of these source paths from either quality gate. This improves typed
+coverage at the interactive scan boundary without claiming full tree
+mypy cleanliness or end-to-end physical Windows sign-off.
