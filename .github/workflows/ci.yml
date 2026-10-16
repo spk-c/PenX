@@ -6,10 +6,9 @@ on:
     paths-ignore:
       - '**/*.md'
       - 'assets/**'
+  # Always test pull requests, including documentation-only changes, so
+  # required branch-protection checks are never silently skipped.
   pull_request:
-    paths-ignore:
-      - '**/*.md'
-      - 'assets/**'
   workflow_dispatch:
 
 # Automatic feature-branch validation happens on PRs rather than on every

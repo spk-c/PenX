@@ -1,9 +1,10 @@
 name: AI issue triage
 
 on:
-  # Retry one open deferred/unverified issue per run; avoid large API bursts.
+  # Retry one open deferred/unverified issue daily (UTC); new issues
+  # are still reviewed immediately by the issues: opened trigger.
   schedule:
-    - cron: '17,47 * * * *'
+    - cron: '17 6 * * *'
   issues:
     types: [opened]
   # Maintainer-only re-review command on an existing issue.

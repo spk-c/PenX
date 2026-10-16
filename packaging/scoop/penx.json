@@ -1,7 +1,7 @@
 {
   "version": "0.4.4",
   "description": "Windows-first security reconnaissance with local AI and evidence-based reports (authorized targets only)",
-  "homepage": "https://gitlab.com/SLP-DEV1/PenX",
+  "homepage": "https://github.com/spk-c/PenX",
   "license": "MIT",
   "architecture": {
     "64bit": {

@@ -43,7 +43,7 @@
 
 ### Windows source installation (available now)
 
-Clone the maintained GitLab repository and run the consent-based Windows setup:
+Clone the maintained GitHub repository and run the consent-based Windows setup:
 
 ~~~powershell
 git clone https://github.com/spk-c/PenX.git
@@ -56,7 +56,7 @@ Python **3.13 is recommended** (source support: 3.10–3.13). The setup configur
 
 ### Windows installer and portable ZIP (pending GitHub release)
 
-The intended release assets are **`PenX-Setup-x64.exe`** (installer), **`PenX-Windows-x64.zip`** (portable application folder), and **`SHA256SUMS.txt`** (integrity check). Verify they are actually attached to a published, tested [GitHub Release](https://github.com/spk-c/PenX/releases) before using the binary installation instructions in [WINDOWS.md](WINDOWS.md). **No Windows release binaries are currently published on GitHub.** Do not use GitHub's automatic source archive as an EXE.
+The intended release assets are **`PenX-Setup-x64.exe`** (installer), **`PenX-Windows-x64.zip`** (portable application folder), and **`SHA256SUMS.txt`** (integrity check). Verify they are actually attached to a published, tested [GitHub Release](https://github.com/spk-c/PenX/releases) before using the binary installation instructions in [WINDOWS.md](WINDOWS.md). **No Windows release binaries have been published on this new GitHub repository yet.** Do not use GitHub's automatic source archive as an EXE.
 
 When a portable ZIP becomes available, extract the **entire folder** (including `_internal`) and run `PenX.exe`. Scanner binaries and local AI models are not bundled. The in-app updater now checks **stable, verified GitHub releases**. It only offers a Windows installer when both the official release asset and its checksum exist, and never installs without explicit consent.
 
