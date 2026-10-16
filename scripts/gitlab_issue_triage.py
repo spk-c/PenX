@@ -170,8 +170,16 @@ def main() -> int:
     if not 0 < iid < 2**31:
         raise SystemExit("Invalid GitLab issue IID")
     # Read-only review, optional Groq provider, then one constrained API publish.
-    with gitlab_review_transport(token):
-        report = review_engine.review(PROJECT_PATH, iid, token, Path(__file__).resolve().parents[1])
+    previous_ref = os.environ.get("GITHUB_SHA")
+    os.environ["GITHUB_SHA"] = os.environ.get("CI_COMMIT_SHA") or "master"
+    try:
+        with gitlab_review_transport(token):
+            report = review_engine.review(PROJECT_PATH, iid, token, Path(__file__).resolve().parents[1])
+    finally:
+        if previous_ref is None:
+            os.environ.pop("GITHUB_SHA", None)
+        else:
+            os.environ["GITHUB_SHA"] = previous_ref
     published = publish_issue(token, iid, report)
     print("Triage " + ("published" if published else "already exists") + f" for issue {iid}")
     return 0
