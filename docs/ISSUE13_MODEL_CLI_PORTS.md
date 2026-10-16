@@ -36,9 +36,9 @@ arguments, transport errors and both completion modes.
   adjacent to orchestration; split user-visible notifications and model retry
   policy into separately testable service/CLI ports before marking Pk08/Pk09
   fully resolved.
-- \`intelligence/search.py\` still prints progress messages and offers a
-  direct interactive \`__main__\` CLI. Move feedback to a callback if used in
-  non-terminal application contexts; preserve existing command-line behavior.
+- \`intelligence/search.py\` now supports an optional call-local `emit` port
+  for search progress without terminal I/O; its standalone demo remains a
+  direct interactive \`__main__\` CLI. Production callers retain historical terminal progress by default.
 - \`intelligence/source_verification.py\` has module-level NVD and KEV caches
   on the production path; injected HTTP clients already bypass these caches.
   Audit cache lifetime before changing the production client contract.
