@@ -86,3 +86,13 @@ mypy CI coverage, guarded by offline regression tests. Remaining Pk12
 criteria still require complete maintained-tree coverage, a reviewed
 Windows build toolchain lock and independent field benchmarks; this is
 **not** a final sign-off.
+
+## Pk08 catalogue-client test coverage (16 October 2026)
+
+NVD, OSV and GitHub Advisory calls now accept independent per-call HTTP
+clients, with fixed provider URLs, bounded timeouts and redirects disabled.
+Injected NVD lookups bypass production LRU/disk cache state. The discovery
+orchestrator accepts call-local source, priority and vendor lookups. Offline
+contracts exercise rate limiting, unknown results, failure warnings and
+absence of real network calls. Production-network and model-lifecycle field
+acceptance remain **NOT SIGNED OFF**.
