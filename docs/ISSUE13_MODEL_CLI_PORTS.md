@@ -32,10 +32,11 @@ arguments, transport errors and both completion modes.
 
 ## Remaining exceptions / owner acceptance
 
-- \`analysis/llm.py\` retains terminal progress rendering and retry policy
-  adjacent to orchestration; split user-visible notifications and model retry
-  policy into separately testable service/CLI ports before marking Pk08/Pk09
-  fully resolved.
+- `analysis/llm.py` now accepts optional per-call `complete`, `emit` and
+  `stream_emit` ports; production terminal output remains its default.
+  The bounded reasoning-only retry policy still lives adjacent to orchestration
+  and needs a dedicated pure policy boundary and integration field checks
+  before final Pk08/Pk09 sign-off.
 - \`intelligence/search.py\` now supports an optional call-local `emit` port
   for search progress without terminal I/O; its standalone demo remains a
   direct interactive \`__main__\` CLI. Production callers retain historical terminal progress by default.
