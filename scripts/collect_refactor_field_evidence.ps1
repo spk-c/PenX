@@ -86,6 +86,6 @@ $lines = @(
     "Only change NOT RUN to PASS after doing the test and attaching evidence.",
     "Never include passwords, API keys, cookies, raw customer data or unredacted scans."
 )
-[IO.File]::WriteAllLines($file, $lines, (New-Object System.Text.UTF8Encoding($false)))
+[IO.File]::WriteAllLines($file, $lines, [System.Text.UTF8Encoding]::new($false))
 Write-Host "Evidence template created: $file"
 Write-Host "No installer, scanner, network target or database was executed."
