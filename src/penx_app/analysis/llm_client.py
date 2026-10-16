@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from urllib.parse import urlsplit, urlunsplit
+from collections.abc import Callable
 import json
 import requests
 
@@ -88,18 +89,25 @@ def api_headers(api_key: str = "") -> dict:
     return headers
 
 
-def fetch_models(models_url: str, api_key: str = "", timeout: int = 5) -> list[str]:
-    """List model IDs as exposed by the local OpenAI-compatible /v1/models API."""
-    response = requests.get(models_url, headers=api_headers(api_key), timeout=timeout)
+def fetch_models(models_url: str, api_key: str = "", timeout: int = 5, *,
+                 http_get: Callable | None = None) -> list[str]:
+    """List model IDs using a caller-supplied client, or the normal local API.
+
+    A call-scoped transport lets offline tests exercise error handling without
+    modifying global requests state or making real network calls.
+    """
+    client = requests.get if http_get is None else http_get
+    response = client(models_url, headers=api_headers(api_key), timeout=timeout)
     response.raise_for_status()
-    data = response.json().get("data", [])
-    if not isinstance(data, list):
-        raise ValueError("The model endpoint did not return a 'data' list.")
-    return [item["id"] for item in data
+    payload = response.json()
+    if not isinstance(payload, dict) or not isinstance(payload.get("data"), list):
+        raise ValueError("The model endpoint did not return a valid 'data' list.")
+    return [item["id"] for item in payload["data"]
             if isinstance(item, dict) and isinstance(item.get("id"), str) and item["id"]]
 
 
-def resolve_model_name(model_name: str, models_url: str, api_key: str = "") -> str:
+def resolve_model_name(model_name: str, models_url: str, api_key: str = "", *,
+                       model_list: Callable | None = None) -> str:
     """Resolve 'auto' only for a server advertising exactly one model.
 
     An explicit model ID is never changed or sent through an extra GET request.
@@ -110,7 +118,8 @@ def resolve_model_name(model_name: str, models_url: str, api_key: str = "") -> s
             raise ModelConfigurationError("Set PENX_MODEL to a model ID, or use PENX_MODEL=auto.")
         return selected
 
-    models = fetch_models(models_url, api_key=api_key)
+    lookup = fetch_models if model_list is None else model_list
+    models = lookup(models_url, api_key=api_key)
     if not models:
         raise ModelConfigurationError(
             "No models found at /v1/models. Load a chat-capable model in the LLM server first."
