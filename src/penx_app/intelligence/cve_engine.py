@@ -168,12 +168,12 @@ def _get(url: str, *, params: dict, headers: dict, timeout: int = 9,
         # single bounded retry, including when the delay is malformed.
         try:
             retry_after = response.headers.get("Retry-After", "1")
-            try:
-                time.sleep(min(max(float(retry_after), 0), 1))
-            except ValueError:
-                time.sleep(1)
         finally:
             response.close()
+        try:
+            time.sleep(min(max(float(retry_after), 0), 1))
+        except ValueError:
+            time.sleep(1)
         response = client(url, params=params, headers=headers,
                           timeout=(3, timeout), allow_redirects=False)
     try:
