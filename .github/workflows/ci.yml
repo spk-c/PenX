@@ -140,6 +140,18 @@ jobs:
           & $compiler "/DMyAppVersion=$version" "installer/penx.iss"
           if ($LASTEXITCODE -ne 0) { throw "Installer build failed" }
           $installer = (Resolve-Path "dist/PenX-Setup-x64.exe").Path
+          # Invoke the read-only field-evidence collector on a disposable
+          # Windows runner; it must leave every manual acceptance gate NOT RUN.
+          $fieldDir = Join-Path $env:RUNNER_TEMP "PenX-Field-Collector-Smoke"
+          & powershell -NoProfile -ExecutionPolicy Bypass -File ".\scripts\collect_refactor_field_evidence.ps1" -InstallerPath $installer -OutputDirectory $fieldDir
+          if ($LASTEXITCODE -ne 0) { throw "Field collector Windows smoke failed" }
+          $fieldFile = Join-Path $fieldDir "FIELD_ACCEPTANCE.md"
+          if (-not (Test-Path -LiteralPath $fieldFile)) { throw "No field metadata was created" }
+          $fieldContent = Get-Content -LiteralPath $fieldFile -Raw
+          if (-not $fieldContent.Contains("Status: NOT SIGNED OFF")) { throw "Collector claimed unsigned field tests passed" }
+          if (-not $fieldContent.Contains("Installer SHA256:")) { throw "Collector did not hash the installer" }
+          Remove-Item -LiteralPath $fieldFile -Force
+
           $smoke = Join-Path $env:RUNNER_TEMP "PenX-PR-Installer-Smoke"
           $install = Start-Process -FilePath $installer -ArgumentList @("/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/DIR=$smoke") -PassThru -Wait
           if ($install.ExitCode -ne 0) { throw "Installer smoke failed: $($install.ExitCode)" }

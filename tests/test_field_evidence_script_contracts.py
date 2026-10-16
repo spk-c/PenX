@@ -18,6 +18,14 @@ class FieldEvidenceScriptContracts(unittest.TestCase):
         self.assertNotIn("Invoke-RestMethod", code)
         self.assertNotIn("gh api", code)
         self.assertNotIn("Remove-Item", code)
+        self.assertIn("[System.Text.UTF8Encoding]::new($false)", code)
+
+    def test_ci_executes_collector_against_disposable_installer(self):
+        workflow = (SCRIPT.parents[1] / ".github/workflows/ci.yml").read_text()
+        self.assertIn("collect_refactor_field_evidence.ps1", workflow)
+        self.assertIn("Collector did not hash the installer", workflow)
+        self.assertIn("Status: NOT SIGNED OFF", workflow)
+
 
 
 if __name__ == "__main__":
