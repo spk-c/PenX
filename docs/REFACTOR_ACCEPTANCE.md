@@ -68,3 +68,12 @@ Offline tests in `tests/test_persisted_evidence_revalidation.py` cover this
 check without fetching a target or a third-party API. **Pk03 field sign-off
 still requires actual independent source captures and persisted SQLite/MariaDB
 fixtures; tests of fabricated fixtures alone do not satisfy that criterion.**
+
+## Terminal cancellation review status (16 October 2026)
+
+Terminal Ctrl+C now reaches an opt-in event at the scanner selection boundary;
+the structured dispatcher and eight native subprocess-capable wrappers can
+consume it. A cancelled interactive selection does not proceed to assessment
+creation, even if some earlier adapters completed. This is tested with
+synthetic adapters and a simulated SIGINT. It is **not** independent
+Windows/real-scanner confirmation; Pk04 and Pk05 remain NOT SIGNED OFF.

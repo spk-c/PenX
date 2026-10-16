@@ -542,3 +542,29 @@ rehearsal remains an independent field acceptance gate.
   and TLS adapters use request-level deadlines rather than this token.
   Interactive CLI cancellation and real installed-scanner process-tree tests
   on an authorized Windows target remain independent acceptance requirements.
+
+### Interactive scanner Ctrl+C cancellation follow-up (16 October 2026)
+
+The terminal scanner-selection boundary now installs a temporary SIGINT
+handler while selected native scanners run. First Ctrl+C sets a *fresh*
+caller-owned cancellation event propagated through the existing
+`run_selected_structured` dispatcher to opt-in scanner adapters and the
+bounded process runner. A second Ctrl+C still raises KeyboardInterrupt,
+allowing emergency process-tree cleanup and existing menu interruption
+handling. The handler is restored on return or error, and is never installed
+from a non-main thread.
+
+After cancellation, the scanner-selection CLI returns **no assessment** even
+if an earlier selected adapter produced evidence; no formatter/model step
+can silently treat a cancelled scan as complete. The selected-scan dispatcher
+still retains trustworthy previous evidence in its structured result for
+programmatic callers, and skips queued adapters with PARTIAL status.
+User consent and target-scope validation are not bypassed. Synthetic
+`tests/test_cli_scanner_cancel.py` checks signal lifecycle, a two-tool
+cancelled scan, unchanged successful formatting, non-main-thread fallback,
+and consent refusal.
+
+**Remaining field acceptance:** Genuine Ctrl+C process-tree termination on
+authorized Windows targets, Npcap/UAC/installed-console behavior, and
+adapters using bounded blocking Python HTTP/DNS/WHOIS/TLS requests rather
+than native subprocess cancellation. This PR does not sign off Pk04/Pk05.
