@@ -45,3 +45,25 @@ Issue triage retries one old issue per day and continues to respond to newly ope
 ## v0.4.7 release preparation
 
 The stable [v0.4.7 release](https://github.com/spk-c/PenX/releases/tag/v0.4.7) has completed its tagged Windows build. For **future** versions, the owner can use `scripts/configure_github.ps1 -PublishRelease` after required checks pass. The release workflow publishes matching Windows binaries and checksums; manual Windows/Npcap/database field acceptance remains separate.
+
+## Cleaning up merged work branches
+
+GitHub may retain topic branches after the associated PR has been merged.
+This is **not** a code or security failure. The repository includes a
+conservative GitHub CLI helper, which always previews before deletion:
+
+~~~powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\prune_merged_github_branches.ps1
+~~~
+
+If you have reviewed the candidates and want to delete them:
+
+~~~powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\prune_merged_github_branches.ps1 -Apply
+~~~
+
+Only matching merged-PR `fix/`, `refactor/` or `release/` heads with an
+unchanged commit SHA and **no open PR** qualify. The script never deletes
+`main`, never deletes unrecognized branch prefixes, and rejects any
+branch changed or reopened between preview and deletion. Deletion is
+irreversible through this helper; the merged pull request remains visible.
