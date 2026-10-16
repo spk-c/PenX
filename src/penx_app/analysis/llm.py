@@ -26,6 +26,7 @@ from penx_app.intelligence.wordpress_advisories import research_plugins, format_
 from penx_app.intelligence.exploitdb_references import lookup as exploitdb_lookup, format_report as exploitdb_report
 from penx_app.intelligence.source_verification import CVE_PATTERN
 from penx_app.analysis.llm_client import complete_chat, fetch_models, ModelConfigurationError, EmptyModelResponse, explain_http_error
+from penx_app.analysis.model_retry import prepare_empty_retry
 from penx_app.analysis.prompts import SYSTEM_PROMPT, REVIEW_PROMPT
 
 if TYPE_CHECKING:
@@ -226,24 +227,9 @@ def ask_llm(messages: list, settings: "Settings | None" = None, *,
                 raise
             output(f"\n[!] {first_error}")
             output("[*] Retrying the LLM response once without streaming or thinking output...")
-            # Do not mutate the caller's conversation or send any new scan data.
-            # Qwen3 recognizes /no_think; other servers ignore it as ordinary text.
-            retry_messages = [dict(message) for message in messages]
-            if retry_messages and retry_messages[-1].get("role") == "user":
-                last = retry_messages[-1]
-                if isinstance(last.get("content"), str):
-                    last["content"] += (
-                        "\n\n/no_think\n"
-                        "Respond directly with the requested assessment. "
-                        "Do not spend output tokens on internal reasoning. "
-                        "Keep any [TOOL:] or [SEARCH:] requests scoped to the authorized target."
-                    )
-            # Qwen thinking can consume the whole original 8k completion budget.
-            try:
-                configured_retry_tokens = int(os.getenv("PENX_LLM_RETRY_TOKENS", "16384"))
-            except ValueError:
-                configured_retry_tokens = 16384
-            retry_tokens = max(max_tokens, max(1024, min(configured_retry_tokens, 32768)))
+            retry_messages, retry_tokens = prepare_empty_retry(
+                messages, max_tokens, os.getenv("PENX_LLM_RETRY_TOKENS", "16384"),
+            )
             model_id, response = transport(
                 retry_messages, url=url, models_url=models_url,
                 model_name=model_name, api_key=api_key,

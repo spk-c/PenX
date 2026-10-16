@@ -34,7 +34,7 @@ arguments, transport errors and both completion modes.
 
 - `analysis/llm.py` now accepts optional per-call `complete`, `emit` and
   `stream_emit` ports; production terminal output remains its default.
-  The bounded reasoning-only retry policy still lives adjacent to orchestration
+  The bounded reasoning-only retry policy is now a pure planner in `analysis/model_retry.py`; its caller retains only the allowed/disabled decision and transport.
   and needs a dedicated pure policy boundary and integration field checks
   before final Pk08/Pk09 sign-off.
 - \`intelligence/search.py\` now supports an optional call-local `emit` port
