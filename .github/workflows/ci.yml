@@ -148,3 +148,32 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "Installed EXE version smoke failed" }
           & (Join-Path $smoke "PenX.exe") --setup-status
           if ($LASTEXITCODE -ne 0) { throw "Installed EXE setup-status smoke failed" }
+          # Inno Setup must uninstall cleanly without deleting the per-user
+          # assessment/configuration folder under LOCALAPPDATA.
+          $uninstaller = Join-Path $smoke "unins000.exe"
+          if (-not (Test-Path -LiteralPath $uninstaller)) {
+            throw "Per-user Inno Setup uninstaller was not installed"
+          }
+          $userData = Join-Path $env:LOCALAPPDATA "PenX"
+          New-Item -ItemType Directory -Path $userData -Force | Out-Null
+          $sentinel = Join-Path $userData "ci-uninstall-preserve-$env:GITHUB_RUN_ID.marker"
+          [IO.File]::WriteAllText($sentinel, "Keep assessment data during uninstall")
+          try {
+            $uninstall = Start-Process -FilePath $uninstaller -ArgumentList @(
+              "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART"
+            ) -PassThru -Wait
+            if ($uninstall.ExitCode -ne 0) {
+              throw "Uninstaller failed: $($uninstall.ExitCode)"
+            }
+            if (Test-Path -LiteralPath (Join-Path $smoke "PenX.exe")) {
+              throw "Uninstaller left the installed PenX.exe behind"
+            }
+            if (-not (Test-Path -LiteralPath $sentinel)) {
+              throw "Uninstaller removed the per-user PenX data marker"
+            }
+          }
+          finally {
+            # Remove only our unique CI sentinel; never delete real app data.
+            Remove-Item -LiteralPath $sentinel -Force -ErrorAction SilentlyContinue
+          }
+
