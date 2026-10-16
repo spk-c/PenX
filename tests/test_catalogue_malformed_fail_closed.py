@@ -65,7 +65,8 @@ class CatalogueFailClosedTests(unittest.TestCase):
                     response.close.assert_called_once()
 
     def test_kev_malformed_is_unknown_never_empty_verified_set(self):
-        for payload in ({}, [], {"vulnerabilities": None},
+        for payload in ({}, [], {"vulnerabilities": []},
+                        {"vulnerabilities": None},
                         {"vulnerabilities": "invalid"},
                         {"vulnerabilities": [{"cveID": None}]},
                         {"vulnerabilities": ["invalid record"]}):
