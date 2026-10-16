@@ -22,7 +22,18 @@ function Invoke-GhJson {
     param([Parameter(Mandatory = $true)][string]$Endpoint)
     $output = & gh api $Endpoint
     if ($LASTEXITCODE -ne 0) { throw "GitHub API failed: $Endpoint" }
-    return ConvertFrom-Json -InputObject ($output -join [Environment]::NewLine)
+    $decoded = ConvertFrom-Json -InputObject ($output -join [Environment]::NewLine)
+    # Windows PowerShell 5.1 may emit an entire JSON array as one pipeline
+    # item. Explicitly emit records, otherwise @(...), foreach and property
+    # access treat every branch/PR as a single combined object.
+    if ($decoded -is [System.Array]) {
+        foreach ($record in $decoded) {
+            Write-Output -NoEnumerate $record
+        }
+    }
+    else {
+        Write-Output -NoEnumerate $decoded
+    }
 }
 
 if (-not (Get-Command gh -ErrorAction SilentlyContinue)) {
@@ -41,10 +52,14 @@ $closedPRs = @(Invoke-GhJson "repos/$repo/pulls?state=closed&per_page=100")
 
 $candidates = @()
 foreach ($branch in $branches) {
+    if ($branch -is [System.Array]) {
+        throw "GitHub returned nested branch records; refusing cleanup."
+    }
     $name = [string]$branch.name
     # Deliberately narrow scope: never delete main, dependabot, arbitrary
     # maintainer names or a newly created release tag/branch.
-    if ($name -eq "main" -or $name -notmatch '^(?:fix|refactor|release)/') {
+    # Merged maintenance/ topics are eligible too; protected refs are never touched.
+    if ($name -eq "main" -or $branch.protected -or $name -notmatch '^(?:fix|refactor|release|maintenance)/') {
         continue
     }
     $used = @($openPRs | Where-Object {

@@ -1,5 +1,7 @@
 """Safety contracts for the opt-in GitHub topic-branch cleanup utility."""
 from pathlib import Path
+import subprocess
+import sys
 import unittest
 
 SCRIPT = (Path(__file__).resolve().parents[1] /
@@ -22,7 +24,22 @@ class BranchCleanupContracts(unittest.TestCase):
         self.assertIn("repos/$repo/git/ref/heads/$($candidate.Name)", source)
         self.assertIn("$current.object.sha -ne $candidate.Sha", source)
         self.assertIn("-X DELETE", source)
+        self.assertIn("Write-Output -NoEnumerate $record", source)
+        self.assertIn("fix|refactor|release|maintenance", source)
         self.assertIn('Dry run only; no branches deleted.', source)
+
+
+    @unittest.skipUnless(sys.platform == "win32", "Windows PowerShell 5.1 only")
+    def test_windows_powershell_uses_individual_mocked_gh_json_records(self):
+        fixture = SCRIPT.parents[1] / "tests/powershell/test_prune_merged_branches.ps1"
+        run = subprocess.run(
+            ["powershell.exe", "-NoProfile", "-NonInteractive",
+             "-ExecutionPolicy", "Bypass", "-File", str(fixture)],
+            capture_output=True, text=True, timeout=45, check=False,
+            cwd=SCRIPT.parents[1],
+        )
+        self.assertEqual(run.returncode, 0, run.stdout + "\n" + run.stderr)
+        self.assertIn("PASS: PowerShell 5.1 JSON record enumeration", run.stdout)
 
 
 if __name__ == "__main__":
