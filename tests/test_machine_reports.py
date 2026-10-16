@@ -49,6 +49,22 @@ class MachineReportTests(unittest.TestCase):
         self.assertIn("[IPv4 REDACTED]", as_text)
         self.assertEqual(redacted["findings"][0]["status"], "scanner-quote-matched")
 
+    def test_redaction_applies_to_port_field_in_json_and_sarif(self):
+        # A scanner may return host:port instead of an isolated numeric port.
+        # No target/IP data should survive a redacted machine-readable export.
+        first = self.data["vulns"][0]
+        self.data["vulns"][0] = (
+            *first[:5], "192.0.2.199:443 example.test", *first[6:],
+        )
+        payload = report_payload(self.data, redact=True)
+        port = payload["findings"][0]["port"]
+        self.assertIn("[IPv4 REDACTED]", port)
+        self.assertIn("[TARGET REDACTED]", port)
+        for report in (payload, sarif_payload(self.data, redact=True)):
+            serialized = json.dumps(report)
+            self.assertNotIn("192.0.2.199", serialized)
+            self.assertNotIn("example.test", serialized)
+
     def test_sarif_is_valid_envelope_and_omits_recommendations(self):
         report = sarif_payload(self.data, redact=True)
         self.assertEqual(report["version"], "2.1.0")

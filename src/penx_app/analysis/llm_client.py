@@ -286,6 +286,10 @@ def complete_chat(messages: list, *, url: str, models_url: str, model_name: str,
                 try:
                     decoded = json.loads(value)
                     if not isinstance(decoded, dict):
+                        # A syntactically valid JSON scalar/list is not an
+                        # OpenAI-compatible SSE frame. Do not accept partial
+                        # text merely because a later frame says [DONE].
+                        stream_failed = True
                         continue
                     # Compatible backends may report failure outside choices,
                     # then emit [DONE]. Never turn their partial text into a report.
@@ -299,16 +303,26 @@ def complete_chat(messages: list, *, url: str, models_url: str, model_name: str,
                         details = usage.get("completion_tokens_details") or {}
                         if isinstance(details, dict) and details.get("reasoning_tokens"):
                             reasoning_seen = True
-                    choices = decoded.get("choices") or []
-                    if not isinstance(choices, list) or not choices:
+                    choices = decoded.get("choices")
+                    if choices is None:
+                        continue
+                    if not isinstance(choices, list):
+                        stream_failed = True
+                        continue
+                    if not choices:
+                        # Usage-only streaming frames may have empty choices.
                         continue
                     choice = choices[0]
                     if not isinstance(choice, dict):
+                        stream_failed = True
                         continue
                     if choice.get("finish_reason"):
                         finish_reason = str(choice["finish_reason"])
-                    delta = choice.get("delta") or {}
+                    delta = choice.get("delta")
+                    if delta is None:
+                        delta = {}
                     if not isinstance(delta, dict):
+                        stream_failed = True
                         continue
                     if delta.get("reasoning_content") or delta.get("reasoning"):
                         reasoning_seen = True

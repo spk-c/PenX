@@ -180,6 +180,37 @@ class ModelTransportPortContracts(unittest.TestCase):
             self.invoke(post=Mock(return_value=resp), callback=lambda value: None)
         self.assertTrue(resp.closed)
 
+    def test_sse_invalid_json_structures_never_complete_partial_text(self):
+        invalid_frames = (
+            None,
+            ["invalid frame"],
+            {"choices": "not-a-list"},
+            {"choices": [42]},
+            {"choices": [{"delta": ["not-an-object"]}]},
+        )
+        for frame in invalid_frames:
+            with self.subTest(frame=frame):
+                resp = sse([
+                    {"choices": [{"delta": {"content": "unverified partial"}}]},
+                    frame,
+                ])
+                with self.assertRaises(IncompleteModelResponse):
+                    self.invoke(post=Mock(return_value=resp),
+                                callback=lambda _delta: None)
+                self.assertTrue(resp.closed)
+
+    def test_sse_usage_only_frame_remains_supported(self):
+        resp = sse([
+            {"choices": [{"delta": {"content": "verified response"}}]},
+            {"choices": [], "usage": {"completion_tokens": 2}},
+            {"choices": [{"delta": {}, "finish_reason": "stop"}]},
+        ])
+        self.assertEqual(
+            self.invoke(post=Mock(return_value=resp), callback=lambda _delta: None),
+            ("synthetic-model", "verified response"),
+        )
+        self.assertTrue(resp.closed)
+
     def test_stream_non_sse_json_fallback_uses_injected_client(self):
         resp = StreamResponse(
             [], content_type="application/json",
