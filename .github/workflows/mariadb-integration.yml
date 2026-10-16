@@ -73,3 +73,8 @@ jobs:
           python -m pip install --disable-pip-version-check --prefer-binary "mysql-connector-python>=9,<10"
       - name: Exercise real MariaDB migrations and CRUD
         run: python tests/mariadb_integration.py
+      - name: Backup and restore synthetic MariaDB assessment on isolated CI server
+        shell: bash
+        env:
+          PENX_MARIADB_CONTAINER: ${{ job.services.mariadb.id }}
+        run: bash scripts/ci_mariadb_backup_restore.sh
