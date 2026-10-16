@@ -1,11 +1,14 @@
 stages:
   - test
+  - build
+  - release
 
 offline-tests:
   stage: test
   image: python:3.13-slim
   script:
     - python -m pip install --disable-pip-version-check --prefer-binary --require-hashes -r requirements.lock.txt
+    - python -m pip check
     - python -m compileall -q penx.py src scripts tests
     - python offline_tests.py
     - python scripts/validate_distributions.py
@@ -16,3 +19,39 @@ lint:
   script:
     - python -m pip install 'ruff>=0.13,<1'
     - python -m ruff check --select E9,F63,F7,F82 penx.py src scripts tests
+
+# GitLab.com Windows runner (PowerShell, not Docker). Manually start a smoke
+# build on master/MRs; release tags automatically build the same Windows bundle.
+windows-package:
+  stage: build
+  tags:
+    - saas-windows-medium-amd64
+  rules:
+    - if: '$CI_COMMIT_TAG =~ /^v[0-9]+\.[0-9]+\.[0-9]+$/'
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      when: manual
+      allow_failure: true
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+      when: manual
+      allow_failure: true
+    - when: never
+  script:
+    - '& powershell -NoProfile -ExecutionPolicy Bypass -File scripts/gitlab_windows_release.ps1'
+  artifacts:
+    when: on_success
+    expire_in: 90 days
+    paths:
+      - dist/PenX-Setup-x64.exe
+      - dist/PenX-Windows-x64.zip
+      - dist/SHA256SUMS.txt
+
+publish-gitlab-release:
+  stage: release
+  image: python:3.13-slim
+  rules:
+    - if: '$CI_COMMIT_TAG =~ /^v[0-9]+\.[0-9]+\.[0-9]+$/'
+  needs:
+    - job: windows-package
+      artifacts: true
+  script:
+    - python scripts/gitlab_publish_release.py
