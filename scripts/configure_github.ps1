@@ -1,4 +1,4 @@
-<##>
+<#
 .SYNOPSIS
   Configure the spk-c/PenX GitHub repository and optionally start its first release.
 .DESCRIPTION
@@ -9,7 +9,7 @@
   powershell -ExecutionPolicy Bypass -File scripts/configure_github.ps1
 .EXAMPLE
   powershell -ExecutionPolicy Bypass -File scripts/configure_github.ps1 -PublishRelease
-##>
+#>
 [CmdletBinding()]
 param([switch]$PublishRelease)
 
