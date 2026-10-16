@@ -10,6 +10,7 @@ on:
       - 'requirements.lock.txt'
       - 'pyproject.toml'
       - '.github/workflows/python-compatibility.yml'
+      - 'scripts/configure_github.ps1'
   push:
     branches: [main]
     paths:
@@ -20,6 +21,9 @@ on:
       - 'requirements.lock.txt'
       - 'pyproject.toml'
       - '.github/workflows/python-compatibility.yml'
+      - 'scripts/configure_github.ps1'
+  # Allow an on-demand compatibility run when the release gate requires one.
+  workflow_dispatch:
 
 permissions:
   contents: read
