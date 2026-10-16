@@ -162,18 +162,25 @@ def _get(url: str, *, params: dict, headers: dict, timeout: int = 9,
     """Bounded catalogue HTTP GET with optional call-local transport."""
     client = requests.get if http_get is None else http_get
     response = client(url, params=params, headers=headers,
-                            timeout=(3, timeout), allow_redirects=False)
+                      timeout=(3, timeout), allow_redirects=False)
     if response.status_code == 429:
-        # One bounded retry for upstream throttling.
-        retry_after = response.headers.get("Retry-After", "1")
+        # Close the throttled response before backing off and issuing the
+        # single bounded retry, including when the delay is malformed.
         try:
-            time.sleep(min(max(float(retry_after), 0), 1))
-        except ValueError:
-            time.sleep(1)
+            retry_after = response.headers.get("Retry-After", "1")
+            try:
+                time.sleep(min(max(float(retry_after), 0), 1))
+            except ValueError:
+                time.sleep(1)
+        finally:
+            response.close()
         response = client(url, params=params, headers=headers,
-                                timeout=(3, timeout), allow_redirects=False)
-    response.raise_for_status()
-    return response.json()
+                          timeout=(3, timeout), allow_redirects=False)
+    try:
+        response.raise_for_status()
+        return response.json()
+    finally:
+        response.close()
 
 def _fetch_nvd(cpe: str, api_key: str, *,
                http_get: Callable | None = None) -> tuple[dict, ...]:
@@ -282,9 +289,12 @@ def osv_candidates(package: Package, *, limit: int = MAX_RESULTS,
             if token:
                 payload["page_token"] = token
             response = post(OSV, json=payload, headers=USER_AGENT,
-                                     timeout=(3, 9), allow_redirects=False)
-            response.raise_for_status()
-            obj = response.json()
+                            timeout=(3, 9), allow_redirects=False)
+            try:
+                response.raise_for_status()
+                obj = response.json()
+            finally:
+                response.close()
             if not isinstance(obj, dict) or not isinstance(obj.get("vulns", []), list):
                 return results, "OSV returned an invalid response shape for " + package.purl
             for vuln in obj.get("vulns", []):
