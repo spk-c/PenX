@@ -1,20 +1,20 @@
 # PenX community launch kit
 
-Check the [README](../README.md) and [GitLab Releases](https://gitlab.com/SLP-DEV1/PenX/-/releases) before sharing download links. As of October 16, 2026 **no GitLab Windows release binaries have been published**.
+Check the [README](../README.md) and [GitHub Releases](https://github.com/spk-c/PenX/releases) before sharing download links. As of October 16, 2026 **no GitHub Windows release binaries have been published**.
 
-## GitLab project details
+## GitHub project details
 
 **Description:** Open-source Windows-first security reconnaissance with 12 scanner options, local AI, and HTML/PDF/SARIF reports.
 
-**Repository:** https://gitlab.com/SLP-DEV1/PenX
+**Repository:** https://github.com/spk-c/PenX
 
 **Suggested topics:** `cybersecurity`, `security-tools`, `penetration-testing`, `recon`, `vulnerability-assessment`, `network-scanner`, `windows`, `python`, `open-source`, `local-ai`, `nmap`, `nuclei`, `ffuf`, `subfinder`, `katana`, `httpx`.
 
-These settings must be configured in GitLab; committing this document does not change project metadata.
+These settings must be configured in GitHub; committing this document does not change project metadata.
 
 ## Social preview
 
-The artwork at [assets/penx-social-preview.svg](../assets/penx-social-preview.svg) is an illustration, not a live scan. Export it to 1280 × 640 PNG for sharing posts. Committing artwork does not configure GitLab link previews.
+The artwork at [assets/penx-social-preview.svg](../assets/penx-social-preview.svg) is an illustration, not a live scan. Export it to 1280 × 640 PNG for sharing posts. Committing artwork does not configure GitHub link previews.
 
 ## Download guidance
 
@@ -27,7 +27,7 @@ Until tested Windows assets are released, point users to the [source installatio
 
 ## Example community post
 
-> PenX is an MIT-licensed, Windows-first security reconnaissance assistant for authorized targets. It combines Nmap, Nuclei, httpx, ffuf, Subfinder, Katana and other checks, local-AI-assisted evidence reviews, scan history, and HTML/PDF/JSON/SARIF reports. Source and setup: https://gitlab.com/SLP-DEV1/PenX. Verified Windows downloads will be announced on GitLab Releases once available.
+> PenX is an MIT-licensed, Windows-first security reconnaissance assistant for authorized targets. It combines Nmap, Nuclei, httpx, ffuf, Subfinder, Katana and other checks, local-AI-assisted evidence reviews, scan history, and HTML/PDF/JSON/SARIF reports. Source and setup: https://github.com/spk-c/PenX. Verified Windows downloads will be announced on GitHub Releases once available.
 
 Share only where community rules allow it. Do not spam or claim synthetic demonstrations are real scans.
 

@@ -28,11 +28,11 @@ reviews:
         PowerShell/CMD compatibility, interpreter selection, exit codes,
         environment variables and repeatable installation.
 
-    - path: ".gitlab-ci.yml"
+    - path: ".github/workflows/**"
       instructions: |
-        Review GitLab CI rules, protected ref conditions, CI_JOB_TOKEN scope,
+        Review GitHub Actions permissions, untrusted PR inputs, secrets handling,
         artifact integrity, and Windows/Linux runner compatibility. Never
-        expose protected variables or tokens to untrusted merge requests.
+        expose tokens to untrusted pull requests.
 
     - path: "requirements*.txt"
       instructions: |

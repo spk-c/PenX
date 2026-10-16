@@ -125,7 +125,7 @@ def sarif_payload(data: dict, *, redact: bool = False) -> dict:
         "runs": [{
             "tool": {"driver": {
                 "name": "PenX",
-                "informationUri": "https://gitlab.com/SLP-DEV1/PenX",
+                "informationUri": "https://github.com/spk-c/PenX",
                 "rules": list(rules.values()),
             }},
             "results": results,

@@ -2,12 +2,12 @@
 
 **Status: package manifests are drafts, not public registry listings.**
 PenX is a Windows-first Python application; npm is not an appropriate primary distribution channel.
-GitLab currently has no published Windows binaries. Install from source until tested archives are available on [GitLab Releases](https://gitlab.com/SLP-DEV1/PenX/-/releases). The historical package drafts still reference immutable GitHub assets and are not current GitLab distribution channels.
+The new GitHub repository currently has no published Windows binaries. Install from source until tested archives are available on [GitHub Releases](https://github.com/spk-c/PenX/releases). The historical package drafts still reference immutable GitHub assets and are not current GitLab distribution channels.
 
 ## Release/version warning
 
 The checked-in WinGet and Scoop manifests deliberately target the **existing v0.4.4 Windows pre-release**.
-They pin the official `PenX-Windows-x64.zip` with the SHA-256 digest recorded for that original GitHub-hosted release. These pinned historical archives have **not** been republished on GitLab.
+They pin the official `PenX-Windows-x64.zip` with the SHA-256 digest recorded for that original GitHub-hosted release. These pinned historical archives have **not** been republished on the new GitHub repository.
 The current Python package version is tracked in `pyproject.toml` (check before release). These are **not** the same release!
 Before publishing a new stable version, align the Git tag, Python package version and Windows `--version` output,
 rebuild/test the ZIP, and update both manifests from the new immutable release asset and its hash.
@@ -38,7 +38,7 @@ until a separate user-data directory and migration strategy are tested.
 The checked-in `packaging/scoop/penx.json` is an installable **draft** manifest.
 On Windows with Scoop installed, test it directly:
 ```powershell
-scoop install https://gitlab.com/SLP-DEV1/PenX/-/raw/master/packaging/scoop/penx.json
+scoop install https://github.com/spk-c/PenX/raw/refs/heads/main/packaging/scoop/penx.json
 penx --version
 penx --setup-status
 ```
@@ -46,7 +46,7 @@ penx --setup-status
 Publish it through a Scoop bucket after validating first install, update, and uninstall.
 The manifest persists `PenX/.env`, `PenX/data`, `PenX/reports` and `PenX/vendor`
 to protect user settings, scan results and downloaded scanner tools across Scoop updates.
-The archived draft Scoop manifest has **no automatic update discovery**. Once an actual GitLab release exists, publish a refreshed manifest with a verified GitLab asset URL and checksum.
+The archived draft Scoop manifest has **no automatic update discovery**. Once an actual GitHub release exists, publish a refreshed manifest with a verified GitLab asset URL and checksum.
 
 ## PyPI (source distribution and wheel)
 

@@ -1,4 +1,4 @@
-> **GitLab migration (October 2026):** Current GitLab CI is defined in `.gitlab-ci.yml` and runs Linux offline tests. The GitHub Actions sections below document legacy automation, **not active GitLab workflows**. Windows packaging and automatic release publishing are configured in GitLab CI for tested version tags, but hosted-runner execution still requires end-to-end verification. Automated GitLab issue triage has **not** been migrated from the historical GitHub workflow.
+> **GitHub main repository (October 2026):** GitHub Actions under `.github/workflows/` are the active CI, release and issue-triage workflows for `spk-c/PenX`. The GitLab pipeline remains only for optional mirror use. No release binaries have been published in the new GitHub repository yet.
 
 # Build and development reference
 
@@ -24,7 +24,7 @@ PyInstaller creates a **folder-based** application:
 dist\PenX\PenX.exe
 ~~~
 
-Keep the **entire `dist\\PenX` folder** when moving the build. This is not a single-file executable. Nmap/Npcap, Ruby, Perl, WhatWeb and Nikto are **installed separately after approval at first EXE launch**, not bundled into the EXE. Prebuilt GitLab Windows ZIPs are **not yet published**; see [GitLab Releases](https://gitlab.com/SLP-DEV1/PenX/-/releases). The historical GitHub release workflow does not run in GitLab; the source tree itself does not contain a prebuilt EXE.
+Keep the **entire `dist\\PenX` folder** when moving the build. This is not a single-file executable. Nmap/Npcap, Ruby, Perl, WhatWeb and Nikto are **installed separately after approval at first EXE launch**, not bundled into the EXE. Prebuilt GitHub Windows ZIPs are **not yet published**; see [GitLab Releases](https://github.com/spk-c/PenX/releases). The GitHub release workflow is active on GitHub; the source tree itself does not contain a prebuilt EXE.
 
 The executable needs to be built and checked on Windows; Linux CI does not establish that the packaged EXE works on every Windows installation.
 

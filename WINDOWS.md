@@ -50,7 +50,7 @@ be backed up first and merged manually, not overwritten. The installer never
 searches for or moves your portable data automatically. For MariaDB users,
 preserve the external database and connection settings separately.
 
-The installed edition performs a **read-only** GitLab stable release check at most
+The installed edition performs a **read-only** GitHub stable release check at most
 once every 24 hours when started. Disable the background check with
 `PENX_AUTO_UPDATE_CHECK=off`. A network failure will not prevent startup.
 
@@ -92,7 +92,7 @@ For a retry, run **`install-scanners.bat`**; it installs the same set of tools, 
 
 ### First launch of a downloaded Windows release (portable EXE)
 
-Once a verified binary is published on [GitLab Releases](https://gitlab.com/SLP-DEV1/PenX/-/releases), download `PenX-Windows-x64.zip` and extract the **entire PenX directory** into a writable location, then start `PenX.exe`.
+Once a verified binary is published on [GitHub Releases](https://github.com/spk-c/PenX/releases), download `PenX-Windows-x64.zip` and extract the **entire PenX directory** into a writable location, then start `PenX.exe`.
 
 On **the first normal EXE launch only**, PenX checks whether Nmap, Npcap, Ruby, WhatWeb, Strawberry Perl, Nikto, Nuclei, httpx, ffuf, Subfinder and Katana appear to be installed. If any are missing, it **asks before downloading or installing** the upstream tools using the same Windows installer as the source install. Internet access, `winget` and Windows administrator/UAC approval may be needed; the Nmap/Npcap installer remains interactive. Missing scanners do not prevent PenX from opening. Declining the offer is remembered so users aren't prompted on every launch.
 
@@ -273,7 +273,7 @@ PyInstaller is not a Windows cross-compiler. A Linux build does not create a val
 
 ### Automated Windows release builds
 
-The legacy GitHub Actions [Windows Release workflow](.github/workflows/release.yml) triggers on pushed tags matching `v*`. It installs build dependencies, runs offline tests on a Windows runner, builds and smoke-tests `PenX.exe` (including the noninteractive scanner setup status command), packages the entire `dist/PenX` folder and publishes a ZIP plus SHA-256 checksum to the previous GitHub release channel. This workflow **does not execute on GitLab**; Windows release publishing still needs migration. The ZIP includes the consent-based first-run setup code, **not** the external scanner binaries. Manual runs provide a downloadable workflow artifact only.
+The GitHub Actions [Windows Release workflow](.github/workflows/release.yml) triggers on pushed tags matching `v*`. It installs build dependencies, runs offline tests on a Windows runner, builds and smoke-tests `PenX.exe` (including the noninteractive scanner setup status command), packages the entire `dist/PenX` folder and publishes a ZIP plus SHA-256 checksum to the previous GitHub release channel. This workflow is active for GitHub version tags. The ZIP includes the consent-based first-run setup code, **not** the external scanner binaries. Manual runs provide a downloadable workflow artifact only.
 
 The compiled folder does **not** include Nmap/Npcap, WhatWeb/Ruby, Nikto/Perl or local model files. These dependencies need separate installation on the end user's Windows machine.
 
@@ -290,7 +290,7 @@ If Nmap setup fails, retry from the [official Nmap download page](https://nmap.o
 
 ## 7. Test coverage and known limitations
 
-GitLab CI runs the offline regression suite on Linux. Legacy GitHub Actions also defined Windows and Ubuntu tests, but those workflows do not run on GitLab. It **does not** install Windows kernel drivers or verify live scans against external systems. The success of `winget`, Npcap/UAC dialogs, Ruby/Perl dependencies, antivirus rules, and a Windows PyInstaller build can vary by machine. Verify these components locally before relying on the tool for an assessment.
+GitHub Actions runs offline regression checks on Windows and Ubuntu. It **does not** install Windows kernel drivers or verify live scans against external systems. The success of `winget`, Npcap/UAC dialogs, Ruby/Perl dependencies, antivirus rules, and a Windows PyInstaller build can vary by machine. Verify these components locally before relying on the tool for an assessment.
 
 PenX is an MIT-licensed derivative of [METATRON](https://github.com/sooryathejas/METATRON); see [LICENSE](LICENSE). Third-party scanners retain their upstream licenses. **Only scan systems or networks you own or are explicitly authorized to assess.**
 
@@ -358,8 +358,8 @@ identifiers, URLs, evidence and personal data may remain. Inspect machine
 reports before sharing. This is not a fully automatic scan mode or a guarantee
 of complete anonymization.
 
-## GitLab CI and Windows release publishing (2026 migration)
+## GitHub Actions and Windows releases
 
-The active GitLab CI entry point is [`.gitlab-ci.yml`](.gitlab-ci.yml). On pushes it runs offline Python tests and safety lint. The `windows-package` job uses GitLab.com's hosted Windows runner (`saas-windows-medium-amd64`): it is **manual for normal branch pipelines** and triggered automatically for strict version tags. It builds and smoke-tests the portable executable and Inno Setup installer, generates `SHA256SUMS.txt`, and uploads only tag builds to the GitLab generic package registry. The `publish-gitlab-release` job runs after the Windows artifacts pass verification and adds stable named release download links. See `scripts/gitlab_windows_release.ps1` and `scripts/gitlab_publish_release.py`.
+[GitHub Actions](https://github.com/spk-c/PenX/actions) is the primary CI. Offline regression tests run on Ubuntu and Windows. The [Windows Release workflow](.github/workflows/release.yml) builds and smoke-tests portable PenX and the installer. Version tags matching the application version publish the Windows installer, portable ZIP, and SHA256SUMS.txt to [GitHub Releases](https://github.com/spk-c/PenX/releases). Manual runs supply workflow artifacts rather than a public release.
 
-**Important:** Defining a pipeline does not mean binaries already exist. Check [GitLab Releases](https://gitlab.com/SLP-DEV1/PenX/-/releases) for a successful tagged release and attached assets. The in-app updater checks the GitLab API and does not download installers automatically.
+The installed Windows updater checks stable GitHub releases, verifies official asset URLs and SHA-256 checksums, and requires confirmation before installation. There are no published Windows binaries in the new GitHub repository yet.

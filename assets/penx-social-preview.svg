@@ -22,7 +22,7 @@
     <rect x="264" y="475" width="219" height="46" rx="23" fill="#1a2e46" stroke="#445f90"/><text x="290" y="504" fill="#c1d7ff">Ollama / LM Studio</text>
     <rect x="496" y="475" width="174" height="46" rx="23" fill="#1a3540" stroke="#357e81"/><text x="523" y="504" fill="#75e5c6">HTML + PDF</text>
   </g>
-  <text x="62" y="579" fill="#8499b4" font-family="Segoe UI, Arial, sans-serif" font-size="20">gitlab.com/SLP-DEV1/PenX</text>
+  <text x="62" y="579" fill="#8499b4" font-family="Segoe UI, Arial, sans-serif" font-size="20">github.com/spk-c/PenX</text>
   <text x="944" y="579" fill="#8499b4" font-family="Segoe UI, Arial, sans-serif" font-size="15">Authorized use only</text>
   <g transform="translate(773 142)"><rect width="374" height="322" rx="14" fill="#070f19" stroke="#39596d" stroke-width="2"/><rect width="374" height="43" rx="14" fill="#1a2b3b"/><rect y="35" width="374" height="8" fill="#1a2b3b"/><circle cx="23" cy="22" r="6" fill="#f47d7d"/><circle cx="45" cy="22" r="6" fill="#f4cf77"/><circle cx="67" cy="22" r="6" fill="#64dca3"/><text x="90" y="29" fill="#9cb3ce" font-family="Consolas,monospace" font-size="15">penx.exe</text><g fill="#d6e7f1" font-family="Consolas,monospace" font-size="18"><text x="26" y="87" fill="#63e9bd">PenX | Local LLM | Windows</text><text x="26" y="134">[1] New Scan</text><text x="26" y="172">[2] View History</text><text x="26" y="210">[9] Scan Diff &amp; Trends</text><text x="26" y="248">[12] Local AI Setup</text><text x="26" y="287" fill="#63e9bd">penx&gt; <tspan fill="#cdd8e5">_</tspan></text></g></g>
 </svg>

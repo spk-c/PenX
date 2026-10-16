@@ -22,4 +22,4 @@ Describe the checks you performed and their results. Include sanitized error exc
 - Does it change the installer, bundled files, or external downloads? Describe sources and integrity checks.
 - Does it change exported report data or privacy behavior?
 
-**Never attach API tokens, private scan logs, or credentials.** For sensitive vulnerabilities in PenX, follow [SECURITY.md](https://gitlab.com/SLP-DEV1/PenX/-/blob/master/SECURITY.md) rather than opening a public merge request.
+**Never attach API tokens, private scan logs, or credentials.** For sensitive vulnerabilities in PenX, follow [SECURITY.md](https://github.com/spk-c/PenX/blob/main/SECURITY.md) rather than opening a public pull request.
