@@ -50,14 +50,14 @@ be backed up first and merged manually, not overwritten. The installer never
 searches for or moves your portable data automatically. For MariaDB users,
 preserve the external database and connection settings separately.
 
-The installed edition performs a **read-only** Stable Release check at most
+The installed edition performs a **read-only** GitLab stable release check at most
 once every 24 hours when started. Disable the background check with
 `PENX_AUTO_UPDATE_CHECK=off`. A network failure will not prevent startup.
 
 Use `PenX.exe --check-update` to manually check or `PenX.exe --update`
 to review/install updates interactively. Menu **[13] Check for Updates**
-provides the same interactive flow. The updater accepts only official GitHub
-PenX Stable Release installer URLs, checks the supplied SHA-256 against the
+provides the same interactive flow. The updater accepts only official GitLab
+PenX release asset URLs, checks the supplied SHA-256 against the
 downloaded installer, then asks for confirmation before starting the
 **interactive** setup. The application exits so Setup can update its files.
 It never silently executes a downloaded program; the user must approve the
@@ -298,7 +298,7 @@ PenX is an MIT-licensed derivative of [METATRON](https://github.com/sooryathejas
 
 Running `install-windows.bat` or `install-scanners.bat` installs these missing tools automatically as part of explicit Windows setup. Alternatively, run `PenX.exe --setup-native` to **opt in** to installing only missing
 Nuclei, ProjectDiscovery httpx, ffuf, Subfinder and Katana into `vendor/bin`. The installer
-fetches the latest official GitHub release metadata and Windows amd64 ZIPs,
+fetches the latest official upstream scanner releases and their Windows amd64 ZIPs,
 requires an upstream SHA256 asset digest, verifies the entire download and
 extracts only the single matching executable. Existing EXEs are not replaced.
 No installer step scans a target.
@@ -328,7 +328,7 @@ A successful install must produce YAML templates in
 `Nuclei templates: INCOMPLETE` rather than claiming success. A small
 `.penx-template-update-incomplete` marker prevents partially downloaded YAML
 from being treated as ready on the next run; a successful retry clears it.
-Check internet, GitHub access, VPN/proxy restrictions, then retry setup. No template updates
+Check internet, access to the relevant upstream scanner repository, VPN/proxy restrictions, then retry setup. No template updates
 are performed during target scans. The installation of a scanner EXE does not
 imply its templates are installed.
 

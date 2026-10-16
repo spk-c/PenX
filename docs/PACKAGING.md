@@ -7,7 +7,7 @@ GitLab currently has no published Windows binaries. Install from source until te
 ## Release/version warning
 
 The checked-in WinGet and Scoop manifests deliberately target the **existing v0.4.4 Windows pre-release**.
-They pin the official `PenX-Windows-x64.zip` with the SHA-256 digest recorded by GitHub for that exact release.
+They pin the official `PenX-Windows-x64.zip` with the SHA-256 digest recorded for that original GitHub-hosted release. These pinned historical archives have **not** been republished on GitLab.
 The current Python package version is tracked in `pyproject.toml` (check before release). These are **not** the same release!
 Before publishing a new stable version, align the Git tag, Python package version and Windows `--version` output,
 rebuild/test the ZIP, and update both manifests from the new immutable release asset and its hash.
@@ -46,8 +46,7 @@ penx --setup-status
 Publish it through a Scoop bucket after validating first install, update, and uninstall.
 The manifest persists `PenX/.env`, `PenX/data`, `PenX/reports` and `PenX/vendor`
 to protect user settings, scan results and downloaded scanner tools across Scoop updates.
-The historical `checkver` block follows GitHub's stable-release channel (not GitLab); automatic update discovery
-will not use GitHub pre-releases until a stable release is available.
+The archived draft Scoop manifest has **no automatic update discovery**. Once an actual GitLab release exists, publish a refreshed manifest with a verified GitLab asset URL and checksum.
 
 ## PyPI (source distribution and wheel)
 
