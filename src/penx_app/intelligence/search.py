@@ -111,6 +111,7 @@ def fetch_page(url: str, max_chars: int = 3000, *,
     Fetch a URL and return extracted plain text.
     Strips all HTML tags. Truncated to max_chars for LLM context.
     """
+    resp = None
     try:
         headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Gecko/20100101 Firefox/120.0"}
         resp = (requests.get if http_get is None else http_get)(url, headers=headers, timeout=15)
@@ -141,6 +142,9 @@ def fetch_page(url: str, max_chars: int = 3000, *,
         return f"[!] HTTP error: {e}"
     except Exception as e:
         return f"[!] Fetch failed: {e}"
+    finally:
+        if resp is not None:
+            resp.close()
 
 
 # ─────────────────────────────────────────────
