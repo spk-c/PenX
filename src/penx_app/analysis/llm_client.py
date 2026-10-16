@@ -98,8 +98,12 @@ def fetch_models(models_url: str, api_key: str = "", timeout: int = 5, *,
     """
     client = requests.get if http_get is None else http_get
     response = client(models_url, headers=api_headers(api_key), timeout=timeout)
-    response.raise_for_status()
-    payload = response.json()
+    try:
+        response.raise_for_status()
+        payload = response.json()
+    finally:
+        # Release the connection even when HTTP status or JSON parsing fails.
+        response.close()
     if not isinstance(payload, dict) or not isinstance(payload.get("data"), list):
         raise ValueError("The model endpoint did not return a valid 'data' list.")
     return [item["id"] for item in payload["data"]
