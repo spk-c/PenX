@@ -96,3 +96,12 @@ orchestrator accepts call-local source, priority and vendor lookups. Offline
 contracts exercise rate limiting, unknown results, failure warnings and
 absence of real network calls. Production-network and model-lifecycle field
 acceptance remain **NOT SIGNED OFF**.
+
+## Python network adapter cancellation (Pk04/Pk05)
+
+The four Python-network adapters accept per-call scan cancellation tokens
+and refuse to publish evidence returned after cancellation. Tests use
+local mocks only; no real host, third-party service or database is accessed.
+Blocking-call interruption is **not** guaranteed, especially for WHOIS.
+Run real Windows/authorized-target timeout and child-process-tree field
+tests before marking Pk04/Pk05 complete. No field sign-off is asserted.

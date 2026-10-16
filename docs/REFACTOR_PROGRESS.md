@@ -590,3 +590,22 @@ consent or source status semantics. Offline tests enforce fixed URLs,
 no redirects, bounded timeouts, source-unavailable warnings, no secret
 leakage and disabled-mode no-op behavior. This improves Pk08 isolation,
 but real external-provider lifecycle and platform acceptance remain open.
+
+### Python network adapter cancellation boundaries (Pk04/Pk05, 16 October 2026)
+
+WHOIS, Python HTTP-header, DNS and TLS wrappers now accept an optional
+per-call cancellation token like the native subprocess wrappers. They check
+before any external I/O, between bounded HTTP/DNS/TLS requests and after
+returning from a blocking network call. If the caller cancelled, the adapter
+returns `PARTIAL` with no trusted evidence instead of promoting an
+in-flight response to a completed scan; the application skips remaining
+selected adapters. HTTP 405/501 fallback GET and TLS retries are not started
+after cancellation. Offline tests exercise zero I/O for pre-cancelled
+adapters, no second request, WHOIS result discard, DNS short-circuit,
+TLS retry suppression and application queue stop.
+
+**Limitation:** This is cooperative between requests, not interruptible
+within third-party WHOIS calls or Python HTTP/DNS/TLS socket operations.
+Existing per-request timeouts limit most HTTP/DNS/TLS latency, but WHOIS
+library internals are not under this token's direct control. Genuine
+Windows process cancellation and installed-scanner field tests remain open.
