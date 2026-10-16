@@ -133,8 +133,12 @@ def passive_recon(target: str, *, include_paid: bool = True) -> str:
                 result = _query_json("https://search.censys.io/api/v2/hosts/" +
                                      quote(host, safe=""), auth=(censys_id, censys_secret))
                 if isinstance(result, dict):
-                    payload = result.get("result", {})
-                    services = payload.get("services", []) if isinstance(payload, dict) else []
+                    payload = result.get("result")
+                    services = payload.get("services") if isinstance(payload, dict) else None
+                    if not isinstance(services, list):
+                        # A malformed provider reply is unavailable, not an
+                        # authoritative empty service inventory.
+                        raise ValueError("Invalid Censys service records")
                     results.append("[CENSYS HISTORICAL INDEX]\n" + _compact([
                         {"port": x.get("port"), "service_name": x.get("service_name"),
                          "transport_protocol": x.get("transport_protocol")}
