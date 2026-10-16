@@ -363,3 +363,18 @@ of complete anonymization.
 [GitHub Actions](https://github.com/spk-c/PenX/actions) is the primary CI. Offline regression tests run on Ubuntu and Windows. The [Windows Release workflow](.github/workflows/release.yml) builds and smoke-tests portable PenX and the installer. Version tags matching the application version publish the Windows installer, portable ZIP, and SHA256SUMS.txt to [GitHub Releases](https://github.com/spk-c/PenX/releases). Manual runs supply workflow artifacts rather than a public release.
 
 The installed Windows updater checks stable GitHub releases, verifies official asset URLs and SHA-256 checksums, and requires confirmation before installation. There are no published Windows binaries in the new GitHub repository yet.
+
+## Cancelling a running scanner selection
+
+While selected scanners run from the PenX terminal, press **Ctrl+C once**
+to request a graceful stop. Native subprocess scanner adapters receive a
+cancellation token and should terminate their child process group, while
+the remaining selected scanners are skipped. A cancelled interactive scan
+is not committed as a completed assessment. Pressing **Ctrl+C again**
+uses the emergency interruption path. Some Python-only network adapters use
+bounded timeouts rather than immediate cancellation and can take longer to
+return. If running PenX in an unsupported embedded console, the standard
+interrupt behavior is retained. Only run scanners against authorized targets.
+
+The cancellation path has offline regression tests; real Windows/Npcap/UAC
+behavior still requires operator acceptance testing.

@@ -1,6 +1,7 @@
 """Terminal-only scanner selection and explicit consent."""
 from penx_app.scanners.registry import CONSENT_KEYS
 from penx_app.application.scanner_selection import resolve_scanner_selection
+from penx_app.cli.scanner_cancellation import scanner_cancellation
 from penx_app.domain.scan_models import ReconChoice, ScannerOutput
 
 def interactive_tool_run(target: str, *, menu: dict, formatter) -> str | ReconChoice | None:
@@ -37,7 +38,16 @@ def interactive_tool_run(target: str, *, menu: dict, formatter) -> str | ReconCh
     from penx_app.application.scanner_execution import run_selected_structured
     from penx_app.domain.scan_models import ScanRequest
     request = ScanRequest(target, tuple(dict.fromkeys(selected_keys)), active_consent=True)
-    results = run_selected_structured(request, menu=menu, emit=print)
+    print('[*] Scanning: press Ctrl+C once to cancel the remaining tools.')
+    with scanner_cancellation() as cancel_event:
+        results = run_selected_structured(
+            request, menu=menu, emit=print, cancel_event=cancel_event,
+        )
+    if cancel_event.is_set():
+        # Even if earlier adapters returned valid evidence, cancellation is
+        # not consent to save a partial assessment or continue to local AI.
+        print('[*] Scanner run cancelled. No assessment will be created.')
+        return None
     # Preserve the injected formatter's historical dict/ScannerOutput API.
     # Structured adapter status remains authoritative through this boundary.
     legacy_view = {
