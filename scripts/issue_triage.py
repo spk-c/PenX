@@ -486,6 +486,36 @@ def code_context(root: Path, issue: dict) -> tuple[str, dict[str, dict[int, str]
         anchors = list(dict.fromkeys(i - 1 for i in line_hints.get(name, [])
                                      if 1 <= i <= len(lines)))
         if anchors:
+            # Stale bug-report line numbers drift after code changes. Include
+            # a nearby line containing an explicitly referenced source symbol
+            # before allocating the remaining budget to numeric hints.
+            # These are bounded lookups in local source, never executed text.
+            named = [
+                term.casefold()
+                for term in dict.fromkeys(re.findall(
+                    r"(?<![A-Za-z0-9_])[A-Za-z_][A-Za-z0-9_]{4,}(?![A-Za-z0-9_])",
+                    query,
+                ))
+                if "_" in term
+            ][:24]
+            symbol_limit = min(budget, len(section) + min(360, budget // 4))
+            used = 0
+            for anchor in anchors[:20]:
+                nearby = (
+                    (abs(j - anchor), j)
+                    for j in range(max(0, anchor - 10), min(len(lines), anchor + 11))
+                    if any(re.search(r"(?<![A-Za-z0-9_])" + re.escape(term) +
+                                     r"(?![A-Za-z0-9_])", lines[j].casefold())
+                           for term in named)
+                )
+                for _distance, j in sorted(nearby)[:1]:
+                    before = len(included)
+                    include_line(j, symbol_limit)
+                    used += len(included) - before
+                    if used >= 3:
+                        break
+                if used >= 3:
+                    break
             hint_limit = min(budget, len(header) + budget // 5)
             for i in anchors[:120]:
                 include_line(i, hint_limit)
