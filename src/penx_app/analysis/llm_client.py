@@ -68,10 +68,21 @@ def explain_http_error(exc: requests.exceptions.HTTPError) -> str:
 
 def normalize_base_url(value: str) -> str:
     """Accept a server root, /v1 root, or a full chat-completions URL."""
+    if not isinstance(value, str):
+        raise ValueError("PENX_LLM_URL must be an HTTP(S) server URL.")
     url = value.strip().rstrip("/")
     parts = urlsplit(url)
-    if parts.scheme not in ("http", "https") or not parts.netloc or parts.query or parts.fragment:
-        raise ValueError("PENX_LLM_URL must be an HTTP(S) server URL without query parameters.")
+    if (parts.scheme not in ("http", "https") or not parts.netloc
+            or not parts.hostname or parts.username is not None
+            or parts.password is not None or parts.query or parts.fragment
+            or any(char.isspace() for char in url)):
+        raise ValueError("PENX_LLM_URL must be an HTTP(S) server URL without credentials or whitespace.")
+    try:
+        port = parts.port
+    except ValueError as exc:
+        raise ValueError("PENX_LLM_URL has an invalid port.") from exc
+    if port == 0 or parts.netloc.endswith(":"):
+        raise ValueError("PENX_LLM_URL has an invalid port.")
     path = parts.path.rstrip("/")
     if path.endswith("/v1/chat/completions"):
         path = path[:-len("/v1/chat/completions")]
