@@ -1,12 +1,12 @@
 {
-  "version": "0.4.4",
+  "version": "0.4.8",
   "description": "Windows-first security reconnaissance with local AI and evidence-based reports (authorized targets only)",
   "homepage": "https://github.com/spk-c/PenX",
   "license": "MIT",
   "architecture": {
     "64bit": {
-      "url": "https://github.com/SLP-DEV1/PenX/releases/download/v0.4.4/PenX-Windows-x64.zip",
-      "hash": "cf26ca93034224e384d763e0944df68248b0056b0245debdd6f6650f9545db02"
+      "url": "https://github.com/spk-c/PenX/releases/download/v0.4.8/PenX-Windows-x64.zip",
+      "hash": "ed8ea9aa6c0653396d0e3fcd091cb4a01d2aa1130e17f753817eb519d4237071"
     }
   },
   "pre_install": "if (!(Test-Path \"$dir\\PenX\\.env\")) { Copy-Item \"$dir\\PenX\\.env.example\" \"$dir\\PenX\\.env\" }",

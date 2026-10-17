@@ -2,16 +2,15 @@
 
 **Status: package manifests are drafts, not public registry listings.**
 PenX is a Windows-first Python application; npm is not an appropriate primary distribution channel.
-The GitHub repository has published verified Windows binaries for [v0.4.7](https://github.com/spk-c/PenX/releases/tag/v0.4.7). The historical package drafts still reference immutable assets from the former GitHub account; they are **not** current downloads or supported registry listings for spk-c/PenX.
+The GitHub repository has published verified Windows binaries for [v0.4.8](https://github.com/spk-c/PenX/releases/tag/v0.4.8). The **current checked-in Scoop and WinGet drafts** pin that official ZIP and SHA-256, but they have not been published or certified by their community registries. The historical v0.4.4 WinGet drafts remain for reference; these are not current downloads.
 
 ## Release/version warning
 
-The checked-in WinGet and Scoop manifests deliberately target the **existing v0.4.4 Windows pre-release**.
-They pin the official `PenX-Windows-x64.zip` with the SHA-256 digest recorded for that original GitHub-hosted release. These pinned historical archives have **not** been republished on the new GitHub repository.
-The current Python package version is tracked in `pyproject.toml` (check before release). These are **not** the same release!
-Before publishing a new stable version, align the Git tag, Python package version and Windows `--version` output,
-rebuild/test the ZIP, and update both manifests from the new immutable release asset and its hash.
-Do not retag/replace release assets without updating their hashes.
+Both current draft manifests reference the **published v0.4.8 ZIP** under `spk-c/PenX`, pinned to SHA-256 `ed8ea9aa6c0653396d0e3fcd091cb4a01d2aa1130e17f753817eb519d4237071`.
+The historical v0.4.4 WinGet manifests under `0.4.4/` remain archival snapshots.
+The WinGet package identifier `SLP-DEV1.PenX` is retained as a draft identifier; changing it or promoting this manifest to a public community repository requires separate publisher and package-identity review.
+Automated GitHub Release smoke tests are **not** proof of native WinGet/Scoop install, upgrade, uninstall or rollback behavior, and full hardware/field acceptance is **NOT SIGNED OFF**.
+For later versions, align tag, Python package version, Windows executable output, official download URL and hash before updating these drafts.
 
 ## WinGet (community repository)
 
@@ -46,7 +45,7 @@ penx --setup-status
 Publish it through a Scoop bucket after validating first install, update, and uninstall.
 The manifest persists `PenX/.env`, `PenX/data`, `PenX/reports` and `PenX/vendor`
 to protect user settings, scan results and downloaded scanner tools across Scoop updates.
-The archived draft Scoop manifest has **no automatic update discovery**. For new releases, publish refreshed manifests only with verified GitHub asset URLs and checksums.
+The checked-in Scoop draft manifest has **no automatic update discovery**. For new releases, publish refreshed manifests only with verified GitHub asset URLs and checksums.
 
 ## PyPI (source distribution and wheel)
 

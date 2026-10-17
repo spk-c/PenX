@@ -1,8 +1,8 @@
 # PenX v0.4.8 – post-0.4.7 security and reliability fixes
 
-**Release preparation only.** The currently published Stable Windows download is still [v0.4.7](https://github.com/spk-c/PenX/releases/tag/v0.4.7) until a separate tagged GitHub Actions build completes and publishes verified assets.
+**Published stable Windows release:** [PenX v0.4.8](https://github.com/spk-c/PenX/releases/tag/v0.4.8) (17 October 2026). The verified Windows release workflow [39020663160](https://github.com/spk-c/PenX/actions/runs/39020663160) published the Windows installer, portable ZIP, SHA-256 checksums and CVE quality report. This confirms the automated release pipeline, **not** physical hardware or field acceptance.
 
-## Intended changes since v0.4.7
+## Changes since v0.4.7
 
 - Scanner input validation, strict legacy evidence contracts, source and LLM output validation, bounded subprocess behavior.
 - Consistent SQLite snapshots for session reports, training exports and review packages.
@@ -12,15 +12,17 @@
 - Harden malformed NVD configuration parsing and bound external page retrieval to 512 KiB of public HTTPS without redirects.
 - Correct no-op MariaDB edit feedback, preserve literal `%s` inside SQLite SQL, reject malformed scanner argv and nontext evidence, serialize full-session deletion, make evaluation deletion status honest, and bound report manifest JSON reads.
 
-The source audit fixes were implemented through PRs #40 and #41 and must both be present in the tagged commit. The version-bump PR is only the final release preparation step.
+The source audit fixes were merged in PRs #40 and #41, with the 0.4.8 version bump in PR #42. The annotated release tag points to reviewed commit `db3c96236b6330f6c716b8d96da0b796101d92e8`.
 
-## Release build and acceptance
+## Release verification and outstanding field acceptance
 
-Release workflow: `.github/workflows/release.yml`. It runs offline regressions, builds the complete PyInstaller ZIP and per-user Windows installer, verifies installer and EXE startup, and publishes `SHA256SUMS.txt` and the CVE quality fixture.
+The existing `.github/workflows/release.yml` workflow completed successfully on GitHub Actions: [Windows Release run 39020663160](https://github.com/spk-c/PenX/actions/runs/39020663160). It ran the offline regression suite, packaged the complete PyInstaller Windows ZIP, tested the Inno Setup installer and installed EXE startup, and published four files:
 
-1. Merge the associated audited changes and ensure main CI is all green.
-2. Validate installer upgrade/rollback in an isolated Windows VM, scanner/Npcap permissions and representative PDF/report recovery. Document results in `docs/FIELD_ACCEPTANCE.md` and `docs/REFACTOR_ACCEPTANCE.md` without falsely marking unrun checks passed.
-3. Ensure `src/penx_app/version.py` and `pyproject.toml` equal `0.4.8`; require the release tag to be `v0.4.8`.
-4. **Only after authorization and readiness**, push the annotated `v0.4.8` tag to the reviewed commit. The existing workflow builds assets and creates the Release; verify its hashes and user-facing downloads. Existing Scoop/Winget manifests are historic, and their checksums must be updated only after the new archive hash is available.
+- `PenX-Setup-x64.exe` — SHA-256 `782149079b5533e4bfd6098551ead95b66957ab5e7bcceebf683052e281f4b5c`
+- `PenX-Windows-x64.zip` — SHA-256 `ed8ea9aa6c0653396d0e3fcd091cb4a01d2aa1130e17f753817eb519d4237071`
+- `SHA256SUMS.txt` — accompanying hashes
+- `CVE-QUALITY.json` — synthetic quality fixture report
 
-**Current status:** Tag and GitHub release not created by this preparation. Green CI is not proof of real Npcap, UAC, power-loss recovery or physical upgrade acceptance. Do not claim that the full refactor is field-signed-off without actual evidence.
+The runtime dependencies were installed using the repository's hash-locked requirements. These results do **not** certify all Windows UAC/Npcap scanner integrations, per-user upgrade and rollback, production-shaped DB backup recovery or long PDF visual checks.
+
+**Field acceptance status: NOT SIGNED OFF.** On an authorized disposable Windows VM/host, complete the manual tests and record PASS / FAIL / NOT RUN evidence in `docs/FIELD_ACCEPTANCE.md` and `docs/REFACTOR_ACCEPTANCE.md`. Never treat the newly published release or its automated smoke tests as physical sign-off.
