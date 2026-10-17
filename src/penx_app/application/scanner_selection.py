@@ -21,7 +21,9 @@ def resolve_scanner_selection(choice: str, menu_keys: Iterable[str]) -> tuple[st
     presets = {
         "a": ("1", "2", "3", "4", "5"),
         "n": ("1", "2", "3", "4", "5", "6"),
-        "x": keys_available,
+        # Extended multi-tool mapping is intentionally not an automatic
+        # part of the full preset. It needs an explicit per-session choice.
+        "x": tuple(key for key in keys_available if key != "e"),
     }
     chosen = presets[choice] if choice in presets else tuple(keys)
     if not chosen or any(key not in keys_available for key in chosen):
