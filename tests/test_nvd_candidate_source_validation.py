@@ -97,10 +97,10 @@ class NvdCandidateInputValidationTests(unittest.TestCase):
             record("CVE-2026-12345", references={"unexpected": "object"}),
             record("CVE-2026-54321", refs),
         ])
-        self.assertEqual(warning, "")
-        self.assertEqual(len(rows), 2)
-        self.assertEqual(rows[0]["vendor_advisories"], [])
-        self.assertEqual(rows[1]["vendor_advisories"],
+        self.assertIn("malformed", warning)
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["id"], "CVE-2026-54321")
+        self.assertEqual(rows[0]["vendor_advisories"],
                          ["https://vendor.example/one", "https://vendor.example/two"])
 
 
