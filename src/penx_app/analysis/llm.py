@@ -195,7 +195,8 @@ def ask_llm(messages: list, settings: "Settings | None" = None, *,
         url, models_url, base_url = settings.LLM_URL, settings.LLM_MODELS_URL, settings.LLM_BASE_URL
         model_name, api_key = settings.MODEL_NAME, settings.LLM_API_KEY
         max_tokens, timeout, top_k = settings.MAX_TOKENS, settings.LLM_TIMEOUT, settings.TOP_K
-    transport = complete_chat if complete is None else complete
+    # Injected backends may expose optional streaming kwargs via **kwargs.
+    transport: Callable[..., tuple[str, str]] = complete_chat if complete is None else complete
     # The current terminal is the default adapter, not a use-case requirement.
     # GUI/headless callers may supply progress and delta ports per request.
     output = print if emit is None else emit
