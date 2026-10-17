@@ -59,7 +59,7 @@ class HookedConnection(SQLiteConnection):
 
     def rollback(self):
         self.rollbacks += 1
-        return super().rollback()
+        return self._connection.rollback()
 
     def close(self):
         self.closed = True
