@@ -36,7 +36,7 @@ class FakeResponse:
 
 class InstallerUpdateTests(unittest.TestCase):
     def test_versions_share_single_source_of_truth(self):
-        self.assertRegex(VERSION, r"^\\d+\\.\\d+\\.\\d+$")
+        self.assertRegex(VERSION, r"^\d+\.\d+\.\d+$")
         with self.assertRaises(ValueError):
             updates.version_tuple("v0.4.6-rc1")
         self.assertGreater(updates.version_tuple("v0.4.10"), updates.version_tuple("v0.4.9"))
