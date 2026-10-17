@@ -1,12 +1,12 @@
 """Terminal workflows for scan trends and reviewable risk prioritization."""
 from __future__ import annotations
 
-from pathlib import Path
+from pathlib import Path as Path
 
 from penx_app.app_paths import APP_ROOT
 from penx_app.cli.cli_navigation import is_back, show_back, navigation_input
 from penx_app.storage.db import get_all_history, get_session
-from penx_app.application.scan_trends import matching_history, compare_ids, report_text, save_diff, history_trend, export_diff_reports
+from penx_app.application.scan_trends import matching_history, compare_ids, report_text, save_diff as save_diff, history_trend, export_diff_reports
 from penx_app.application.risk_assessment import assessment_for_session, save_override, risk_report_json
 
 
@@ -45,9 +45,9 @@ def compare_menu() -> None:
         diff = compare_ids(older_id, newer_id)
         print("\n" + report_text(diff))
         print("\n[TREND]")
-        for row in history_trend(target):
-            print(f"  SL#{row['session']} {row['date']} | "
-                  f"{row['risk']:<9} | findings={row['findings']}")
+        for trend in history_trend(target):
+            print(f"  SL#{trend['session']} {trend['date']} | "
+                  f"{trend['risk']:<9} | findings={trend['findings']}")
         paths = export_diff_reports(diff, APP_ROOT / "reports")
         print("[+] Comparison reports: " + ", ".join(str(v) for v in paths.values()))
         if input("Summarize diff with your local AI model? [y/N]: ").strip().lower() == "y":

@@ -15,7 +15,7 @@ from penx_app.storage.evaluation_repository import (
 )
 
 
-def export_eval_package(sl_no: int, output_dir: str = None) -> str:
+def export_eval_package(sl_no: int, output_dir: str | None = None) -> str:
     """
     Export a self-contained evaluation package for external LLM review.
     Returns the output file path.
@@ -42,7 +42,7 @@ def export_eval_package(sl_no: int, output_dir: str = None) -> str:
     evaluations = payload["evaluations"]
 
     # Build fix lookup
-    fix_map = {}
+    fix_map: dict[int, list[str]] = {}
     for f in fixes:
         fix_map.setdefault(f[2], []).append(f[3])
 
@@ -129,7 +129,7 @@ def export_eval_package(sl_no: int, output_dir: str = None) -> str:
     return str(filename)
 
 
-def export_distillation_package(output_dir: str = None) -> str:
+def export_distillation_package(output_dir: str | None = None) -> str:
     """
     Export all raw corrections as a distillation package for an external LLM.
     The external LLM reads this and outputs compact RULE: lines.

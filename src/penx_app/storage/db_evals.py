@@ -5,12 +5,9 @@ Evaluation CRUD, eval package export, and evaluation response parser.
 """
 
 import re
-import os
-from penx_app.app_paths import APP_ROOT
 from contextlib import closing
 from datetime import datetime
-from penx_app.storage.db import get_connection, save_correction, _assert_vulnerability_owner
-from penx_app.storage.db_backend import VULNERABILITY_COLUMNS
+from penx_app.storage.db import get_connection, _assert_vulnerability_owner
 
 
 # ─────────────────────────────────────────────
@@ -61,7 +58,7 @@ def delete_evaluation(eval_id: int, *, sl_no: int):
 # EVAL PACKAGE EXPORT
 # ─────────────────────────────────────────────
 
-def export_eval_package(sl_no: int, output_dir: str = None) -> str:
+def export_eval_package(sl_no: int, output_dir: str | None = None) -> str:
     """Compatibility facade; rendering and files belong to reporting."""
     from penx_app.reporting.evaluation_packages import export_eval_package as export
     return export(sl_no, output_dir)
@@ -89,7 +86,7 @@ def parse_evaluation_response(sl_no: int, evaluator: str, response_text: str) ->
                 "FROM vulnerabilities WHERE sl_no = %s", (sl_no,)
             )
             vuln_rows = cursor.fetchall()
-            by_name = {}
+            by_name: dict[str, list[tuple]] = {}
             for row in vuln_rows:
                 by_name.setdefault((row[1] or "").casefold().strip(), []).append(row)
 
@@ -233,7 +230,7 @@ def clear_learned_rules():
         conn.commit()
 
 
-def export_distillation_package(output_dir: str = None) -> str:
+def export_distillation_package(output_dir: str | None = None) -> str:
     """Compatibility facade; rendering and files belong to reporting."""
     from penx_app.reporting.evaluation_packages import export_distillation_package as export
     return export(output_dir)

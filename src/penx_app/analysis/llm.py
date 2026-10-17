@@ -7,24 +7,27 @@ Builds prompts, handles AI responses, runs tool dispatch loop.
 
 import re
 import requests
-import json
+import json as json
 import os
 from typing import TYPE_CHECKING, Callable
 from penx_app.runtime_options import live_output
-from datetime import datetime
-from penx_app.scanners.tools import run_tool_by_command, run_nmap, run_curl_headers
+from datetime import datetime as datetime
+from penx_app.scanners.tools import run_tool_by_command, run_nmap as run_nmap, run_curl_headers as run_curl_headers
 from penx_app.analysis.ai_tool_protocol import parse_directives, dispatch_directives
 from penx_app.intelligence.search import handle_search_dispatch
 from penx_app.config import LLM_URL, LLM_MODELS_URL, LLM_BASE_URL, MODEL_NAME, MAX_TOKENS, TOP_K, MAX_TOOL_LOOPS, LLM_TIMEOUT, LLM_API_KEY, STRUCTURED_MODE, VERIFY_SOURCES, NVD_API_KEY, CVE_DISCOVERY, CVE_MAX_SERVICES, CVE_MAX_PACKAGES, CVE_MAX_RESULTS, GITHUB_ADVISORY_TOKEN, CVE_PRIORITY, CVE_DISTRO_HINT, CVE_MAX_VERIFY, PACKAGE_INVENTORY, DEBIAN_TRACKER_JSON
 from penx_app.analysis.structured_output import request_structured_report
 from penx_app.intelligence.source_verification import verify_findings
-from penx_app.analysis.assessment_quality import review_evidence, reviewer_report, apply_review
+from penx_app.analysis.assessment_quality import review_evidence, reviewer_report as reviewer_report, apply_review as apply_review
 from penx_app.intelligence.cve_engine import discover, format_report
-from penx_app.analysis.scan_input_budget import bound_scan_text
-from penx_app.analysis.structured_scan_evidence import model_evidence
-from penx_app.intelligence.wordpress_advisories import research_plugins, format_plugin_report
-from penx_app.intelligence.exploitdb_references import lookup as exploitdb_lookup, format_report as exploitdb_report
-from penx_app.intelligence.source_verification import CVE_PATTERN
+from penx_app.analysis.scan_input_budget import bound_scan_text as bound_scan_text
+from penx_app.analysis.structured_scan_evidence import model_evidence as model_evidence
+from penx_app.intelligence.wordpress_advisories import research_plugins, format_plugin_report as format_plugin_report
+from penx_app.intelligence.exploitdb_references import lookup as exploitdb_lookup
+from penx_app.intelligence import exploitdb_references as _exploitdb_references
+# Legacy import seam retained for external callers.
+exploitdb_report = _exploitdb_references.format_report
+from penx_app.intelligence.source_verification import CVE_PATTERN as CVE_PATTERN
 from penx_app.analysis.llm_client import complete_chat, fetch_models, ModelConfigurationError, EmptyModelResponse, explain_http_error
 from penx_app.analysis.model_retry import prepare_empty_retry
 from penx_app.analysis.prompts import SYSTEM_PROMPT, REVIEW_PROMPT
@@ -192,7 +195,8 @@ def ask_llm(messages: list, settings: "Settings | None" = None, *,
         url, models_url, base_url = settings.LLM_URL, settings.LLM_MODELS_URL, settings.LLM_BASE_URL
         model_name, api_key = settings.MODEL_NAME, settings.LLM_API_KEY
         max_tokens, timeout, top_k = settings.MAX_TOKENS, settings.LLM_TIMEOUT, settings.TOP_K
-    transport = complete_chat if complete is None else complete
+    # Injected backends may expose optional streaming kwargs via **kwargs.
+    transport: Callable[..., tuple[str, str]] = complete_chat if complete is None else complete
     # The current terminal is the default adapter, not a use-case requirement.
     # GUI/headless callers may supply progress and delta ports per request.
     output = print if emit is None else emit
@@ -322,7 +326,7 @@ def run_tool_calls(calls: list, authorized_target: str | None = None, raw_collec
 # ─────────────────────────────────────────────
 # PARSER — imported from parsers.py
 # ─────────────────────────────────────────────
-from penx_app.analysis.parsers import parse_vulnerabilities, parse_recommendations, parse_exploits, parse_risk_level, parse_summary
+from penx_app.analysis.parsers import parse_vulnerabilities as parse_vulnerabilities, parse_recommendations as parse_recommendations, parse_exploits as parse_exploits, parse_risk_level as parse_risk_level, parse_summary as parse_summary
 
 
 # ─────────────────────────────────────────────

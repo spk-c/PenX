@@ -5,6 +5,7 @@ Training data export for fine-tuning from corrected sessions.
 """
 
 import json
+from typing import Any
 import os
 from penx_app.app_paths import APP_ROOT
 from penx_app.file_output import publish_unique
@@ -14,7 +15,7 @@ from penx_app.storage.db import get_connection
 from penx_app.storage.db_backend import VULNERABILITY_COLUMNS
 
 
-def export_training_data(output_dir: str = None) -> str:
+def export_training_data(output_dir: str | None = None) -> str:
     """
     Export all sessions that have corrections as JSONL training pairs.
     Each line is a JSON object with:
@@ -45,7 +46,7 @@ def export_training_data(output_dir: str = None) -> str:
             print("[!] No corrected sessions found. Nothing to export.")
             return ""
 
-        training_pairs = []
+        training_pairs: list[dict[str, Any]] = []
 
         for sl_no in session_ids:
             # Get session data

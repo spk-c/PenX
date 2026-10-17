@@ -1,7 +1,7 @@
 """Validated, structured local LLM reports; model JSON cannot invoke tools."""
 from __future__ import annotations
 import json
-import re
+
 import requests
 from jsonschema import validate, ValidationError
 from penx_app.analysis.llm_client import complete_chat
@@ -76,7 +76,7 @@ def request_structured_report(raw_scan: str, analysis: str, review: str, *,
             "\nRequired JSON schema:\n" + json.dumps(ANALYSIS_SCHEMA)
         )}
     ]
-    formats = [
+    formats: list[dict] = [
         {"type": "json_schema", "json_schema": {
             "name": "penx_findings", "strict": True, "schema": ANALYSIS_SCHEMA}},
         {"type": "json_object"}

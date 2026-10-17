@@ -45,8 +45,8 @@ def load(cpe: str, *, now: float | None = None) -> tuple[dict, ...] | None:
             return None
         fetched = entry.get("fetched_at")
         current = time.time() if now is None else now
-        if (type(fetched) not in (float, int) or
-            not 0 <= current - fetched <= TTL_SECONDS):
+        if (not isinstance(fetched, (float, int)) or isinstance(fetched, bool)
+                or not 0 <= current - fetched <= TTL_SECONDS):
             return None
         items = entry.get("records")
         if not isinstance(items, list) or len(items) > MAX_RECORDS:

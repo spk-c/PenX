@@ -352,9 +352,9 @@ def apply_review(vulnerabilities: list[dict], recommendations: list[dict],
                      None)
         if topic == "wordpress" and ("plugin" in title or "theme" in title):
             topic = None
-        key = ("verify-version", topic) if topic else ("exact", re.sub(r"\W+", " ", title).strip())
-        if key in keys:
+        dedup_key = ("verify-version", topic) if topic else ("exact", re.sub(r"\W+", " ", title).strip())
+        if dedup_key in keys:
             continue
-        keys.add(key)
+        keys.add(dedup_key)
         unique.append(item)
     return approved, unique, rejected

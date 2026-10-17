@@ -184,14 +184,17 @@ def _run_tool_live(command: list[str], timeout: int, cwd: str | None,
         text=True, encoding="utf-8", errors="replace", bufsize=1, cwd=cwd, env=env,
         **_process_group_options(),
     )
-    messages = queue.Queue(maxsize=64)
+    messages: queue.Queue[str | None] = queue.Queue(maxsize=64)
     stop = threading.Event()
 
     def read() -> None:
+        pipe = proc.stdout
+        if pipe is None:
+            return
         try:
             while True:
                 # readline(size) bounds a single unterminated scanner line.
-                chunk = proc.stdout.readline(4096)
+                chunk = pipe.readline(4096)
                 if not chunk:
                     break
                 while not stop.is_set():

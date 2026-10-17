@@ -236,7 +236,7 @@ Be thorough and cite specific evidence. If there is no scan evidence for a findi
 # STATUS LABELS — correction type descriptions
 # ─────────────────────────────────────────────
 
-from penx_app.domain.corrections import STATUS_LABELS
+from penx_app.domain.corrections import STATUS_LABELS as STATUS_LABELS
 
 
 # ─────────────────────────────────────────────

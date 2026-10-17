@@ -19,7 +19,7 @@ import subprocess
 import sys
 import tempfile
 from urllib.request import Request, urlopen
-from urllib.parse import urljoin, urlsplit
+from urllib.parse import urlsplit
 import zipfile
 import requests
 

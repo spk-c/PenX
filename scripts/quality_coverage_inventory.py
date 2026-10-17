@@ -19,14 +19,16 @@ def coverage(ci_text: str, modules: list[str]) -> dict[str, list[str]]:
     """Locate existing Ruff F401 and mypy coverage without assuming full-tree."""
     lines = ci_text.splitlines()
     commands = {
-        "ruff_f401": next((line for line in lines
-                          if "python -m ruff check --select F401 " in line), ""),
-        "mypy": next((line for line in lines
-                      if "python -m mypy --follow-imports=skip " in line), ""),
+        "ruff_f401": [line for line in lines
+                       if "python -m ruff check --select F401 " in line],
+        "mypy": [line for line in lines
+                  if "python -m mypy --follow-imports=skip " in line],
     }
     result: dict[str, list[str]] = {}
-    for gate, command in commands.items():
-        paths = set(re.findall(r"src/penx_app/[\w./-]+", command))
+    for gate, matches in commands.items():
+        paths: set[str] = set()
+        for command in matches:
+            paths.update(re.findall(r"src/penx_app(?:/[\w./-]+)?", command))
         result[gate] = sorted(
             module for module in modules
             if not any(module == path or module.startswith(path.rstrip("/") + "/")

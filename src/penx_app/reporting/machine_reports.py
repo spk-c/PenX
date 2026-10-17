@@ -94,7 +94,7 @@ def report_payload(data: dict, *, redact: bool = False) -> dict:
 
 def sarif_payload(data: dict, *, redact: bool = False) -> dict:
     report = report_payload(data, redact=redact)
-    rules = {}
+    rules: dict[str, dict] = {}
     results = []
     for finding in report["findings"]:
         if finding["confidence"] == "recommendation":
