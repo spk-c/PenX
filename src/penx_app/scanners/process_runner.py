@@ -303,6 +303,15 @@ def run_tool(command: list[str], timeout: int = 120, *, cwd: str | None = None,
     An opt-in caller-owned threading.Event aborts the whole process group.
     A pre-cancelled request never starts a scanner process.
     """
+    if (not isinstance(command, (list, tuple)) or not command
+            or any(not isinstance(arg, str) or not arg or "\\x00" in arg
+                   for arg in command) or not command[0].strip()):
+        return ScannerOutput("[!] Invalid scanner command arguments.",
+                             status="FAILED", evidence=False)
+    if (not isinstance(timeout, (int, float)) or isinstance(timeout, bool)
+            or not 0 < timeout <= 86400):
+        return ScannerOutput("[!] Invalid scanner timeout.",
+                             status="FAILED", evidence=False)
     if cancel_event is not None and cancel_event.is_set():
         return _cancelled_result(command)
     try:
