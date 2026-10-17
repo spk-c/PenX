@@ -25,9 +25,21 @@ class BranchCleanupContracts(unittest.TestCase):
         self.assertIn("$current.object.sha -ne $candidate.Sha", source)
         self.assertIn("-X DELETE", source)
         self.assertIn("Write-Output -NoEnumerate $record", source)
-        self.assertIn("fix|refactor|release|maintenance", source)
+        self.assertIn("fix|refactor|release|maintenance|docs|quality", source)
+        self.assertIn("paginated", source)
         self.assertIn('Dry run only; no branches deleted.', source)
 
+
+    def test_prune_workflow_is_scoped_to_explicit_merged_change(self):
+        workflow = SCRIPT.parents[1] / ".github/workflows/prune-merged-branches.yml"
+        source = workflow.read_text(encoding="utf-8")
+        self.assertIn("branches: [main]", source)
+        self.assertIn("paths:", source)
+        self.assertIn("'.github/workflows/prune-merged-branches.yml'", source)
+        self.assertIn("contents: write", source)
+        self.assertIn("gh auth status", source)
+        self.assertIn("prune_merged_github_branches.ps1 -Apply", source)
+        self.assertNotIn("pull_request:", source)
 
     @unittest.skipUnless(sys.platform == "win32", "Windows PowerShell 5.1 only")
     def test_windows_powershell_uses_individual_mocked_gh_json_records(self):

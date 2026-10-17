@@ -1,0 +1,34 @@
+name: Prune verified merged topic branches
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/prune-merged-branches.yml'
+
+# This job is triggered once when its reviewed workflow is added to main.
+# Subsequent commits to unrelated files do not trigger branch pruning.
+permissions:
+  contents: write
+
+jobs:
+  prune:
+    if: github.repository == 'spk-c/PenX'
+    runs-on: windows-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Verify candidate list (dry run)
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh auth status
+          .\scripts\prune_merged_github_branches.ps1
+      - name: Remove only unchanged, merged PR heads
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: .\scripts\prune_merged_github_branches.ps1 -Apply

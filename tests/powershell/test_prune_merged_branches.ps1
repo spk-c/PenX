@@ -6,10 +6,14 @@ $live1 = ("a" * 40)
 $live2 = ("b" * 40)
 $other = ("c" * 40)
 $main = ("d" * 40)
+$docsSha = ("e" * 40)
+$qualitySha = ("f" * 40)
 $branches = @(
     @{ name = "main"; protected = $true; commit = @{sha = $main} }
     @{ name = "refactor/merged"; protected = $false; commit = @{sha = $live1} }
     @{ name = "maintenance/merged"; protected = $false; commit = @{sha = $live2} }
+    @{ name = "docs/merged"; protected = $false; commit = @{sha = $docsSha} }
+    @{ name = "quality/merged"; protected = $false; commit = @{sha = $qualitySha} }
     @{ name = "fix/open"; protected = $false; commit = @{sha = $other} }
     @{ name = "release/stale"; protected = $false; commit = @{sha = $other} }
     @{ name = "refactor/protected"; protected = $true; commit = @{sha = $other} }
@@ -24,6 +28,10 @@ $closed = @(
        head = @{ref = "refactor/merged"; repo = $prHead.repo; sha = $live1} }
     @{ number = 3; merged_at = "2026-10-16T12:00:00Z";
        head = @{ref = "maintenance/merged"; repo = $prHead.repo; sha = $live2} }
+    @{ number = 7; merged_at = "2026-10-16T12:05:00Z";
+       head = @{ref = "docs/merged"; repo = $prHead.repo; sha = $docsSha} }
+    @{ number = 8; merged_at = "2026-10-16T12:06:00Z";
+       head = @{ref = "quality/merged"; repo = $prHead.repo; sha = $qualitySha} }
     @{ number = 4; merged_at = "2026-10-16T13:00:00Z";
        head = @{ref = "release/stale"; repo = $prHead.repo; sha = $live1} }
     @{ number = 5; merged_at = "2026-10-16T14:00:00Z";
@@ -39,10 +47,14 @@ $global:Fixtures = @{
     "repos/spk-c/PenX/pulls?state=closed&per_page=100" = (ConvertTo-Json -InputObject $closed -Depth 10 -Compress)
     "repos/spk-c/PenX/git/ref/heads/refactor/merged" = ('{"object":{"sha":"' + $live1 + '"}}')
     "repos/spk-c/PenX/git/ref/heads/maintenance/merged" = ('{"object":{"sha":"' + $live2 + '"}}')
+    "repos/spk-c/PenX/git/ref/heads/docs/merged" = ('{"object":{"sha":"' + $docsSha + '"}}')
+    "repos/spk-c/PenX/git/ref/heads/quality/merged" = ('{"object":{"sha":"' + $qualitySha + '"}}')
 }
 $global:AllowedDeletes = @(
     "repos/spk-c/PenX/git/refs/heads/refactor/merged",
-    "repos/spk-c/PenX/git/refs/heads/maintenance/merged"
+    "repos/spk-c/PenX/git/refs/heads/maintenance/merged",
+    "repos/spk-c/PenX/git/refs/heads/docs/merged",
+    "repos/spk-c/PenX/git/refs/heads/quality/merged"
 )
 function global:gh {
     $global:LASTEXITCODE = 0
@@ -63,15 +75,15 @@ function global:gh {
 }
 $preview = (& $scriptFile 6>&1 | Out-String)
 if ($global:Deleted.Count -ne 0) { throw "Dry run deleted a branch" }
-if ($preview -notmatch 'Candidates: 2') {
-    throw "Expected two eligible branches in dry run, got: $preview"
+if ($preview -notmatch 'Candidates: 4') {
+    throw "Expected four eligible branches in dry run, got: $preview"
 }
 $applied = (& $scriptFile -Apply 6>&1 | Out-String)
-if ($applied -notmatch 'Candidates: 2') {
-    throw "Expected two eligible branches in apply mode, got: $applied"
+if ($applied -notmatch 'Candidates: 4') {
+    throw "Expected four eligible branches in apply mode, got: $applied"
 }
-if ($global:Deleted.Count -ne 2) {
-    throw "Expected exactly two fake deletion calls, got $($global:Deleted.Count): $applied"
+if ($global:Deleted.Count -ne 4) {
+    throw "Expected exactly four fake deletion calls, got $($global:Deleted.Count): $applied"
 }
 foreach ($expected in $global:AllowedDeletes) {
     if ($expected -notin $global:Deleted) {

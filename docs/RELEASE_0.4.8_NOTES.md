@@ -25,4 +25,4 @@ The existing `.github/workflows/release.yml` workflow completed successfully on 
 
 The runtime dependencies were installed using the repository's hash-locked requirements. These results do **not** certify all Windows UAC/Npcap scanner integrations, per-user upgrade and rollback, production-shaped DB backup recovery or long PDF visual checks.
 
-**Field acceptance status: NOT SIGNED OFF.** On an authorized disposable Windows VM/host, complete the manual tests and record PASS / FAIL / NOT RUN evidence in `docs/FIELD_ACCEPTANCE.md` and `docs/REFACTOR_ACCEPTANCE.md`. Never treat the newly published release or its automated smoke tests as physical sign-off.
+**Field acceptance status: NOT SIGNED OFF.** On an authorized disposable Windows VM/host, complete the manual tests and record PASS / FAIL / NOT RUN evidence in `docs/FIELD_ACCEPTANCE.md`. Never treat the newly published release or its automated smoke tests as physical sign-off.

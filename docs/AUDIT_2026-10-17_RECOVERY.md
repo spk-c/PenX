@@ -23,8 +23,7 @@ or misleading success states:
 5. **Reports and recovery:** `reporting/report_batch.py`,
    `reporting/report_management.py`, `file_output.py`,
    `application/scan_recovery.py`, and report-staging tests.
-6. **Release and CI acceptance:** `docs/REFACTOR_ACCEPTANCE.md`,
-   `docs/FIELD_ACCEPTANCE.md`, and repository Actions/check definitions.
+6. **Release and CI acceptance:** `docs/FIELD_ACCEPTANCE.md`, the historical acceptance requirements, and repository Actions/check definitions.
 
 No live scan, production database, private user files, Windows hardware
 acceptance, or external network fuzzing was performed in this review.
@@ -80,7 +79,7 @@ authorized disposable targets, physical installer upgrade/rollback,
 sanitized SQLite/MariaDB backup restoration, power-loss report recovery,
 real rendered PDF review and model-runtime compatibility evidence still
 require independent operator execution and recorded sign-off per
-[`REFACTOR_ACCEPTANCE.md`](REFACTOR_ACCEPTANCE.md). These are *unperformed
+[`FIELD_ACCEPTANCE.md`](FIELD_ACCEPTANCE.md). These are *unperformed
 validation activities*, not necessarily reproducible code bugs. The
 refactor remains **NOT SIGNED OFF** until the worksheet gates are satisfied.
 
@@ -116,7 +115,7 @@ external exploitability.
 
 **One confirmed recovery data-integrity defect fixed in this PR.**
 The examined persistence/report/scanner/model boundaries have substantial
-existing tests; that coverage does **not** mean PenX is bug-free. The canonical
-`docs/REFACTOR_ACCEPTANCE.md` correctly remains **NOT SIGNED OFF** until its
-specified physical Windows, authorized scanner, sanitized database restore,
-installer rollback, recovery and rendered-report evidence is reviewed.
+existing tests; that coverage does **not** mean PenX is bug-free. The current
+[`docs/FIELD_ACCEPTANCE.md`](FIELD_ACCEPTANCE.md) remains **NOT SIGNED OFF** until
+physical Windows, authorized scanner, sanitized database restore, installer
+rollback, recovery and rendered-report evidence is reviewed.

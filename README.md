@@ -18,7 +18,7 @@
 </p>
 
 > [!NOTE]
-> **Latest stable release:** [PenX v0.4.8](https://github.com/spk-c/PenX/releases/tag/v0.4.8) is published with the Windows installer, portable ZIP and SHA-256 checksums. Download the full package, not GitHub's automatic source archive. The refactor's physical Windows/database field acceptance is still **not signed off**.
+> **Latest stable release:** [PenX v0.4.8](https://github.com/spk-c/PenX/releases/tag/v0.4.8) is published with the Windows installer, portable ZIP and SHA-256 checksums. Download the full package, not GitHub's automatic source archive. **Newer fixes in `main` are not part of that installer**; see [current maintenance status](docs/MAINTENANCE_STATUS.md) and [release task #80](https://github.com/spk-c/PenX/issues/80). Physical Windows/database field acceptance remains **not signed off**.
 
 <p align="center">
   <a href="#quick-start"><strong>Install from source</strong></a> ·
@@ -187,6 +187,7 @@ Tagged GitHub Windows releases should publish **PenX-Setup-x64.exe** (installer)
 | [Demo](docs/DEMO.md) | Illustrated flow and synthetic reports |
 | [Community launch kit](docs/COMMUNITY_LAUNCH.md) | Sharing guidance, repository metadata and social-preview setup |
 | [Development](docs/DEVELOPMENT.md) | Architecture, offline tests, CI and Windows builds |
+| [Maintenance status](docs/MAINTENANCE_STATUS.md) | Release gap, tracked next steps and field acceptance |
 | [GitHub workflow](docs/GITHUB.md) | GitHub Actions, releases and issue triage |
 | [GitLab mirror](docs/GITLAB.md) | Optional GitLab workflow and mirror setup |
 | [Contributing](CONTRIBUTING.md) | Pull requests and development guidelines |

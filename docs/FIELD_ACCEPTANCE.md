@@ -34,6 +34,29 @@ throwaway local database with separate credentials. No raw scan evidence,
 tokens, customer data or personally identifying host information should be
 committed to the repository or uploaded to CI.
 
-A maintainer must review evidence and sign `docs/REFACTOR_ACCEPTANCE.md`
-before claiming 100% complete. Automated checks alone cannot prove hardware,
-first-run UAC, actual backup recovery or visual PDF quality.
+Maintainers must record the result, environment, immutable commit/build SHA,
+expected and actual outcome, evidence locations, and sign-off for each
+applicable field scenario **in this document or in a linked, reviewed evidence
+record** before claiming 100% completion. Automated checks alone cannot
+prove hardware, first-run UAC, actual backup recovery or visual PDF quality.
+
+## Remaining field sign-off checklist
+
+- [ ] Approved Windows target: all 12 scanner choices, scope consent, missing
+      dependencies, cancellation, timeouts and descendant cleanup verified.
+- [ ] Npcap driver: installation/elevation and non-administrator behavior on
+      a disposable Windows machine verified.
+- [ ] SQLite WAL and MariaDB: sanitized backups restored to isolated
+      databases; migrations, duplicate rejection and rollback checked.
+- [ ] Windows installer: first run, upgrade from v0.4.8, repair and uninstall
+      on an isolated VM, with user data preserved where promised.
+- [ ] Reports: long HTML/PDF/JSON/SARIF reviewed visually and compared;
+      interrupted/failed publications recovered or reported accurately.
+- [ ] Local LLM: configured endpoint, empty/malformed/timeouts/cancellation
+      tested without asserting unverified vulnerabilities.
+- [ ] Release: immutable `main` commit, tagged build, SHA-256 verification,
+      installer/portable smoke tests and independent maintainer sign-off.
+
+**Status: NOT SIGNED OFF.** A checklist item is not PASS until its evidence
+and reviewer are recorded. Only scan hosts that you own or are authorized
+to assess.
