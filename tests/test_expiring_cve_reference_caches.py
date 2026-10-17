@@ -56,7 +56,7 @@ class ExpiringReferenceCachesTests(unittest.TestCase):
         client = Mock(side_effect=[nvd_response(CVE), nvd_response()])
         with patch.object(verify.requests, "get", side_effect=client), \
              patch.object(verify.time, "monotonic", side_effect=[
-                 100.0, 100.0, 101.0,
+                 100.0, 101.0,
                  100.0 + verify.SOURCE_CACHE_TTL_SECONDS + 2,
                  100.0 + verify.SOURCE_CACHE_TTL_SECONDS + 2,
              ]):
@@ -72,7 +72,7 @@ class ExpiringReferenceCachesTests(unittest.TestCase):
                                      requests.Timeout("offline fixture")])
         with patch.object(verify.requests, "get", side_effect=provider), \
              patch.object(verify.time, "monotonic", side_effect=[
-                 10.0, 10.0,
+                 10.0,
                  10.0 + verify.SOURCE_CACHE_TTL_SECONDS + 10,
              ]):
             self.assertEqual(verify.lookup_nvd(CVE), "listed")
@@ -83,7 +83,7 @@ class ExpiringReferenceCachesTests(unittest.TestCase):
         provider = Mock(side_effect=[kev_response(CVE), kev_response(OTHER)])
         with patch.object(verify.requests, "get", side_effect=provider), \
              patch.object(verify.time, "monotonic", side_effect=[
-                 20.0, 20.0, 21.0,
+                 20.0, 21.0,
                  20.0 + verify.SOURCE_CACHE_TTL_SECONDS + 5,
                  20.0 + verify.SOURCE_CACHE_TTL_SECONDS + 5,
              ]):
@@ -99,7 +99,7 @@ class ExpiringReferenceCachesTests(unittest.TestCase):
                                      requests.Timeout("offline fixture")])
         with patch.object(verify.requests, "get", side_effect=provider), \
              patch.object(verify.time, "monotonic", side_effect=[
-                 20.0, 20.0,
+                 20.0,
                  20.0 + verify.SOURCE_CACHE_TTL_SECONDS + 20,
              ]):
             self.assertEqual(verify.load_cisa_kev(), {CVE})
