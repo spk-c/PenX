@@ -126,7 +126,7 @@ def katana_args(executable: str, origin: str, *, mapping: bool = False) -> list[
     if mapping:
         # -fs fqdn by itself includes other schemes/ports on the same host.
         args.extend(["-cs", "^" + re.escape(origin.rstrip("/")) + "(?:/|$)",
-                     "-mdp", "24", "-ct", "12s", "-retry", "0", "-duc",
+                     "-mdp", "24", "-ct", "12s", "-retry", "0", "-duc", "-dr",
                      "-cos", r"(?i)/(?:logout|signout|delete|remove|checkout|purchase|reset|transfer)(?:/|[?#]|$)"])
     return args
 
@@ -138,7 +138,7 @@ def ffuf_args(executable: str, origin: str, wordlist: Path, *,
             "-timeout", "5", "-maxtime", "50", "-mc",
             "200,204,301,302,307,308,401,403,405", "-X", "GET"]
     if mapping:
-        args[args.index("-maxtime") + 1] = "12"
+        args[args.index("-maxtime") + 1] = "25"
         args.extend(["-p", "0.6", "-sa"])
     return args
 
