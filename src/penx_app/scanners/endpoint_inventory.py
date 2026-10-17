@@ -48,6 +48,9 @@ def normalize_discovery(candidate: str, origin: str) -> tuple[str, tuple[str, ..
         if _BAD_ESCAPES.search(parsed.path) or len(parsed.path) > 320:
             return None
         decoded = unquote(parsed.path)
+        # Reject nested encodings that a downstream proxy might decode again.
+        if re.search(r"%(?:2e|2f|5c|25|00)", decoded, re.IGNORECASE):
+            return None
         if (any(ord(ch) < 32 or ord(ch) == 127 for ch in decoded)
                 or "\\" in decoded or any(seg in (".", "..") for seg in decoded.split("/"))
                 or "//" in decoded or not decoded.startswith("/") and decoded != ""):
@@ -81,7 +84,12 @@ class EndpointInventory:
         parsed = urlsplit(self.origin)
         if parsed.query or parsed.fragment or parsed.path not in ("", "/"):
             raise ValueError("Inventory requires a web origin, not a URL with path/query")
-        self.origin = self.origin.rstrip("/")
+        # A canonical hostname avoids separate files for differently cased
+        # spellings of the same authorized origin.
+        host = parsed.hostname.casefold()
+        host_text = "[" + host + "]" if ":" in host else host
+        port = ":" + str(parsed.port) if parsed.port is not None else ""
+        self.origin = parsed.scheme + "://" + host_text + port
 
     def add(self, candidate: str, source: str) -> bool:
         if source not in ("katana", "ffuf"):
