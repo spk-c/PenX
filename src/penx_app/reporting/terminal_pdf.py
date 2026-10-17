@@ -9,12 +9,12 @@ import os
 import re
 
 from reportlab.lib import colors
-from reportlab.lib.enums import TA_RIGHT
+
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.units import mm
 from reportlab.platypus import (
-    HRFlowable, KeepTogether, PageBreak, Paragraph, SimpleDocTemplate,
+    HRFlowable, KeepTogether, SimpleDocTemplate,
     Spacer, Table, TableStyle,
 )
 
