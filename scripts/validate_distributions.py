@@ -36,7 +36,7 @@ def main() -> int:
         version = scoop["version"]
         archive = scoop["architecture"]["64bit"]
         expected_url = (
-            f"https://github.com/SLP-DEV1/PenX/releases/download/v{version}/"
+            f"https://github.com/spk-c/PenX/releases/download/v{version}/"
             f"{ARCHIVE_NAME}"
         )
         assert archive["url"] == expected_url, "Scoop archive URL/version mismatch"
