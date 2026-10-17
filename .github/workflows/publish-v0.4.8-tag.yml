@@ -6,6 +6,9 @@ name: Dispatch audited PenX v0.4.8 release
 
 on:
   create:
+  push:
+    branches:
+      - release/publish-v0.4.8-20261017
 
 permissions:
   contents: write
@@ -19,8 +22,13 @@ jobs:
   dispatch:
     if: >-
       github.repository == 'spk-c/PenX' &&
-      github.event.ref_type == 'branch' &&
-      github.event.ref == 'release/publish-v0.4.8-20261017'
+      (
+        (github.event_name == 'create' &&
+         github.event.ref_type == 'branch' &&
+         github.event.ref == 'release/publish-v0.4.8-20261017') ||
+        (github.event_name == 'push' &&
+         github.ref == 'refs/heads/release/publish-v0.4.8-20261017')
+      )
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:
@@ -48,25 +56,28 @@ jobs:
           fi
           echo "Audited source verified; field acceptance remains NOT SIGNED OFF."
 
-      - name: Create and verify annotated v0.4.8 tag
+      - name: Check out the audited release commit with tag push credentials
+        uses: actions/checkout@v7
+        with:
+          ref: db3c96236b6330f6c716b8d96da0b796101d92e8
+          persist-credentials: true
+          fetch-depth: 0
+
+      - name: Create and verify annotated v0.4.8 Git tag
         shell: bash
         run: |
           set -euo pipefail
-          existing="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$RELEASE_TAG" --jq '.object.sha' 2>/dev/null || true)"
-          if [[ -n "$existing" ]]; then
-            tag_object="$existing"
+          if git ls-remote --exit-code origin "refs/tags/$RELEASE_TAG" >/dev/null 2>&1; then
+            git fetch --no-tags origin "refs/tags/$RELEASE_TAG:refs/tags/$RELEASE_TAG"
           else
-            tag_object="$(gh api --method POST "repos/$GITHUB_REPOSITORY/git/tags" \
-              -f tag="$RELEASE_TAG" \
-              -f message="PenX v0.4.8 - audited security and reliability fixes; field acceptance not signed off" \
-              -f object="$EXPECTED_SHA" \
-              -f type=commit --jq '.sha')"
-            gh api --method POST "repos/$GITHUB_REPOSITORY/git/refs" \
-              -f ref="refs/tags/$RELEASE_TAG" -f sha="$tag_object" >/dev/null
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git tag -a "$RELEASE_TAG" -m "PenX v0.4.8 - audited fixes; field acceptance not signed off"
+            git push origin "refs/tags/$RELEASE_TAG"
           fi
-          tagged_commit="$(gh api "repos/$GITHUB_REPOSITORY/git/tags/$tag_object" --jq '.object.sha')"
+          tagged_commit="$(git rev-parse "$RELEASE_TAG^{commit}")"
           if [[ "$tagged_commit" != "$EXPECTED_SHA" ]]; then
-            echo "::error::Existing/new tag does not point at audited release commit."
+            echo "::error::The existing/new release tag does not point at the audited commit."
             exit 1
           fi
           echo "Verified annotated $RELEASE_TAG -> $tagged_commit"
