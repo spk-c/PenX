@@ -1,12 +1,12 @@
 """Terminal workflows for scan trends and reviewable risk prioritization."""
 from __future__ import annotations
 
-from pathlib import Path
+from pathlib import Path as Path
 
 from penx_app.app_paths import APP_ROOT
 from penx_app.cli.cli_navigation import is_back, show_back, navigation_input
 from penx_app.storage.db import get_all_history, get_session
-from penx_app.application.scan_trends import matching_history, compare_ids, report_text, save_diff, history_trend, export_diff_reports
+from penx_app.application.scan_trends import matching_history, compare_ids, report_text, save_diff as save_diff, history_trend, export_diff_reports
 from penx_app.application.risk_assessment import assessment_for_session, save_override, risk_report_json
 
 
