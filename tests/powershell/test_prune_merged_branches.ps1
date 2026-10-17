@@ -76,10 +76,10 @@ function global:gh {
 $preview = (& $scriptFile 6>&1 | Out-String)
 if ($global:Deleted.Count -ne 0) { throw "Dry run deleted a branch" }
 if ($preview -notmatch 'Candidates: 4') {
-    throw "Expected two eligible branches in dry run, got: $preview"
+    throw "Expected four eligible branches in dry run, got: $preview"
 }
 $applied = (& $scriptFile -Apply 6>&1 | Out-String)
-if ($applied -notmatch 'Candidates: 2') {
+if ($applied -notmatch 'Candidates: 4') {
     throw "Expected four eligible branches in apply mode, got: $applied"
 }
 if ($global:Deleted.Count -ne 4) {
