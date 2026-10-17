@@ -206,7 +206,9 @@ class EndpointMappingExecutionContracts(unittest.TestCase):
         self.assertLessEqual(sum(len(w) for w in words), 56)
         self.assertNotIn("NEVER_SEND", str(output))
         self.assertIn("parameter name(s)", str(output))
-        self.assertIn("api/transfer [POST]", str(output))
+        # The report is deliberately capped at 30 rows; test the overflow
+        # indicator rather than assuming the POST route is in its preview.
+        self.assertIn("further endpoints retained in local inventory", str(output))
 
     def test_different_origin_discoveries_never_become_ffuf_targets(self):
         raw = katana_row(ORIGIN + "/api/users") + "\n" + katana_row("https://outside.test/a")
