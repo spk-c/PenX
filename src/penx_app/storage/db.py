@@ -389,6 +389,12 @@ def _scoped_write(table: str, row_id: int, sl_no: int, changes: dict) -> bool:
         cursor.execute(f"UPDATE {table} SET {fields} WHERE id = %s AND sl_no = %s",
                        (*changes.values(), row_id, sl_no))
         updated = cursor.rowcount > 0
+        if not updated:
+            # MariaDB defaults to changed rows rather than FOUND_ROWS. An
+            # unchanged value is still a successful edit of an existing row.
+            cursor.execute(f"SELECT id FROM {table} WHERE id = %s AND sl_no = %s",
+                           (row_id, sl_no))
+            updated = cursor.fetchone() is not None
         conn.commit()
         return updated
     finally:
@@ -420,6 +426,9 @@ def edit_summary_risk(sl_no: int, risk_level: str):
         c = conn.cursor()
         c.execute("UPDATE summary SET risk_level = %s WHERE sl_no = %s", (risk_level, sl_no))
         updated = c.rowcount > 0
+        if not updated:
+            c.execute("SELECT sl_no FROM summary WHERE sl_no = %s", (sl_no,))
+            updated = c.fetchone() is not None
         conn.commit()
         return updated
     finally:
@@ -491,6 +500,10 @@ def delete_full_session(sl_no: int):
     conn = get_connection()
     try:
         c = conn.cursor()
+        # Take the same session-row lock used by correction/evaluation writers
+        # before deleting dependants. In MariaDB this is a row lock; in SQLite
+        # it reserves the writer before the first child DELETE.
+        _lock_session_writer(c, sl_no)
         c.execute("DELETE FROM evaluations        WHERE sl_no = %s", (sl_no,))
         c.execute("DELETE FROM corrections       WHERE sl_no = %s", (sl_no,))
         c.execute("DELETE FROM fixes             WHERE sl_no = %s", (sl_no,))
