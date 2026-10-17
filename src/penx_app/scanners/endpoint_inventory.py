@@ -25,7 +25,7 @@ _BAD_ESCAPES = re.compile(r"%(?:00|0[0-9a-f]|1[0-9a-f]|2f|5c|7f)", re.IGNORECASE
 # Active follow-up probes are deliberately narrower than stored discoveries:
 # parameter values are never replayed, and potentially state-changing routes
 # are inventory-only even if a crawler happened to visit them.
-_SAFE_PROBE_SEGMENT = re.compile(r"[A-Za-z0-9][A-Za-z0-9._~-]{0,63}\\Z", re.ASCII)
+_SAFE_PROBE_SEGMENT = re.compile(r"[A-Za-z0-9][A-Za-z0-9._~-]{0,63}\Z", re.ASCII)
 _UNSAFE_ROUTE_WORDS = frozenset({
     "logout", "signout", "delete", "remove", "purchase", "checkout",
     "reset", "transfer", "pay", "confirm", "unsubscribe", "destroy",
