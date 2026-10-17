@@ -5,12 +5,9 @@ Evaluation CRUD, eval package export, and evaluation response parser.
 """
 
 import re
-import os
-from penx_app.app_paths import APP_ROOT
 from contextlib import closing
 from datetime import datetime
-from penx_app.storage.db import get_connection, save_correction, _assert_vulnerability_owner
-from penx_app.storage.db_backend import VULNERABILITY_COLUMNS
+from penx_app.storage.db import get_connection, _assert_vulnerability_owner
 
 
 # ─────────────────────────────────────────────
