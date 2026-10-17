@@ -141,7 +141,8 @@ def load_cisa_kev(*, get: Callable | None = None) -> set[str] | None:
     global _kev_cache, _kev_cache_time
     if (get is None and _kev_cache is not None
             and _fresh(_kev_cache_time, time.monotonic())):
-        return _kev_cache
+        # Callers must not be able to mutate the shared KEV membership cache.
+        return _kev_cache.copy()
     try:
         with closing((requests.get if get is None else get)(
             CISA_KEV_URL, headers={"User-Agent": "PenX/SourceVerification"},
@@ -163,7 +164,7 @@ def load_cisa_kev(*, get: Callable | None = None) -> set[str] | None:
             return None
         result = {v["cveID"].upper() for v in entries}
         if get is None:
-            _kev_cache = result
+            _kev_cache = result.copy()
             _kev_cache_time = time.monotonic()
         return result
     except (requests.RequestException, ValueError, TypeError, KeyError):
