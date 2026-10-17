@@ -117,18 +117,21 @@ class EndpointInventory:
         port = ":" + str(parsed.port) if parsed.port is not None else ""
         self.origin = parsed.scheme + "://" + host_text + port
 
-    def add(self, candidate: str, source: str) -> bool:
+    def add(self, candidate: str, source: str, *, method: str = "GET") -> bool:
         if source not in ("katana", "ffuf"):
             raise ValueError("Unsupported inventory evidence source")
+        if method not in ("GET", "HEAD", "OPTIONS", "POST", "PUT", "PATCH", "DELETE"):
+            raise ValueError("Unsupported HTTP method in endpoint inventory")
         normalized = normalize_discovery(candidate, self.origin)
         if normalized is None:
             return False
         url, params = normalized
         if url not in self.entries and len(self.entries) >= MAX_ENDPOINTS:
             return False
-        item = self.entries.setdefault(url, {"parameters": set(), "sources": set()})
+        item = self.entries.setdefault(url, {"parameters": set(), "sources": set(), "methods": set()})
         item["parameters"].update(params)
         item["sources"].add(source)
+        item["methods"].add(method)
         return True
 
     def collect_jsonl(self, raw: str, scanner: str) -> tuple[int, int]:
@@ -151,21 +154,24 @@ class EndpointInventory:
             if scanner == "katana":
                 req = obj.get("request")
                 candidate = req.get("endpoint") if isinstance(req, dict) else None
-                # Only idempotent GET discoveries may seed active GET follow-ups.
-                # Omitted method is GET for older Katana JSONL versions.
+                # Retain non-GET endpoints as inventory metadata, but never
+                # turn them into automatic GET follow-up requests.
                 method = req.get("method", "GET") if isinstance(req, dict) else None
                 if (obj.get("error") or not isinstance(method, str)
-                        or method.upper() != "GET"):
+                        or method.upper() not in
+                        ("GET", "HEAD", "OPTIONS", "POST", "PUT", "PATCH", "DELETE")):
                     bad += 1
                     continue
+                method = method.upper()
             else:
                 candidate = obj.get("url")
+                method = "GET"
                 status = obj.get("status")
                 # A 0/negative/bool value is not HTTP response evidence.
                 if type(status) is not int or not 100 <= status <= 599:
                     bad += 1
                     continue
-            if isinstance(candidate, str) and self.add(candidate, scanner):
+            if isinstance(candidate, str) and self.add(candidate, scanner, method=method):
                 good += 1
             else:
                 bad += 1
@@ -179,16 +185,18 @@ class EndpointInventory:
         empty paths and unusual path syntax; the caller owns the request budget.
         """
         paths: set[str] = set()
-        for url in self.entries:
+        for url, row in self.entries.items():
             path = urlsplit(url).path
-            if _safe_probe_path(path):
+            if "GET" in row["methods"] and _safe_probe_path(path):
                 paths.add(path.lstrip("/"))
         return sorted(paths)[:max(0, min(max_paths, 24))]
 
     def paths_for_fuzz(self, max_dirs: int = 3) -> list[str]:
         """Return safe discovered directory prefixes; never query-param fuzz."""
         dirs: set[str] = set()
-        for url in self.entries:
+        for url, row in self.entries.items():
+            if "GET" not in row["methods"]:
+                continue
             path = urlsplit(url).path
             segments = [p for p in path.split("/") if p]
             if not segments:
@@ -215,7 +223,7 @@ class EndpointInventory:
             "origin": self.origin,
             "endpoints": [
                 {"url": url, "parameters": sorted(data["parameters"]),
-                 "sources": sorted(data["sources"])}
+                 "sources": sorted(data["sources"]), "methods": sorted(data["methods"])}
                 for url, data in sorted(self.entries.items())
             ],
         }
@@ -225,7 +233,8 @@ class EndpointInventory:
         for url, row in list(sorted(self.entries.items()))[:max_rows]:
             info = (" [parameters: " + ", ".join(sorted(row["parameters"])) + "]"
                     if row["parameters"] else "")
-            lines.append(url + info)
+            methods = ",".join(sorted(row["methods"]))
+            lines.append(url + f" [{methods}]" + info)
         if len(self.entries) > max_rows:
             lines.append(f"[{len(self.entries) - max_rows} further endpoints retained in local inventory]")
         return "\n".join(lines)
@@ -270,9 +279,16 @@ def load_inventory(origin: str, *, directory: Path | None = None) -> EndpointInv
             sources = [s for s in entry["sources"] if s in ("katana", "ffuf")]
             keys = [p for p in entry["parameters"]
                     if isinstance(p, str) and _SAFE_PARAM.fullmatch(p)]
-            if len(keys) > MAX_PARAMETERS or not sources:
+            raw_methods = entry.get("methods", ["GET"])
+            if not isinstance(raw_methods, list):
                 continue
-            inv.entries[url] = {"parameters": set(keys), "sources": set(sources)}
+            methods = [m for m in raw_methods
+                       if isinstance(m, str) and m in
+                       ("GET", "HEAD", "OPTIONS", "POST", "PUT", "PATCH", "DELETE")]
+            if len(keys) > MAX_PARAMETERS or not sources or not methods:
+                continue
+            inv.entries[url] = {"parameters": set(keys), "sources": set(sources),
+                                "methods": set(methods)}
     except (OSError, ValueError, TypeError, UnicodeError):
         return inv
     return inv
