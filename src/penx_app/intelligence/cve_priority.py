@@ -112,6 +112,11 @@ def enrich_priority(candidates, enabled=True, *, epss_lookup=None, kev_lookup=No
         notes.append("CISA KEV unavailable; exploitation status unknown.")
     for item in candidates:
         key = str(item.get("id", "")).upper()
+        # These fields describe the last FIRST lookup, not immutable source
+        # observations. An enrichment retry must not silently reuse EPSS
+        # values from an earlier run when today's lookup is unavailable.
+        for field in ("epss", "epss_percentile", "epss_date", "epss_url"):
+            item.pop(field, None)
         item.update(epss.get(key, {}))
         item["kev_status"] = "unknown" if kev is None else "listed" if key in kev else "not-listed" if key in ids else "not-applicable"
         epss_score = _safe_numeric_score(item, "epss", 1)
