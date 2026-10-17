@@ -18,7 +18,8 @@ from penx_app import app_paths
 
 SOURCE = Path(__file__).resolve().parents[1] / "src/penx_app/settings.py"
 KEY_PATTERN = re.compile(r"\b(?:get|enabled|number)\('([A-Z][A-Z_]+)'")
-BOOLEAN_KEYS = {"VERIFY_SOURCES", "CVE_DISCOVERY", "CVE_PRIORITY"}
+BOOLEAN_KEYS = {"VERIFY_SOURCES", "CVE_DISCOVERY", "CVE_PRIORITY",
+                "ALLOW_MODEL_WEB_SEARCH"}
 NUMERIC_KEYS = {
     "CVE_MAX_SERVICES", "CVE_MAX_PACKAGES", "CVE_MAX_RESULTS",
     "CVE_MAX_VERIFY", "SCAN_INPUT_MAX_CHARS", "MAX_TOKENS",
