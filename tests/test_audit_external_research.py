@@ -45,6 +45,7 @@ class MalformedNvdBoundaryTests(unittest.TestCase):
                 "criteria": "cpe:2.3:a:openbsd:openssh:*:*:*:*:*:*:*:*",
                 "versionStartIncluding": [1, 2, 3],
             }]}]}],
+            "references": 17,  # malformed NVD supplier metadata
         }
         response = Mock()
         response.json.return_value = {"vulnerabilities": [
