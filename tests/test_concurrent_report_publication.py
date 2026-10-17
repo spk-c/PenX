@@ -196,13 +196,6 @@ class ReportPublicationLockContracts(unittest.TestCase):
 
     def test_subprocess_lock_is_released_after_termination(self):
         child = (
-            "import pathlib,sys,time;"
-            "from penx_app.reporting.report_batch import publication_lock;"
-            "p=pathlib.Path(sys.argv[1]);"
-            "with publication_lock(p,7): print('locked',flush=True);time.sleep(15)"
-        )
-        # Python compound 'with' statements cannot follow semicolons.
-        child = (
             "import pathlib,sys,time\n"
             "from penx_app.reporting.report_batch import publication_lock\n"
             "with publication_lock(pathlib.Path(sys.argv[1]), 7):\n"
