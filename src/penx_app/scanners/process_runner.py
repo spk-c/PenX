@@ -304,7 +304,7 @@ def run_tool(command: list[str], timeout: int = 120, *, cwd: str | None = None,
     A pre-cancelled request never starts a scanner process.
     """
     if (not isinstance(command, (list, tuple)) or not command
-            or any(not isinstance(arg, str) or not arg or "\\x00" in arg
+            or any(not isinstance(arg, str) or not arg or "\x00" in arg
                    for arg in command) or not command[0].strip()):
         return ScannerOutput("[!] Invalid scanner command arguments.",
                              status="FAILED", evidence=False)
