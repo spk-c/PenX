@@ -342,6 +342,7 @@ def analyse_target(target: str, raw_scan: str, *, passive_only: bool = False) ->
     from penx_app.app_paths import APP_ROOT
     settings = Settings(MappingProxyType({
         "CVE_DISCOVERY": CVE_DISCOVERY,
+        "ALLOW_MODEL_WEB_SEARCH": os.getenv("PENX_ALLOW_MODEL_WEB_SEARCH", "off").strip().lower() in ("on", "1", "true", "yes"),
         "CVE_DISTRO_HINT": CVE_DISTRO_HINT,
         "CVE_MAX_PACKAGES": CVE_MAX_PACKAGES,
         "CVE_MAX_RESULTS": CVE_MAX_RESULTS,
