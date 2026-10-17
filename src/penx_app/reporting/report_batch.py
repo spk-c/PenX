@@ -29,11 +29,14 @@ The manifest is metadata, not a durability guarantee against power failure.
 """
 from __future__ import annotations
 
+from contextlib import contextmanager
 from dataclasses import dataclass, field
+import errno
 import json
 import os
 from pathlib import Path
 import tempfile
+import time
 import uuid
 
 _MANIFEST_SCHEMA = "penx-publication-v1"
@@ -41,6 +44,58 @@ _MANIFEST_SCHEMA = "penx-publication-v1"
 
 def _manifest_path(folder: Path, session: int) -> Path:
     return Path(folder) / f".penx-publication_SL{int(session)}.json"
+
+
+@contextmanager
+def publication_lock(folder: Path, session: int, *, timeout: float = 30.0):
+    """Serialize report writes/deletes for one session across processes.
+
+    Keep the per-session lock file on disk: unlinking a locked inode allows
+    two processes to lock different files under the same pathname. The OS
+    releases the byte-range/file lock after a crash or an orderly exit.
+    """
+    if timeout < 0:
+        raise ValueError("Report publication lock timeout must not be negative")
+    folder = Path(folder)
+    folder.mkdir(parents=True, exist_ok=True)
+    lock_path = folder / f".penx-publication_SL{int(session)}.lock"
+    if lock_path.is_symlink():
+        raise OSError("Refusing to follow report publication lock symlink")
+    flags = os.O_RDWR | os.O_CREAT | getattr(os, "O_NOFOLLOW", 0)
+    fd = os.open(lock_path, flags, 0o600)
+    with os.fdopen(fd, "r+b", buffering=0) as stream:
+        if os.fstat(stream.fileno()).st_size == 0:
+            stream.write(b"\\0")
+        deadline = time.monotonic() + timeout
+        while True:
+            stream.seek(0)
+            try:
+                if os.name == "nt":
+                    import msvcrt
+                    msvcrt.locking(stream.fileno(), msvcrt.LK_NBLCK, 1)
+                else:
+                    import fcntl
+                    fcntl.flock(stream.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+                break
+            except OSError as exc:
+                # EACCES/EAGAIN are the busy-lock errors on POSIX and MSVCRT.
+                if exc.errno not in (errno.EACCES, errno.EAGAIN):
+                    raise
+                if time.monotonic() >= deadline:
+                    raise TimeoutError(
+                        f"Report publication for session {session} is already running"
+                    ) from exc
+                time.sleep(min(0.05, max(0.0, deadline - time.monotonic())))
+        try:
+            yield
+        finally:
+            stream.seek(0)
+            if os.name == "nt":
+                import msvcrt
+                msvcrt.locking(stream.fileno(), msvcrt.LK_UNLCK, 1)
+            else:
+                import fcntl
+                fcntl.flock(stream.fileno(), fcntl.LOCK_UN)
 
 
 def validate_staged_report(path: str | Path, directory: str | Path) -> Path:
@@ -157,32 +212,33 @@ def publish_reports(
 
     folder.mkdir(parents=True, exist_ok=True)
     session = int(data["history"][0])
-    begin_publication(folder, session, formats)
-    result = ReportPublication()
-    for fmt in formats:
-        try:
-            if fmt in {"json", "sarif"}:
-                report = Path(machine_export(data, folder, fmt=fmt))
-                if (report.is_symlink() or not report.is_file()
-                        or report.parent.resolve() != folder.resolve()):
-                    raise OSError("Machine exporter did not create a local regular report")
-                result.created[fmt] = report
-                continue
-            destination = targets[fmt]
-            if destination.parent != folder:
-                raise ValueError("Report path outside output directory")
-            if destination.is_symlink():
-                raise OSError("Refusing to overwrite symlink")
-            if destination.exists() and not destination.is_file():
-                raise OSError("Report destination is not a regular file")
-            with tempfile.TemporaryDirectory(prefix=".penx-format-", dir=str(folder)) as temporary:
-                renderer = html_export if fmt == "html" else pdf_export
-                staged = validate_staged_report(renderer(data, temporary), temporary)
+    with publication_lock(folder, session):
+        begin_publication(folder, session, formats)
+        result = ReportPublication()
+        for fmt in formats:
+            try:
+                if fmt in {"json", "sarif"}:
+                    report = Path(machine_export(data, folder, fmt=fmt))
+                    if (report.is_symlink() or not report.is_file()
+                            or report.parent.resolve() != folder.resolve()):
+                        raise OSError("Machine exporter did not create a local regular report")
+                    result.created[fmt] = report
+                    continue
+                destination = targets[fmt]
+                if destination.parent != folder:
+                    raise ValueError("Report path outside output directory")
                 if destination.is_symlink():
                     raise OSError("Refusing to overwrite symlink")
-                os.replace(staged, destination)
-            result.created[fmt] = destination
-        except Exception as exc:
-            result.failed[fmt] = f"{type(exc).__name__}: {exc}"
-    finalize_publication(folder, session, result.created, result.failed)
-    return result
+                if destination.exists() and not destination.is_file():
+                    raise OSError("Report destination is not a regular file")
+                with tempfile.TemporaryDirectory(prefix=".penx-format-", dir=str(folder)) as temporary:
+                    renderer = html_export if fmt == "html" else pdf_export
+                    staged = validate_staged_report(renderer(data, temporary), temporary)
+                    if destination.is_symlink():
+                        raise OSError("Refusing to overwrite symlink")
+                    os.replace(staged, destination)
+                result.created[fmt] = destination
+            except Exception as exc:
+                result.failed[fmt] = f"{type(exc).__name__}: {exc}"
+        finalize_publication(folder, session, result.created, result.failed)
+        return result
