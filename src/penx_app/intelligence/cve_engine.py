@@ -29,7 +29,7 @@ USER_AGENT = {"User-Agent": "PenX-CVE-Discovery/0.1 (authorized research)"}
 MAX_PAGES = 2
 PAGE_SIZE = 50
 MAX_RESULTS = 15
-CVE_ID = re.compile(r"CVE-\\d{4}-\\d{4,8}\\Z", re.ASCII | re.IGNORECASE)
+CVE_ID = re.compile(r"CVE-\d{4}-\d{4,8}\Z", re.ASCII | re.IGNORECASE)
 
 def compare_versions(one: str, two: str) -> int | None:
     """Return strict ordering; unknown/vendor-specific version syntax is uncertain."""
