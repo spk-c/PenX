@@ -26,5 +26,5 @@ Windows VM with a disposable account, authorized scanner targets and a
 *restorable sanitized copy* of all fixtures. Record immutable build SHA,
 `PenX-Setup-x64.exe` SHA256, Windows build, Npcap version, commands,
 screenshots/logs, expected/actual behavior and maintainer/date in the
-[refactor acceptance worksheet](REFACTOR_ACCEPTANCE.md). Do not use
+[field acceptance checklist](FIELD_ACCEPTANCE.md). Do not use
 production/customer data or claim CI passed those physical tests.
