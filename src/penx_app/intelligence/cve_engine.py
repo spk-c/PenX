@@ -45,6 +45,11 @@ def version_applies(version: str, match: dict, criteria_version: str) -> bool | 
     """True/False/None (cannot compare). Version strings are not guessed."""
     if not version or version in ("*", "-"):
         return None
+    # A concrete CPE version is an exact requirement, even if the provider
+    # also supplied versionStart/End bounds. Otherwise a nonmatching service
+    # may be presented as vulnerable merely because it fits the range.
+    if criteria_version not in ("*", "-", "") and version.casefold() != criteria_version.casefold():
+        return False
     bounds = (
         ("versionStartIncluding", True, True),
         ("versionStartExcluding", True, False),
