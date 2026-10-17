@@ -67,6 +67,7 @@ class CataloguePortsTests(unittest.TestCase):
         pkg = parse_explicit_packages("pkg:pypi/requests@2.31.0")[0]
         post = Mock(return_value=response({"vulns": [{"id": "OSV-TEST-1"}]}))
         get = Mock(return_value=response([{
+            "ghsa_id": "GHSA-abcd-efgh-ijkl",
             "cve_id": "CVE-2024-9999",
             "html_url": "https://github.com/advisories/GHSA-abcd-efgh-ijkl",
         }]))
