@@ -226,10 +226,23 @@ def _fetch_nvd(cpe: str, api_key: str, *,
     return tuple(results)
 
 
+NVD_MEMORY_TTL_SECONDS = 24 * 3600
+
+
 @lru_cache(maxsize=64)
-def _memory_nvd(cpe: str, api_key: str) -> tuple[dict, ...]:
-    """Existing in-memory cache when persistent caching is disabled."""
+def _memory_nvd_epoch(cpe: str, api_key: str, epoch: int) -> tuple[dict, ...]:
+    """Bounded in-memory catalogue results for one monotonic TTL window."""
     return _fetch_nvd(cpe, api_key)
+
+
+def _memory_nvd(cpe: str, api_key: str) -> tuple[dict, ...]:
+    """Never reuse a cached NVD catalogue from an earlier 24-hour window."""
+    epoch = int(time.monotonic() // NVD_MEMORY_TTL_SECONDS)
+    return _memory_nvd_epoch(cpe, api_key, epoch)
+
+
+# Preserve the existing cache reset API used by standalone callers/tests.
+setattr(_memory_nvd, "cache_clear", _memory_nvd_epoch.cache_clear)
 
 
 def _cached_nvd(cpe: str, api_key: str) -> tuple[dict, ...]:
@@ -246,7 +259,7 @@ def _cached_nvd(cpe: str, api_key: str) -> tuple[dict, ...]:
 
 
 # Keep existing test/caller cache reset API for the disabled-memory-cache path.
-setattr(_cached_nvd, "cache_clear", _memory_nvd.cache_clear)
+setattr(_cached_nvd, "cache_clear", _memory_nvd_epoch.cache_clear)
 
 def _vendor_refs(cve: dict) -> list[str]:
     """Retain valid HTTPS vendor links despite malformed provider siblings."""
