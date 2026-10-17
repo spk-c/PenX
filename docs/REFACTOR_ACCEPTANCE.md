@@ -106,12 +106,10 @@ Blocking-call interruption is **not** guaranteed, especially for WHOIS.
 Run real Windows/authorized-target timeout and child-process-tree field
 tests before marking Pk04/Pk05 complete. No field sign-off is asserted.
 
-## Tracked outstanding issues (16 October 2026)
+## Historical issue tracking and current acceptance status (17 October 2026)
 
-The full refactor remains **NOT SIGNED OFF**. To avoid treating published
-v0.4.8 binaries as proof of hardware/field acceptance, follow the dedicated
-checklists: [Windows/scanner + Npcap](https://github.com/spk-c/PenX/issues/11),
-[DB restores/evidence/report parity](https://github.com/spk-c/PenX/issues/12),
-[model/CLI refactor](https://github.com/spk-c/PenX/issues/13), and
-[static typing, legacy compatibility and benchmarks](https://github.com/spk-c/PenX/issues/14).
-Only close each issue after independent evidence is attached and reviewed.
+The former acceptance/refactor tracking issues [#11](https://github.com/spk-c/PenX/issues/11), [#12](https://github.com/spk-c/PenX/issues/12), [#13](https://github.com/spk-c/PenX/issues/13) and [#14](https://github.com/spk-c/PenX/issues/14) were closed on 16 October 2026 with GitHub's **not planned** reason. They are historical references, **not open work items and not evidence of completed field acceptance**. Do not reopen or relabel them simply to infer completion.
+
+As of 17 October 2026, the repository has no open issues or pull requests, and v0.4.8 is published. **The refactor remains NOT SIGNED OFF**: code review, green automation, published binaries and issue closure do not substitute for the operator-owned Pk01–Pk12 acceptance evidence in the table above. In particular, manual Windows/Npcap/scanner execution, real cancellation, sanitized backup restore, long rendered report inspection, upgrades/rollback and maintainers' signatures remain unverified wherever no field record is attached.
+
+Future maintainers should create fresh, narrowly scoped issues only for reproducible defects or actionable acceptance work with owners, fixtures and exit criteria, and link completed evidence here. Avoid claiming that *all checks pass* until the applicable field gates actually pass.
