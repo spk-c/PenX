@@ -788,9 +788,10 @@ def run_endpoint_mapping(target: str, *, cancel_event=None) -> ScannerOutput:
                 # A cancellable gap prevents a burst at process boundaries.
                 if cancel_event is not None:
                     if cancel_event.wait(0.6):
-                        partial = True
-                        notes.append("[!] Mapping cancelled before next ffuf pass.")
-                        break
+                        return ScannerOutput(
+                            "[!] Endpoint mapping cancelled before the next ffuf pass.",
+                            status="PARTIAL", evidence=False,
+                        )
                 else:
                     time.sleep(0.6)
                 # Replace the disposable wordlist before launching each pass;
@@ -801,9 +802,11 @@ def run_endpoint_mapping(target: str, *, cancel_event=None) -> ScannerOutput:
                     timeout=32, cancel_event=cancel_event,
                 ))
                 if cancel_event is not None and cancel_event.is_set():
-                    partial = True
-                    notes.append("[!] Mapping cancelled during ffuf.")
-                    break
+                    return ScannerOutput(
+                        "[!] Endpoint mapping cancelled during ffuf; "
+                        "partial crawler results were not promoted to evidence.",
+                        status="PARTIAL", evidence=False,
+                    )
                 if result.status != "COMPLETE":
                     # Empty ffuf stdout can mean zero matching paths. Do not
                     # present it as verified negative coverage or a finding.
