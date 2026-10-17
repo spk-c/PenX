@@ -30,6 +30,7 @@ MAX_PAGES = 2
 PAGE_SIZE = 50
 MAX_RESULTS = 15
 CVE_ID = re.compile(r"CVE-\d{4}-\d{4,8}\Z", re.ASCII | re.IGNORECASE)
+OSV_ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{2,127}\Z", re.ASCII)
 
 def compare_versions(one: str, two: str) -> int | None:
     """Return strict ordering; unknown/vendor-specific version syntax is uncertain."""
@@ -328,6 +329,7 @@ def osv_candidates(package: Package, *, limit: int = MAX_RESULTS,
     results: list[dict] = []
     post = requests.post if http_post is None else http_post
     token = ""
+    malformed_ids = False
     try:
         for _ in range(MAX_PAGES):
             payload: dict[str, object] = {"package": {"purl": package.purl}}
@@ -345,8 +347,15 @@ def osv_candidates(package: Package, *, limit: int = MAX_RESULTS,
             for vuln in obj.get("vulns", []):
                 if not isinstance(vuln, dict):
                     return results, "OSV returned a malformed vulnerability for " + package.purl
-                identifier = str(vuln.get("id", "")).strip()
-                if not identifier:
+                # Do not coerce arbitrary provider objects into official
+                # looking identifiers or URLs. OSV uses ASCII identifiers
+                # such as GHSA-, PYSEC-, RUSTSEC-, GO- and CVE-.
+                identifier = vuln.get("id")
+                if (not isinstance(identifier, str)
+                        or not OSV_ID.fullmatch(identifier)
+                        or (identifier.upper().startswith("CVE-")
+                            and not CVE_ID.fullmatch(identifier))):
+                    malformed_ids = True
                     continue
                 results.append({
                     "id": identifier, "source": "OSV", "status": "package-version-matched",
@@ -356,7 +365,8 @@ def osv_candidates(package: Package, *, limit: int = MAX_RESULTS,
                     "vendor_advisories": [],
                 })
                 if len(results) >= limit:
-                    return results, ""
+                    return results, ("OSV returned malformed candidate IDs; results may be incomplete."
+                                     if malformed_ids else "")
             next_token = obj.get("next_page_token")
             if next_token is not None and not isinstance(next_token, str):
                 return results, "OSV returned a malformed pagination token for " + package.purl
@@ -365,7 +375,8 @@ def osv_candidates(package: Package, *, limit: int = MAX_RESULTS,
                 break
     except (requests.RequestException, ValueError, KeyError, TypeError):
         return results, "OSV unavailable/incomplete for " + package.purl
-    return results, ""
+    return results, ("OSV returned malformed candidate IDs; results may be incomplete."
+                     if malformed_ids else "")
 
 def github_candidates(package: Package, *, token: str = "",
                       limit: int = MAX_RESULTS,
