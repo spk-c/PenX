@@ -429,7 +429,7 @@ backends, preserved old sessions and all report formats.
   report review.
 - Ruff and mypy include the source verification boundary in Linux CI.
   Neither tool's success proves repository-wide type/lint cleanliness.
-- Field-only checks in `REFACTOR_ACCEPTANCE.md` remain unsigned:
+- Field-only checks in `FIELD_ACCEPTANCE.md` remain unsigned:
   real scanner cancellation and consent, restore rehearsal using authorized
   sanitized backups, Windows UAC/Npcap/installer rollback, and manual PDF review.
 
