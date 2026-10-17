@@ -254,7 +254,7 @@ def _cached_nvd(cpe: str, api_key: str) -> tuple[dict, ...]:
 
 
 # Keep existing test/caller cache reset API for the disabled-memory-cache path.
-setattr(_cached_nvd, "cache_clear", _memory_nvd.cache_clear)
+setattr(_cached_nvd, "cache_clear", _memory_nvd_epoch.cache_clear)
 
 def _vendor_refs(cve: dict) -> list[str]:
     """Retain valid HTTPS vendor links despite malformed provider siblings."""
