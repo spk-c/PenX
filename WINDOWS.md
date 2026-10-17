@@ -362,7 +362,7 @@ of complete anonymization.
 
 [GitHub Actions](https://github.com/spk-c/PenX/actions) is the primary CI. Offline regression tests run on Ubuntu and Windows. The [Windows Release workflow](.github/workflows/release.yml) builds and smoke-tests portable PenX and the installer. Version tags matching the application version publish the Windows installer, portable ZIP, and SHA256SUMS.txt to [GitHub Releases](https://github.com/spk-c/PenX/releases). Manual runs supply workflow artifacts rather than a public release.
 
-The installed Windows updater checks stable GitHub releases, verifies official asset URLs and SHA-256 checksums, and requires confirmation before installation. Windows binaries are published for v0.4.7. Later code changes require a new tagged release.
+The installed Windows updater checks stable GitHub releases, verifies official asset URLs and SHA-256 checksums, and requires confirmation before installation. Windows binaries are published for [v0.4.9](https://github.com/spk-c/PenX/releases/tag/v0.4.9). Changes after the tagged build require a newer tagged release.
 
 ## Cancelling a running scanner selection
 
