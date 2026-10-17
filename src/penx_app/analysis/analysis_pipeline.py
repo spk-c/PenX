@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable
+import re
 import json
 from penx_app.settings import Settings
 from penx_app.analysis.scan_input_budget import bound_scan_text
@@ -110,6 +111,22 @@ List all vulnerabilities, fixes, and suggest exploits where applicable."""
         analysis_rounds.append(response)
 
         tool_calls = [] if passive_only else ports.extract_tool_calls(response)
+        # Untrusted banners are model context. Never let them induce arbitrary
+        # outbound web queries containing internal hosts, tokens or scan text.
+        # Even with explicit opt-in, only a public CVE identifier may leave
+        # this boundary; arbitrary model-generated search strings are rejected.
+        safe_calls = []
+        for kind, command in tool_calls:
+            if kind == "SEARCH":
+                if not getattr(settings, "ALLOW_MODEL_WEB_SEARCH", False):
+                    ports.emit("[!] Model-directed external web search disabled (PENX_ALLOW_MODEL_WEB_SEARCH=off).")
+                    continue
+                if not re.fullmatch(r"CVE-[0-9]{4}-[0-9]{4,7}", command.strip(), re.IGNORECASE):
+                    ports.emit("[!] Model-directed web query blocked: only a public CVE ID is permitted.")
+                    continue
+                command = command.strip().upper()
+            safe_calls.append((kind, command))
+        tool_calls = safe_calls
         if not tool_calls:
             ports.emit("\n[*] No tool calls. Analysis complete.")
             break
