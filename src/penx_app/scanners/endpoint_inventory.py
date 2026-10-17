@@ -22,6 +22,29 @@ MAX_PARAMETERS = 24
 MAX_FILE_BYTES = 96_000
 _SAFE_PARAM = re.compile(r"[A-Za-z0-9_][A-Za-z0-9_.\[\]-]{0,63}\Z", re.ASCII)
 _BAD_ESCAPES = re.compile(r"%(?:00|0[0-9a-f]|1[0-9a-f]|2f|5c|7f)", re.IGNORECASE)
+# Active follow-up probes are deliberately narrower than stored discoveries:
+# parameter values are never replayed, and potentially state-changing routes
+# are inventory-only even if a crawler happened to visit them.
+_SAFE_PROBE_SEGMENT = re.compile(r"[A-Za-z0-9][A-Za-z0-9._~-]{0,63}\\Z", re.ASCII)
+_UNSAFE_ROUTE_WORDS = frozenset({
+    "logout", "signout", "delete", "remove", "purchase", "checkout",
+    "reset", "transfer", "pay", "confirm", "unsubscribe", "destroy",
+})
+
+
+def _safe_probe_path(path: str) -> bool:
+    if not path.startswith("/") or path == "/" or len(path) > 180:
+        return False
+    segments = path[1:].rstrip("/").split("/")
+    if len(segments) > 5 or any(not _SAFE_PROBE_SEGMENT.fullmatch(s) for s in segments):
+        return False
+    for segment in segments:
+        # Treat /delete-user and /logout.php as potentially state-changing.
+        stem = segment.split(".", 1)[0].lower().replace("_", "-")
+        if _UNSAFE_ROUTE_WORDS.intersection(stem.split("-")):
+            return False
+    return True
+
 
 
 def _authority(url: str) -> tuple[str, str, int]:
@@ -128,13 +151,18 @@ class EndpointInventory:
             if scanner == "katana":
                 req = obj.get("request")
                 candidate = req.get("endpoint") if isinstance(req, dict) else None
-                if obj.get("error"):
+                # Only idempotent GET discoveries may seed active GET follow-ups.
+                # Omitted method is GET for older Katana JSONL versions.
+                method = req.get("method", "GET") if isinstance(req, dict) else None
+                if (obj.get("error") or not isinstance(method, str)
+                        or method.upper() != "GET"):
                     bad += 1
                     continue
             else:
                 candidate = obj.get("url")
-                # Only ffuf results with an explicit returned HTTP status.
-                if not isinstance(obj.get("status"), int):
+                status = obj.get("status")
+                # A 0/negative/bool value is not HTTP response evidence.
+                if type(status) is not int or not 100 <= status <= 599:
                     bad += 1
                     continue
             if isinstance(candidate, str) and self.add(candidate, scanner):
@@ -142,6 +170,20 @@ class EndpointInventory:
             else:
                 bad += 1
         return good, bad
+
+    def paths_for_probe(self, max_paths: int = 12) -> list[str]:
+        """Return relative GET-only paths for ffuf's root wordlist.
+
+        This list is generated from the CURRENT completed crawl only.
+        It deliberately drops query values, unsafe route verbs, encodings,
+        empty paths and unusual path syntax; the caller owns the request budget.
+        """
+        paths: set[str] = set()
+        for url in self.entries:
+            path = urlsplit(url).path
+            if _safe_probe_path(path):
+                paths.add(path.lstrip("/"))
+        return sorted(paths)[:max(0, min(max_paths, 24))]
 
     def paths_for_fuzz(self, max_dirs: int = 3) -> list[str]:
         """Return safe discovered directory prefixes; never query-param fuzz."""
