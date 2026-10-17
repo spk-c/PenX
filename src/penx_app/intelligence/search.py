@@ -12,6 +12,10 @@ import ipaddress
 import socket
 from urllib.parse import urlsplit
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3.connection import HTTPSConnection
+from urllib3.connectionpool import HTTPSConnectionPool
+from urllib3.exceptions import NewConnectionError
 from bs4 import BeautifulSoup
 try:
     from ddgs import DDGS
@@ -139,6 +143,68 @@ def search_fix(vuln_name: str, *, web_search_client: Callable | None = None) -> 
 MAX_PAGE_BYTES = 512 * 1024
 
 
+class _PublicOnlyHTTPSConnection(HTTPSConnection):
+    """Connect to an explicitly verified public socket address only.
+
+    Filtering DNS in fetch_page(), followed by requests.get(), is vulnerable
+    to a second DNS lookup selecting a private/rebound address. Perform the
+    DNS lookup and public-address check inside the actual socket connection
+    instead. urllib3 still performs TLS/SNI/hostname validation for the
+    original (unmodified) HTTPS URL after _new_conn returns the socket.
+    """
+
+    def _new_conn(self):
+        try:
+            answers = socket.getaddrinfo(
+                self._dns_host, self.port, type=socket.SOCK_STREAM
+            )
+        except OSError as exc:
+            raise NewConnectionError(self, "Public HTTPS hostname resolution failed") from exc
+        last_error = None
+        for family, kind, protocol, _canonical, address in answers:
+            try:
+                if not ipaddress.ip_address(address[0]).is_global:
+                    continue
+            except (ValueError, TypeError, IndexError):
+                continue
+            connection = None
+            try:
+                # Use the already resolved sockaddr: never run a second DNS
+                # lookup through urllib3.util.connection.create_connection().
+                connection = socket.socket(family, kind, protocol)
+                for option in self.socket_options or ():
+                    connection.setsockopt(*option)
+                connection.settimeout(self.timeout)
+                if self.source_address is not None:
+                    connection.bind(self.source_address)
+                connection.connect(address)
+                return connection
+            except OSError as exc:
+                last_error = exc
+                if connection is not None:
+                    connection.close()
+        raise NewConnectionError(
+            self, "No reachable public HTTPS address was resolved"
+        ) from last_error
+
+
+class _PublicOnlyHTTPSPool(HTTPSConnectionPool):
+    ConnectionCls = _PublicOnlyHTTPSConnection
+
+
+class _PublicOnlyHTTPSAdapter(HTTPAdapter):
+    """Keep standard HTTPS/TLS verification with a public-IP-only connection."""
+
+    def init_poolmanager(self, connections, maxsize, block=False, **kwargs):
+        super().init_poolmanager(connections, maxsize, block=block, **kwargs)
+        # PoolManager's default map is shared; copy before changing this
+        # instance to avoid affecting unrelated requests and clients.
+        self.poolmanager.pool_classes_by_scheme = (
+            self.poolmanager.pool_classes_by_scheme.copy()
+        )
+        self.poolmanager.pool_classes_by_scheme["https"] = _PublicOnlyHTTPSPool
+
+
 def _allowed_page_url(url: str) -> bool:
     """Only public HTTPS endpoints; redirects are never followed."""
     try:
@@ -146,7 +212,8 @@ def _allowed_page_url(url: str) -> bool:
         host = parsed.hostname
         if (parsed.scheme != "https" or not host or parsed.username is not None
                 or parsed.password is not None or parsed.fragment
-                or parsed.port == 0):
+                or parsed.port == 0 or len(url) > 2048
+                or any(ch.isspace() or ord(ch) < 32 for ch in url)):
             return False
         name = host.casefold().rstrip(".")
         if (name in ("localhost", "localhost.localdomain")
@@ -176,54 +243,68 @@ def fetch_page(url: str, max_chars: int = 3000, *,
                http_get: Callable | None = None) -> str:
     """Fetch a bounded external HTTPS page, without following redirects.
 
-    A private/internal target must not be fetched through model-supplied
-    commands; arbitrary caller-selected public DNS domains still depend on
-    DNS trust and must not be treated as a full anti-rebinding sandbox.
+    Production network connections use a dedicated HTTPS transport that
+    refuses non-public DNS answers *at socket creation*. The original host
+    remains the TLS certificate/Server Name Indication identity. Injected
+    transports are meant for offline tests and have independent trust policy.
     """
     if not isinstance(url, str) or not _allowed_page_url(url):
         return "[!] Page fetch blocked: requires a public HTTPS URL."
     resp = None
     try:
         headers = {"User-Agent": "PenX/0.4"}
-        client = requests.get if http_get is None else http_get
-        resp = client(url, headers=headers, timeout=15,
-                      allow_redirects=False, stream=True)
-        if 300 <= resp.status_code < 400:
-            return "[!] Page fetch refused a redirect."
-        resp.raise_for_status()
-
-        chunks = []
-        total = 0
-        for piece in resp.iter_content(chunk_size=8192):
-            if not piece:
-                continue
-            total += len(piece)
-            if total > MAX_PAGE_BYTES:
-                return "[!] Page fetch response exceeded 512 KiB."
-            chunks.append(piece)
-        encoding = resp.encoding or "utf-8"
-        soup = BeautifulSoup(b"".join(chunks).decode(encoding, errors="replace"),
-                             "html.parser")
-        for tag in soup(["script", "style", "nav", "footer", "header", "aside"]):
-            tag.decompose()
-        clean = "\n".join(l for l in soup.get_text(separator="\n", strip=True).splitlines()
-                          if l.strip())
-        limit = max(0, min(int(max_chars), 20000))
-        if len(clean) > limit:
-            clean = clean[:limit] + f"\n... [truncated at {limit} chars]"
-        return clean
+        if http_get is None:
+            # Do not use ambient HTTP(S)_PROXY variables here: an arbitrary
+            # proxy would resolve the host outside our checked transport.
+            with requests.Session() as session:
+                session.trust_env = False
+                session.mount("https://", _PublicOnlyHTTPSAdapter())
+                resp = session.get(url, headers=headers, timeout=15,
+                                   allow_redirects=False, stream=True)
+                return _read_public_page(resp, max_chars)
+        # An injected transport is reserved for offline tests/callers that
+        # explicitly supply their own network safety policy.
+        resp = http_get(url, headers=headers, timeout=15,
+                        allow_redirects=False, stream=True)
+        return _read_public_page(resp, max_chars)
     except requests.exceptions.ConnectionError:
-        return "[!] Could not connect to URL — check network."
+        return "[!] Could not connect to a public HTTPS address."
     except requests.exceptions.Timeout:
         return "[!] Page fetch timed out."
-    except requests.exceptions.HTTPError as e:
-        return f"[!] HTTP error: {e}"
-    except Exception as e:
-        return f"[!] Fetch failed: {e}"
+    except requests.exceptions.HTTPError:
+        return "[!] HTTP error fetching public page."
+    except Exception as exc:
+        return f"[!] Fetch failed ({type(exc).__name__})."
     finally:
         if resp is not None:
             resp.close()
 
+
+def _read_public_page(resp, max_chars: int) -> str:
+    """Decode a verified transport's bounded response without retaining HTML."""
+    if 300 <= resp.status_code < 400:
+        return "[!] Page fetch refused a redirect."
+    resp.raise_for_status()
+    chunks = []
+    total = 0
+    for piece in resp.iter_content(chunk_size=8192):
+        if not piece:
+            continue
+        total += len(piece)
+        if total > MAX_PAGE_BYTES:
+            return "[!] Page fetch response exceeded 512 KiB."
+        chunks.append(piece)
+    encoding = resp.encoding or "utf-8"
+    soup = BeautifulSoup(b"".join(chunks).decode(encoding, errors="replace"),
+                         "html.parser")
+    for tag in soup(["script", "style", "nav", "footer", "header", "aside"]):
+        tag.decompose()
+    clean = "\n".join(l for l in soup.get_text(separator="\n", strip=True).splitlines()
+                      if l.strip())
+    limit = max(0, min(int(max_chars), 20000))
+    if len(clean) > limit:
+        clean = clean[:limit] + f"\n... [truncated at {limit} chars]"
+    return clean
 
 # ─────────────────────────────────────────────
 # TOOL DISPATCH HANDLER
