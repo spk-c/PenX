@@ -56,6 +56,28 @@ class PublicOnlyHTTPSResearchTests(unittest.TestCase):
             self.connection()._new_conn()
         fake_sock.connect.assert_called_once_with(public[-1])
 
+    def test_multicast_resolution_must_not_open_a_socket(self):
+        for ip, family in (("224.0.0.1", socket.AF_INET),
+                           ("239.255.255.250", socket.AF_INET),
+                           ("ff02::1", socket.AF_INET6),
+                           ("ff0e::1", socket.AF_INET6)):
+            with self.subTest(ip=ip), \
+                 patch.object(search.socket, "getaddrinfo",
+                              return_value=[dns(ip, family)]), \
+                 patch.object(search.socket, "socket") as create_socket:
+                with self.assertRaises(NewConnectionError):
+                    self.connection()._new_conn()
+                create_socket.assert_not_called()
+
+    def test_multicast_literal_urls_are_refused_before_transport(self):
+        with patch.object(search.requests, "Session",
+                          side_effect=AssertionError("must not connect")):
+            for url in ("https://224.0.0.1/", "https://239.255.255.250/",
+                        "https://[ff0e::1]/", "https://0xe0000001/"):
+                with self.subTest(url=url):
+                    self.assertFalse(search._allowed_page_url(url))
+                    self.assertIn("blocked", search.fetch_page(url))
+
     def test_dns_failure_never_opens_socket(self):
         with patch.object(search.socket, "getaddrinfo",
                           side_effect=socket.gaierror("offline fixture")), \
