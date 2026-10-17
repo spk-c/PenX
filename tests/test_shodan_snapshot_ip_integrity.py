@@ -8,6 +8,7 @@ import json
 import unittest
 
 from penx_app.application.scan_trends import _shodan_snapshots, compare_sessions
+from penx_app.intelligence.shodan_enrichment import _global_ipv4, resolve_public_ipv4
 
 
 def scan(session_id: int, ip: str, ports=(443,)):
@@ -52,6 +53,14 @@ class ShodanSnapshotAddressContracts(unittest.TestCase):
         self.assertEqual(indexed["no_longer_indexed_ports"], [
             {"ip": "8.8.8.8", "port": 80}
         ])
+
+    def test_multicast_is_not_a_valid_shodan_public_ipv4_lookup(self):
+        for candidate in ("224.0.0.1", "239.255.255.250", "127.0.0.1"):
+            with self.subTest(candidate=candidate):
+                self.assertIsNone(_global_ipv4(candidate))
+                self.assertEqual(resolve_public_ipv4(candidate)[0], [])
+        self.assertEqual(_global_ipv4("8.8.8.8"), "8.8.8.8")
+        self.assertEqual(resolve_public_ipv4("8.8.8.8")[0], ["8.8.8.8"])
 
     def test_different_valid_ips_remain_incomparable(self):
         diff = compare_sessions(scan(1, "8.8.8.8"),
