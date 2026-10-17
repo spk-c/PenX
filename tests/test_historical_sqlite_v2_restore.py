@@ -18,6 +18,7 @@ class HistoricalV2WalRestoreTests(unittest.TestCase):
     def setUp(self):
         temp = tempfile.TemporaryDirectory(prefix="penx-v2-wal-")
         self.addCleanup(temp.cleanup)
+        self.temp_dir = temp.name
         self.source = Path(temp.name) / "v2-original.sqlite"
         self.copy = Path(temp.name) / "v2-restored.sqlite"
 
@@ -69,10 +70,8 @@ class HistoricalV2WalRestoreTests(unittest.TestCase):
         for invalid in ("duplicate", "orphan", "null"):
             with self.subTest(invalid=invalid):
                 # Each scenario needs its own WAL database and backup file.
-                self.source.unlink(missing_ok=True)
-                self.copy.unlink(missing_ok=True)
-                self.source = self.source.with_name(f"v2-{invalid}.sqlite")
-                self.copy = self.copy.with_name(f"v2-{invalid}-restored.sqlite")
+                self.source = Path(self.temp_dir) / f"v2-{invalid}.sqlite"
+                self.copy = Path(self.temp_dir) / f"v2-{invalid}-restored.sqlite"
                 self.legacy(invalid=invalid)
                 with closing(sqlite3.connect(self.copy)) as db:
                     before = db.execute("SELECT id, sl_no, raw_scan FROM summary ORDER BY id").fetchall()
