@@ -809,9 +809,9 @@ def run_endpoint_mapping(target: str, *, cancel_event=None) -> ScannerOutput:
         try:
             saved = load_inventory(origin)
             for url, row in current.entries.items():
-                if saved.add(url, "katana"):
-                    saved.entries[url]["sources"].update(row["sources"])
-                    saved.entries[url]["parameters"].update(row["parameters"])
+                for source in row["sources"]:
+                    if saved.add(url, source):
+                        saved.entries[url]["parameters"].update(row["parameters"])
             location = save_inventory(saved)
             notes.append(f"[*] Endpoint inventory stored: {location.name}")
         except (OSError, ValueError) as exc:
