@@ -252,7 +252,7 @@ class EndpointMappingExecutionContracts(unittest.TestCase):
             return ScannerOutput(ffuf_row(ORIGIN + "/api/health"),
                                  status="COMPLETE", evidence=True)
 
-        with patch.object(tools, "find_native", return_value="scanner.exe"), \\
+        with patch.object(tools, "find_native", return_value="scanner.exe"), \
              patch.object(tools, "_run_external", side_effect=execute):
             output = tools.run_endpoint_mapping(ORIGIN, cancel_event=token)
         self.assertEqual(output.status, "PARTIAL")
