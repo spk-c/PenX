@@ -44,7 +44,7 @@ Issue triage retries one old issue per day and continues to respond to newly ope
 
 ## Current release and future publication
 
-The stable [v0.4.8 release](https://github.com/spk-c/PenX/releases/tag/v0.4.8) has completed its tagged Windows build. For **future** versions, the owner can use `scripts/configure_github.ps1 -PublishRelease` after required checks pass. The release workflow publishes matching Windows binaries and checksums; manual Windows/Npcap/database field acceptance remains separate.
+The stable [v0.4.8 release](https://github.com/spk-c/PenX/releases/tag/v0.4.8) has completed its tagged Windows build. For **future** versions, the owner can use `scripts/configure_github.ps1 -PublishRelease` after required checks pass. The release workflow publishes matching Windows binaries and checksums; manual Windows/Npcap/database field acceptance remains separate. See [maintenance status](MAINTENANCE_STATUS.md) and [release issue #80](https://github.com/spk-c/PenX/issues/80) for what is still missing from the published artifacts.
 
 ## Cleaning up merged work branches
 
@@ -64,7 +64,11 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\prune_merged_githu
 
 Only matching merged-PR `fix/`, `refactor/`, `release/`, `maintenance/`,
 `docs/` or `quality/` heads with an unchanged commit SHA and **no open PR**
-qualify. The script never deletes
+qualify. A one-time [reviewed cleanup workflow](../.github/workflows/prune-merged-branches.yml)
+triggers when its file is first added to `main`; it executes the same guarded
+helper using the repository Actions token. Any GitHub permission denial is
+reported in its logs and does not authorize deleting a branch without merged
+PR evidence. This does not affect release tags. The script never deletes
 `main`, never deletes unrecognized branch prefixes, and rejects any
 branch changed or reopened between preview and deletion. Deletion is
 irreversible through this helper; the merged pull request remains visible.
