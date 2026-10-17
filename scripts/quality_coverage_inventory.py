@@ -28,7 +28,7 @@ def coverage(ci_text: str, modules: list[str]) -> dict[str, list[str]]:
     for gate, matches in commands.items():
         paths: set[str] = set()
         for command in matches:
-            paths.update(re.findall(r"src/penx_app/[\w./-]+", command))
+            paths.update(re.findall(r"src/penx_app(?:/[\w./-]+)?", command))
         result[gate] = sorted(
             module for module in modules
             if not any(module == path or module.startswith(path.rstrip("/") + "/")
