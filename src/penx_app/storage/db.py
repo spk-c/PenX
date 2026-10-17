@@ -270,7 +270,7 @@ def save_assessment(sl_no: int, result: dict, *, model_name: str = "") -> dict:
         conn.close()
 
 
-from penx_app.domain.finding_policy import active_vulnerabilities
+from penx_app.domain.finding_policy import active_vulnerabilities as active_vulnerabilities
 
 
 # ─────────────────────────────────────────────
