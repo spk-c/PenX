@@ -1,7 +1,7 @@
 """Validated, structured local LLM reports; model JSON cannot invoke tools."""
 from __future__ import annotations
 import json
-import re
+
 import requests
 from jsonschema import validate, ValidationError
 from penx_app.analysis.llm_client import complete_chat
