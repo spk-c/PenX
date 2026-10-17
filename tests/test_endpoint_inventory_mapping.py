@@ -116,7 +116,9 @@ class EndpointMappingExecutionContracts(unittest.TestCase):
         )
 
         def execute(argv, **kwargs):
-            calls.append((argv, kwargs))
+            words_used = (len(Path(argv[argv.index("-w") + 1]).read_text().splitlines())
+                          if "-w" in argv else 0)
+            calls.append((argv, {**kwargs, "words_used": words_used}))
             return katana if "-mdp" in argv else ffuf
 
         with tempfile.TemporaryDirectory() as folder, \
@@ -135,7 +137,7 @@ class EndpointMappingExecutionContracts(unittest.TestCase):
             katana_row("https://outside.test/admin"),
         ])
         output, calls = self.run_mapping(raw)
-        self.assertEqual(len(calls), 2)  # malformed sibling still yields root + api? see follow-up
+        self.assertEqual(len(calls), 3)  # Katana then root + discovered /api/
         self.assertIn("SAME-ORIGIN ENDPOINT INVENTORY", str(output))
         self.assertNotIn("SENSITIVE", str(output))
         self.assertTrue(output.evidence)
@@ -147,8 +149,7 @@ class EndpointMappingExecutionContracts(unittest.TestCase):
         ffuf_argv = calls[1][0]
         self.assertEqual(ffuf_argv[ffuf_argv.index("-rate") + 1], "2")
         self.assertIn("-p", ffuf_argv)
-        self.assertLessEqual(sum(len(Path(c[0][c[0].index("-w")+1]).read_text().splitlines())
-                                 for c in calls[1:]), 56)  # temporary list exists only in runner
+        self.assertLessEqual(sum(c[1]["words_used"] for c in calls[1:]), 56)
 
     def test_different_origin_discoveries_never_become_ffuf_targets(self):
         raw = katana_row(ORIGIN + "/api/users") + "\n" + katana_row("https://outside.test/a")
