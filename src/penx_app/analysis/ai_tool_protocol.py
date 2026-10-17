@@ -10,6 +10,10 @@ from penx_app.domain.scan_models import ScannerOutput
 
 # A single model response must not trigger unbounded search/scan calls.
 MAX_DIRECTIVES_PER_ROUND = 12
+MAX_TOOL_INPUT_CHARS = 24_000
+MAX_TOOL_RESULT_CHARS = 12_000
+MAX_TOOL_ROUND_CHARS = 96_000
+MAX_TOOL_RAW_EVIDENCE_CHARS = 2_000_000
 
 
 def parse_directives(response: str) -> list:
@@ -39,9 +43,20 @@ def dispatch_directives(calls: list, authorized_target: str | None = None, raw_c
         return ""
 
     limited = calls[:MAX_DIRECTIVES_PER_ROUND]
-    results = ""
-    for call_type, call_content in limited:
-        print(f"\n  [DISPATCH] {call_type}: {call_content}")
+    parts: list[str] = []
+    used = 0
+    skipped_for_budget = 0
+    for index, (call_type, call_content) in enumerate(limited):
+        if used >= MAX_TOOL_ROUND_CHARS:
+            skipped_for_budget = len(limited) - index
+            break
+        # Parsed directives already limit commands to 2048 characters. The
+        # dispatcher is public, so do not let direct callers bypass that rule
+        # or echo unlimited tool instructions into the model's context.
+        if (not isinstance(call_type, str) or not isinstance(call_content, str)
+                or len(call_content) > 2048):
+            call_type, call_content = "INVALID", "[invalid tool directive]"
+        print(f"\n  [DISPATCH] {call_type}: {call_content[:256]}")
 
         if call_type == "TOOL":
             output = scanner_runner(call_content, authorized_target=authorized_target)
@@ -68,16 +83,42 @@ def dispatch_directives(calls: list, authorized_target: str | None = None, raw_c
         )
         if raw_collector is not None and call_type == "TOOL":
             if trusted and not diagnostic:
-                # Tool text used for later CVE discovery must be real evidence.
-                raw_collector.append("\n[ADDITIONAL TOOL OUTPUT]\n" + output[:2_000_000])
-        compressed = summarizer(output.strip())
-        results += f"\n[{call_type} RESULT: {call_content}]\n"
-        results += "─" * 40 + "\n"
-        results += compressed + "\n"
+                # Raw evidence remains separate from model-facing summaries.
+                raw_collector.append(
+                    "\n[ADDITIONAL TOOL OUTPUT]\n"
+                    + output[:MAX_TOOL_RAW_EVIDENCE_CHARS]
+                )
+        source = output.strip()
+        clipped_input = source[:MAX_TOOL_INPUT_CHARS]
+        compressed = summarizer(clipped_input)
+        if not isinstance(compressed, str):
+            compressed = "[!] Tool summarizer returned unsupported output type."
+        # Optional compression can fail and return the full raw input. Never
+        # let the raw fallback or an abnormal model summary grow unbounded.
+        max_body = min(
+            MAX_TOOL_RESULT_CHARS,
+            max(0, MAX_TOOL_ROUND_CHARS - used
+                - len(call_type) - len(call_content) - 80),
+        )
+        shortened = len(compressed) > max_body or len(source) > MAX_TOOL_INPUT_CHARS
+        body = compressed[:max_body]
+        if shortened:
+            body += "\n[!] Tool result truncated for model context; stored scanner evidence is separate."
+        block = (f"\n[{call_type} RESULT: {call_content}]\n"
+                 + "─" * 40 + "\n" + body + "\n")
+        remaining = MAX_TOOL_ROUND_CHARS - used
+        if len(block) > remaining:
+            block = block[:remaining]
+        parts.append(block)
+        used += len(block)
 
-    if len(calls) > MAX_DIRECTIVES_PER_ROUND:
-        results += (
-            f"\n[!] Skipped {len(calls) - MAX_DIRECTIVES_PER_ROUND} "
+    skipped = max(0, len(calls) - MAX_DIRECTIVES_PER_ROUND) + skipped_for_budget
+    if skipped:
+        note = (
+            f"\n[!] Skipped {skipped} "
             "model tool/search requests: per-round limit reached.\n"
         )
-    return results
+        remaining = MAX_TOOL_ROUND_CHARS - used
+        if remaining:
+            parts.append(note[:remaining])
+    return "".join(parts)
