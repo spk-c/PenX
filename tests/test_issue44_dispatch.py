@@ -52,7 +52,8 @@ class ToolDispatchTests(unittest.TestCase):
             "\n".join(f"[SEARCH: CVE-2024-{n:04d}]" for n in range(20)),
             "RISK_LEVEL: LOW\nSUMMARY: Checked evidence.",
         ]
-        with patch("llm.MAX_TOOL_LOOPS", 1), \
+        with patch.dict(os.environ, {"PENX_ALLOW_MODEL_WEB_SEARCH": "on"}), \
+             patch("llm.MAX_TOOL_LOOPS", 1), \
              patch("llm.ask_llm", side_effect=responses), \
              patch("llm.discover", return_value={"candidates": []}), \
              patch("llm.format_report", return_value=""), \
