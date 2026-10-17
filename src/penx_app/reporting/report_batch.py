@@ -35,6 +35,7 @@ import errno
 import json
 import os
 from pathlib import Path
+import stat
 import tempfile
 import time
 import uuid
@@ -165,14 +166,24 @@ def finalize_publication(folder: Path, session: int,
 def publication_state(folder: Path, session: int) -> dict | None:
     """Return the recorded manifest for this session, or None if absent/corrupt."""
     path = _manifest_path(folder, session)
-    if path.is_symlink() or not path.is_file():
-        return None
-    # Never parse an unbounded local file when a damaged or hostile manifest
-    # is encountered. Each regular PenX manifest is only a few KiB.
+    # Validate the same opened regular file used for reading. Checking the
+    # pathname before a second open permits symlink swaps or unbounded reads
+    # if another process replaces the file between the two operations.
     try:
-        if path.stat().st_size > 65536:
-            return None
-        with path.open("rb") as stream:
+        fd = os.open(
+            path, os.O_RDONLY | getattr(os, "O_BINARY", 0)
+            | getattr(os, "O_NOFOLLOW", 0),
+        )
+        with os.fdopen(fd, "rb") as stream:
+            opened = os.fstat(stream.fileno())
+            named = path.lstat()
+            if (not stat.S_ISREG(opened.st_mode)
+                    or not stat.S_ISREG(named.st_mode)
+                    or (opened.st_dev, opened.st_ino)
+                    != (named.st_dev, named.st_ino)):
+                return None
+            if opened.st_size > 65536:
+                return None
             data = stream.read(65537)
         if len(data) > 65536:
             return None
