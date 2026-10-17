@@ -258,6 +258,9 @@ def _execute_scan(*, passive_only: bool = False):
             _discard_failed_scan, preserve_failed_assessment, generate_session_reports, notify))
     if not outcome.completed:
         return ScanOutcome(False, True, outcome.stage, session_id=outcome.session_id)
+    if outcome.session_id is None:
+        warn("Completed assessment did not return a valid session identifier.")
+        return ScanOutcome(False, True, "invalid-session")
     sl_no = outcome.session_id
     divider()
 
