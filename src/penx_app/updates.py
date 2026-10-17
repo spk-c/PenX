@@ -39,6 +39,8 @@ class Release:
 
 
 def version_tuple(value: str) -> tuple[int, int, int]:
+    if not isinstance(value, str):
+        raise ValueError("Unsupported release version")
     match = VERSION_RE.fullmatch(value if value.startswith("v") else "v" + value)
     if not match:
         raise ValueError("Unsupported release version")
@@ -75,7 +77,16 @@ def fetch_latest() -> Release:
     assets = payload.get("assets", [])
     if not isinstance(assets, list):
         raise ValueError("Invalid release assets")
-    urls = {a.get("name"): a.get("browser_download_url") for a in assets if isinstance(a, dict)}
+    # Ignore malformed upstream entries (including unhashable JSON name values).
+    # One bad asset must not crash the update check before official URLs are vetted.
+    urls: dict[str, str] = {}
+    for asset in assets:
+        if not isinstance(asset, dict):
+            continue
+        name = asset.get("name")
+        url = asset.get("browser_download_url")
+        if isinstance(name, str) and isinstance(url, str):
+            urls[name] = url
     installer = urls.get(INSTALLER_NAME)
     checksums = urls.get(CHECKSUM_NAME)
     if not isinstance(installer, str) or not _safe_url(installer, asset=INSTALLER_NAME, tag=tag):
@@ -192,8 +203,12 @@ def startup_notice() -> None:
         return
     marker = APP_ROOT / "data" / ".last-update-check"
     try:
-        if marker.is_file() and time.time() - float(marker.read_text().strip()) < CHECK_INTERVAL:
-            return
+        if marker.is_file():
+            age = time.time() - float(marker.read_text().strip())
+            # A future timestamp from a clock correction must not suppress
+            # update checks until the machine's clock catches up.
+            if 0 <= age < CHECK_INTERVAL:
+                return
     except (ValueError, OSError):
         pass
     # Only a successful GitHub release lookup advances the throttle marker.
