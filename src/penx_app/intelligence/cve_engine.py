@@ -294,6 +294,12 @@ def nvd_candidates(product: Product, *, api_key: str = "",
             continue
         if str(cve.get("vulnStatus") or "").casefold() == "rejected":
             continue
+        # An invalid whole references container makes this provider record
+        # untrustworthy; only individual malformed links are tolerated.
+        if (cve.get("references") is not None
+                and not isinstance(cve["references"], list)):
+            malformed = True
+            continue
         identifier = identifier.upper()
         try:
             state = applicability(cve, product)
