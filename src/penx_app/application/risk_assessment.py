@@ -109,19 +109,26 @@ def save_override(session_id: int, finding_id: int, *,
     item = next((row for row in record.get("vulns", []) if row[0] == finding_id), None)
     if item is None:
         raise ValueError("Finding not present in selected scan session.")
-    override: dict[str, object] = {}
-    if score is not None:
-        override["score"] = score
-    if techniques is not None:
-        override["techniques"] = techniques
-    if priority is not None:
-        override["priority"] = priority
-    assess_finding(item, override)  # validate before persisting
+    # Resolve the existing record under the same lock as the atomic write.
+    # Previously a priority-only edit discarded the reviewed score and ATT&CK
+    # technique selections for this finding.
     with _OVERRIDE_LOCK:
         if path.is_symlink() or (path.exists() and not path.is_file()):
             raise OSError("Refusing unsafe risk override destination")
         entries = _load_overrides(path)
-        entries[f"{session_id}:{finding_id}"] = override
+        key = f"{session_id}:{finding_id}"
+        previous = entries.get(key, {})
+        if not isinstance(previous, dict):
+            raise ValueError("Invalid stored risk override record.")
+        override: dict[str, object] = dict(previous)
+        if score is not None:
+            override["score"] = score
+        if techniques is not None:
+            override["techniques"] = techniques
+        if priority is not None:
+            override["priority"] = priority
+        assess_finding(item, override)  # validate the merged state before writing
+        entries[key] = override
         replace_config(path, json.dumps(entries, indent=2, ensure_ascii=False) + "\n")
 
 
