@@ -5,6 +5,7 @@ CVE existence and KEV membership do not establish that a target is vulnerable.
 from __future__ import annotations
 
 import re
+import time
 from collections.abc import Callable
 from contextlib import closing
 import requests
@@ -15,8 +16,17 @@ NVD_PAGE = "https://nvd.nist.gov/vuln/detail/"
 CISA_KEV_URL = "https://www.cisa.gov/sites/default/files/feeds/known_exploited_vulnerabilities.json"
 CISA_PAGE = "https://www.cisa.gov/known-exploited-vulnerabilities-catalog"
 MAX_LOOKUPS = 20
+SOURCE_CACHE_TTL_SECONDS = 24 * 3600
 _nvd_cache: dict[str, str] = {}
+_nvd_cache_time: dict[str, float] = {}
 _kev_cache: set[str] | None = None
+_kev_cache_time: float | None = None
+
+
+def _fresh(cached_at: float | None, now: float) -> bool:
+    """Clock rollback and expired entries are never treated as fresh."""
+    return (cached_at is not None
+            and 0 <= now - cached_at < SOURCE_CACHE_TTL_SECONDS)
 
 def evidence_in_scan(quote: str, raw_scan: str) -> bool:
     """Match genuine scanner quotations, allowing a model-added source label.
@@ -52,8 +62,10 @@ def evidence_in_scan(quote: str, raw_scan: str) -> bool:
 
 def lookup_nvd(cve: str, api_key: str = "", *, get: Callable | None = None) -> str:
     """Returns 'listed', 'not-listed' or 'unavailable' (never a target verdict)."""
-    if get is None and cve in _nvd_cache:
-        return _nvd_cache[cve]
+    key = cve.upper()
+    if (get is None and key in _nvd_cache
+            and _fresh(_nvd_cache_time.get(key), time.monotonic())):
+        return _nvd_cache[key]
     headers = {"User-Agent": "PenX/SourceVerification"}
     if api_key:
         headers["apiKey"] = api_key
@@ -77,7 +89,8 @@ def lookup_nvd(cve: str, api_key: str = "", *, get: Callable | None = None) -> s
     except (requests.RequestException, ValueError, KeyError, TypeError):
         status = "unavailable"
     if get is None and status != "unavailable":
-        _nvd_cache[cve] = status
+        _nvd_cache[key] = status
+        _nvd_cache_time[key] = time.monotonic()
     return status
 
 def verify_nvd_applicability(cve_id: str, raw_scan: str, *, api_key: str = "",
@@ -125,8 +138,9 @@ def verify_nvd_applicability(cve_id: str, raw_scan: str, *, api_key: str = "",
 
 def load_cisa_kev(*, get: Callable | None = None) -> set[str] | None:
     """CISA catalog lookup; None means network/source unavailable."""
-    global _kev_cache
-    if get is None and _kev_cache is not None:
+    global _kev_cache, _kev_cache_time
+    if (get is None and _kev_cache is not None
+            and _fresh(_kev_cache_time, time.monotonic())):
         return _kev_cache
     try:
         with closing((requests.get if get is None else get)(
@@ -150,6 +164,7 @@ def load_cisa_kev(*, get: Callable | None = None) -> set[str] | None:
         result = {v["cveID"].upper() for v in entries}
         if get is None:
             _kev_cache = result
+            _kev_cache_time = time.monotonic()
         return result
     except (requests.RequestException, ValueError, TypeError, KeyError):
         return None
