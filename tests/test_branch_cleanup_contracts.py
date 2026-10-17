@@ -25,7 +25,8 @@ class BranchCleanupContracts(unittest.TestCase):
         self.assertIn("$current.object.sha -ne $candidate.Sha", source)
         self.assertIn("-X DELETE", source)
         self.assertIn("Write-Output -NoEnumerate $record", source)
-        self.assertIn("fix|refactor|release|maintenance", source)
+        self.assertIn("fix|refactor|release|maintenance|docs|quality", source)
+        self.assertIn("paginated", source)
         self.assertIn('Dry run only; no branches deleted.', source)
 
 
