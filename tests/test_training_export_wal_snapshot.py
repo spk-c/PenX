@@ -153,7 +153,7 @@ class TrainingExportSnapshotTests(unittest.TestCase):
         self.assertEqual(len(old), 1)
         original = old[0]
         self.assertIn("TARGET: old.test", original["messages"][0]["content"])
-        self.assertIn("RECON DATA:\\nold raw", original["messages"][0]["content"])
+        self.assertIn("RECON DATA:\nold raw", original["messages"][0]["content"])
         self.assertIn("VULN: Old verified finding", original["messages"][1]["content"])
         self.assertNotIn("New verified finding", original["messages"][1]["content"])
         self.assertEqual(original["metadata"]["corrections_applied"], 1)
@@ -163,7 +163,7 @@ class TrainingExportSnapshotTests(unittest.TestCase):
         fresh = self.export()
         self.assertEqual(len(fresh), 1)
         self.assertIn("TARGET: new.test", fresh[0]["messages"][0]["content"])
-        self.assertIn("RECON DATA:\\nnew raw", fresh[0]["messages"][0]["content"])
+        self.assertIn("RECON DATA:\nnew raw", fresh[0]["messages"][0]["content"])
         self.assertIn("VULN: New verified finding", fresh[0]["messages"][1]["content"])
         self.assertIn("DESC: new corrected detail", fresh[0]["messages"][1]["content"])
 
