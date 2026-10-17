@@ -755,25 +755,36 @@ def run_endpoint_mapping(target: str, *, cancel_event=None) -> ScannerOutput:
         # never silently exceed the request-plan ceiling across directories.
         parents = [origin] + current.paths_for_fuzz(max_dirs=2)
         slots = ENDPOINT_MAPPING_REQUEST_BUDGET - ENDPOINT_MAPPING_CRAWL_PAGE_CAP
-        each = min(len(words), slots // len(parents))
-        if each < 1:
+        per_parent = slots // len(parents)
+        if per_parent < 1:
             raise ValueError("Endpoint mapping budget exhausted before ffuf")
-        selected = words[:each]
+        # Root now checks bounded, directly discovered GET paths as well as
+        # fallback words. Child-directory discovery stays conservative.
+        # Query values are NEVER replayed or fuzzed.
+        discovered_paths = current.paths_for_probe(max_paths=24)
+        root_words = list(dict.fromkeys(discovered_paths + words))[:per_parent]
+        wordlists = [root_words] + [words[:per_parent] for _ in parents[1:]]
+        planned_ffuf = sum(len(items) for items in wordlists)
+        if planned_ffuf > slots:
+            raise ValueError("Endpoint mapping exceeded its planned request budget")
+        parameter_count = sum(len(row["parameters"]) for row in current.entries.values())
         notes: list[str] = []
         if malformed:
             notes.append(f"[!] Katana had {malformed} rejected or malformed rows.")
         notes.append(
             f"[MAPPING PLAN] Same origin: {origin}; at most "
             f"{ENDPOINT_MAPPING_CRAWL_PAGE_CAP} crawler pages + "
-            f"{len(parents) * len(selected)} ffuf candidates; "
+            f"{planned_ffuf} ffuf candidates (of {slots} reserved slots); "
+            f"{len(discovered_paths)} safe direct-path candidate(s), "
+            f"{parameter_count} observed parameter name(s); "
             f"native request rate <= {ENDPOINT_MAPPING_RATE}/s, sequential "
-            "processes; page cap is not a wire-level total-request guarantee."
+            "processes; page cap is not a wire-level total-request guarantee. "
+            "No parameter values are replayed or fuzzed."
         )
         partial = bool(malformed)
         with tempfile.TemporaryDirectory(prefix="penx_endpoint_ffuf_") as folder:
             wordlist = Path(folder) / "safe-paths.txt"
-            wordlist.write_text("\n".join(selected) + "\n", encoding="utf-8")
-            for parent in parents:
+            for parent, selected in zip(parents, wordlists):
                 # A cancellable gap prevents a burst at process boundaries.
                 if cancel_event is not None:
                     if cancel_event.wait(0.6):
@@ -782,9 +793,12 @@ def run_endpoint_mapping(target: str, *, cancel_event=None) -> ScannerOutput:
                         break
                 else:
                     time.sleep(0.6)
+                # Replace the disposable wordlist before launching each pass;
+                # its exact size is reserved in the shared plan above.
+                wordlist.write_text("\n".join(selected) + "\n", encoding="utf-8")
                 result = _process_outcome(_run_external(
                     ffuf_args(ffuf, parent, wordlist, mapping=True),
-                    timeout=20, cancel_event=cancel_event,
+                    timeout=32, cancel_event=cancel_event,
                 ))
                 if cancel_event is not None and cancel_event.is_set():
                     partial = True
