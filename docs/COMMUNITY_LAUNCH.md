@@ -1,6 +1,6 @@
 # PenX community launch kit
 
-Check the [README](../README.md) and [GitHub Releases](https://github.com/spk-c/PenX/releases) before sharing download links. Version v0.4.7 Windows binaries are published. Check the release page for downloads and SHA-256 verification.
+Check the [README](../README.md) and [GitHub Releases](https://github.com/spk-c/PenX/releases) before sharing download links. Version v0.4.8 Windows binaries are published. Check the release page for downloads and SHA-256 verification.
 
 ## GitHub project details
 
@@ -27,7 +27,7 @@ Until tested Windows assets are released, point users to the [source installatio
 
 ## Example community post
 
-> PenX is an MIT-licensed, Windows-first security reconnaissance assistant for authorized targets. It combines Nmap, Nuclei, httpx, ffuf, Subfinder, Katana and other checks, local-AI-assisted evidence reviews, scan history, and HTML/PDF/JSON/SARIF reports. Source and setup: https://github.com/spk-c/PenX. The v0.4.7 verified Windows downloads are on https://github.com/spk-c/PenX/releases/tag/v0.4.7.
+> PenX is an MIT-licensed, Windows-first security reconnaissance assistant for authorized targets. It combines Nmap, Nuclei, httpx, ffuf, Subfinder, Katana and other checks, local-AI-assisted evidence reviews, scan history, and HTML/PDF/JSON/SARIF reports. Source and setup: https://github.com/spk-c/PenX. The v0.4.8 verified Windows downloads are on https://github.com/spk-c/PenX/releases/tag/v0.4.8.
 
 Share only where community rules allow it. Do not spam or claim synthetic demonstrations are real scans.
 
