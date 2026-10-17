@@ -179,6 +179,40 @@ Set `PENX_STRUCTURED_OUTPUT=auto` (default) to try schema-constrained JSON, then
 
 Source checks look up public CVE IDs using NVD and CISA KEV and append references to findings. Listing a CVE **does not confirm target exploitability**. An AI quote is checked against the original scan for a match. To disable the outbound reference lookups, set `PENX_VERIFY_SOURCES=off`. For higher NVD API limits, optionally set `PENX_NVD_API_KEY` in your private `.env`. Never commit this key.
 
+### Endpoint inventory and targeted directory mapping (explicit opt-in)
+
+Select **[e]** in the scanner menu to run a Katana → ffuf mapping pass
+against one explicitly authorized `http(s)://host[:port]` origin.
+
+- Katana crawls with depth 1, an exact-origin URL regex, a maximum of
+  24 pages, a short run window, and at most 2 requests per second.
+- PenX validates returned URLs against the **exact scheme, hostname and
+  effective port**. It removes fragments, drops query values and records
+  **only query parameter names** alongside unique paths. It rejects
+  path-traversal encodings, credentials and external hosts.
+- ffuf checks **GET** paths from the root and up to two safe directories
+  discovered in the **current** crawl. Up to 56 ffuf candidates are planned
+  in total across the directories using the existing bounded, single-segment
+  wordlist. It never automatically fuzzes parameter values or follows
+  newly discovered subdomains.
+- The two scanner processes are **sequential**, use native rate caps
+  (2 requests per second), include a small inter-process delay, and
+  receive the CLI's cancellation token. Cancellation/partial output
+  never silently becomes completed vulnerability evidence.
+- A bounded JSON inventory is stored under `data/endpoints/<origin-hash>.json`
+  after the pass. Previous inventory records are never used to authorize
+  new requests. Treat local endpoint paths as sensitive; do not commit or
+  publish this folder. The repo's `.gitignore` already excludes `/data/`.
+
+**Budget limitation:** This is a conservative planned budget of
+24 Katana pages plus up to 56 ffuf wordlist candidates, **not a
+wire-level guarantee of at most 80 HTTP requests**. Katana may make
+auxiliary requests; it is constrained separately by native page/rate/time
+limits. Only use the workflow against systems with explicit permission
+and review any application routes that may have side effects on GET.
+
+The original [c] Katana and [9] ffuf modes remain available unchanged.
+
 ### CVE Discovery Engine
 
 Nmap service checks now write a temporary XML file and append the completed Nmap XML to the collected evidence. PenX identifies services with a valid CPE/product version and searches NVD's CVE API for version-relevant candidates. Explicit PURLs (for example `pkg:npm/lodash@4.17.20`) are also matched against OSV and GitHub's reviewed advisories. **Arbitrary text banners are not treated as precise package identities.**

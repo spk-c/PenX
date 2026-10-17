@@ -31,6 +31,7 @@ from penx_app.config import NMAP_PATH, NIKTO_PATH, WHATWEB_PATH
 from penx_app.scanners.scanner_targets import normalize_host, normalize_web_target, target_urls, MAX_CIDR_ADDRESSES
 from penx_app.scanners.scanner_runtime import find_runtime, executable_env, find_nmap, npcap_present
 from penx_app.scanners.native_web_scanners import find_native, web_endpoint, nuclei_args, httpx_args, ffuf_args, ffuf_words, nuclei_templates, subfinder_args, katana_args, summarize_output
+from penx_app.scanners.endpoint_inventory import EndpointInventory, load_inventory, save_inventory
 
 
 from penx_app.domain.scan_models import ScannerOutput
@@ -698,6 +699,133 @@ def run_katana(target: str, *, cancel_event=None) -> ScannerOutput:
         return ScannerOutput(f"[!] katana: {exc}", status="FAILED", evidence=False)
 
 
+ENDPOINT_MAPPING_REQUEST_BUDGET = 80
+ENDPOINT_MAPPING_CRAWL_PAGE_CAP = 24
+ENDPOINT_MAPPING_RATE = 2  # Both native processes are sequential, not parallel.
+
+
+def run_endpoint_mapping(target: str, *, cancel_event=None) -> ScannerOutput:
+    """Explicitly selected Katana -> directory ffuf pass for one web origin.
+
+    This is a conservative *planned* HTTP request budget. Katana's -mdp
+    limits crawled pages, not every auxiliary browser/network exchange;
+    native per-process rate caps + timeouts are additional protections.
+    No query-parameter value fuzzing, mutations, authentication or redirects.
+    """
+    cancelled = _cancelled_before_start(cancel_event)
+    if cancelled is not None:
+        return cancelled
+    try:
+        origin = web_endpoint(target, _web_target)
+        katana = find_native("katana")
+        ffuf = find_native("ffuf")
+        if not katana or not ffuf:
+            return ScannerOutput(
+                "[!] Endpoint mapping needs both Katana and ffuf installed; "
+                "run --setup-native or configure PENX_KATANA_PATH and "
+                "PENX_FFUF_PATH. No scan started.",
+                status="FAILED", evidence=False,
+            )
+        words = ffuf_words()
+        # No older persisted inventory is allowed to authorize a new active
+        # request: only this completed crawler's parsed URLs select directories.
+        current = EndpointInventory(origin)
+        crawl = _process_outcome(_run_external(
+            katana_args(katana, origin, mapping=True),
+            timeout=18, cancel_event=cancel_event,
+        ))
+        if cancel_event is not None and cancel_event.is_set():
+            return ScannerOutput("[!] Endpoint mapping cancelled during Katana.",
+                                 status="PARTIAL", evidence=False)
+        if crawl.status != "COMPLETE":
+            return ScannerOutput("[!] Katana mapping did not complete; no ffuf probes "
+                                 "were started.\n" + str(crawl)[:1200],
+                                 status=crawl.status, evidence=False)
+        discovered, malformed = current.collect_jsonl(str(crawl), "katana")
+        if not discovered:
+            return ScannerOutput(
+                "[!] Katana did not return any validated same-origin endpoints; "
+                "no follow-on ffuf requests were started."
+                + (f" ({malformed} unusable JSONL rows)" if malformed else ""),
+                status="PARTIAL" if malformed else "COMPLETE",
+                evidence=False,
+            )
+        # One root pass plus up to two distinctly discovered directories.
+        # Reserve page slots for the crawler before allocating ffuf words;
+        # never silently exceed the request-plan ceiling across directories.
+        parents = [origin] + current.paths_for_fuzz(max_dirs=2)
+        slots = ENDPOINT_MAPPING_REQUEST_BUDGET - ENDPOINT_MAPPING_CRAWL_PAGE_CAP
+        each = min(len(words), slots // len(parents))
+        if each < 1:
+            raise ValueError("Endpoint mapping budget exhausted before ffuf")
+        selected = words[:each]
+        notes: list[str] = []
+        if malformed:
+            notes.append(f"[!] Katana had {malformed} rejected or malformed rows.")
+        notes.append(
+            f"[MAPPING PLAN] Same origin: {origin}; at most "
+            f"{ENDPOINT_MAPPING_CRAWL_PAGE_CAP} crawler pages + "
+            f"{len(parents) * len(selected)} ffuf candidates; "
+            f"native request rate <= {ENDPOINT_MAPPING_RATE}/s, sequential "
+            "processes; page cap is not a wire-level total-request guarantee."
+        )
+        partial = bool(malformed)
+        with tempfile.TemporaryDirectory(prefix="penx_endpoint_ffuf_") as folder:
+            wordlist = Path(folder) / "safe-paths.txt"
+            wordlist.write_text("\n".join(selected) + "\n", encoding="utf-8")
+            for parent in parents:
+                # A cancellable gap prevents a burst at process boundaries.
+                if cancel_event is not None:
+                    if cancel_event.wait(0.6):
+                        partial = True
+                        notes.append("[!] Mapping cancelled before next ffuf pass.")
+                        break
+                else:
+                    time.sleep(0.6)
+                result = _process_outcome(_run_external(
+                    ffuf_args(ffuf, parent, wordlist, mapping=True),
+                    timeout=20, cancel_event=cancel_event,
+                ))
+                if cancel_event is not None and cancel_event.is_set():
+                    partial = True
+                    notes.append("[!] Mapping cancelled during ffuf.")
+                    break
+                if result.status != "COMPLETE":
+                    # Empty ffuf stdout can mean zero matching paths. Do not
+                    # present it as verified negative coverage or a finding.
+                    if str(result).strip() == "[!] Tool returned no output.":
+                        notes.append(f"[*] No ffuf matches reported for {parent}.")
+                        continue
+                    partial = True
+                    notes.append(f"[!] ffuf incomplete at {parent}: {str(result)[:220]}")
+                    break
+                count, rejected = current.collect_jsonl(str(result), "ffuf")
+                notes.append(f"[*] ffuf at {parent}: {count} in-scope result(s)")
+                if rejected:
+                    partial = True
+                    notes.append(f"[!] ffuf rejected {rejected} malformed/out-of-scope rows.")
+        # Merge only verified same-origin metadata; not requests, secrets,
+        # and especially not older URLs as new scan targets.
+        try:
+            saved = load_inventory(origin)
+            for url, row in current.entries.items():
+                for source in row["sources"]:
+                    if saved.add(url, source):
+                        saved.entries[url]["parameters"].update(row["parameters"])
+            location = save_inventory(saved)
+            notes.append(f"[*] Endpoint inventory stored: {location.name}")
+        except (OSError, ValueError) as exc:
+            partial = True
+            notes.append(f"[!] Endpoint inventory could not be saved: {type(exc).__name__}")
+        notes.append(current.summary())
+        return ScannerOutput("\n".join(notes),
+                             status="PARTIAL" if partial else "COMPLETE",
+                             evidence=bool(current.entries))
+    except (ValueError, OSError, UnicodeError) as exc:
+        return ScannerOutput(f"[!] Endpoint mapping: {exc}",
+                             status="FAILED", evidence=False)
+
+
 def run_tls_check(target: str, *, cancel_event=None) -> ScannerOutput:
     """Check verified HTTPS handshake, certificate expiry and negotiated TLS."""
     cancelled = _cancelled_before_start(cancel_event)
@@ -768,6 +896,7 @@ TOOLS_MENU = {
     '7': ('nuclei (explicit opt-in)', run_nuclei),
     '8': ('httpx / ProjectDiscovery (native)', run_httpx),
     '9': ('ffuf (bounded wordlist, explicit opt-in)', run_ffuf),
+    'e': ('endpoint inventory: Katana + targeted ffuf (explicit opt-in)', run_endpoint_mapping),
     's': ('subfinder (passive subdomains)', run_subfinder),
     'c': ('katana (same-host crawl, explicit opt-in)', run_katana),
     'd': ('TLS certificate and handshake', run_tls_check),
