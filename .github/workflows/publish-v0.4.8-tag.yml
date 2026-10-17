@@ -1,0 +1,84 @@
+# One-shot release bridge for a GitHub App connection that can merge PRs
+# but has no create-tag / workflow_dispatch action.
+# Tags created by GITHUB_TOKEN do not trigger push workflows, so dispatch
+# the normal tagged Windows release workflow explicitly after verification.
+name: Dispatch audited PenX v0.4.8 release
+
+on:
+  create:
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: one-shot-penx-v0.4.8-release
+  cancel-in-progress: false
+
+jobs:
+  dispatch:
+    if: >-
+      github.repository == 'spk-c/PenX' &&
+      github.event.ref_type == 'branch' &&
+      github.event.ref == 'release/publish-v0.4.8-20261017'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      EXPECTED_SHA: db3c96236b6330f6c716b8d96da0b796101d92e8
+      RELEASE_TAG: v0.4.8
+      BRIDGE_PATH: .github/workflows/publish-v0.4.8-tag.yml
+    steps:
+      - name: Verify the reviewed release source and one-shot branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          current="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq '.object.sha')"
+          response="$(gh api "repos/$GITHUB_REPOSITORY/compare/${EXPECTED_SHA}...${current}")"
+          status="$(echo "$response" | jq -r '.status')"
+          changed="$(echo "$response" | jq -r '[.files[].filename] | join(",")')"
+          if [[ "$status" != 'ahead' || "$changed" != "$BRIDGE_PATH" ]]; then
+            echo "::error::Main differs from the audited commit beyond this one-shot workflow."
+            exit 1
+          fi
+          version="$(gh api "repos/$GITHUB_REPOSITORY/contents/src/penx_app/version.py?ref=$EXPECTED_SHA" --jq '.content' | base64 -d)"
+          if [[ "$version" != *'VERSION = "0.4.8"'* ]]; then
+            echo "::error::Audited tag source is not version 0.4.8."
+            exit 1
+          fi
+          echo "Audited source verified; field acceptance remains NOT SIGNED OFF."
+
+      - name: Create and verify annotated v0.4.8 tag
+        shell: bash
+        run: |
+          set -euo pipefail
+          existing="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$RELEASE_TAG" --jq '.object.sha' 2>/dev/null || true)"
+          if [[ -n "$existing" ]]; then
+            tag_object="$existing"
+          else
+            tag_object="$(gh api --method POST "repos/$GITHUB_REPOSITORY/git/tags" \
+              -f tag="$RELEASE_TAG" \
+              -f message="PenX v0.4.8 - audited security and reliability fixes; field acceptance not signed off" \
+              -f object="$EXPECTED_SHA" \
+              -f type=commit --jq '.sha')"
+            gh api --method POST "repos/$GITHUB_REPOSITORY/git/refs" \
+              -f ref="refs/tags/$RELEASE_TAG" -f sha="$tag_object" >/dev/null
+          fi
+          tagged_commit="$(gh api "repos/$GITHUB_REPOSITORY/git/tags/$tag_object" --jq '.object.sha')"
+          if [[ "$tagged_commit" != "$EXPECTED_SHA" ]]; then
+            echo "::error::Existing/new tag does not point at audited release commit."
+            exit 1
+          fi
+          echo "Verified annotated $RELEASE_TAG -> $tagged_commit"
+
+      - name: Dispatch existing Windows release build
+        shell: bash
+        run: |
+          set -euo pipefail
+          # GITHUB_TOKEN tag creation intentionally does not trigger push events.
+          # workflow_dispatch is explicitly allowed to trigger a second workflow.
+          gh api --method POST \
+            "repos/$GITHUB_REPOSITORY/actions/workflows/release.yml/dispatches" \
+            -f ref="$RELEASE_TAG" >/dev/null
+          echo "Windows Release dispatched from $RELEASE_TAG."
+          echo "Only a successful tagged Windows Release job publishes stable binaries."
