@@ -178,10 +178,24 @@ def verify_findings(findings: list[dict], raw_scan: str, *,
     # within this assessment rather than issuing the same two HTTP requests
     # for every row; never carry injected results into the process-wide cache.
     source_results: dict[str, tuple[str, str]] = {}
+    # Re-running verification on a saved/in-memory finding must replace its
+    # previous generated source-check footer, not append the same notes again.
+    # Only strip the footer if it matches the previously stored list exactly.
+    base_descriptions: list[str] = []
     for finding in findings:
+        description = str(finding.get("description", ""))
+        old_checks = finding.get("source_checks")
+        if (isinstance(old_checks, list) and old_checks
+                and all(isinstance(line, str) for line in old_checks)):
+            suffix = "\n\n" + "\n".join(old_checks)
+            if description.endswith(suffix):
+                description = description[:-len(suffix)].rstrip()
+        base_descriptions.append(description)
         matched = evidence_in_scan(finding.get("evidence", ""), raw_scan)
-        blob = " ".join(str(finding.get(key, "")) for key in
-                        ("vuln_name", "description", "evidence", "cve_ids"))
+        blob = " ".join((
+            str(finding.get("vuln_name", "")), description,
+            str(finding.get("evidence", "")), str(finding.get("cve_ids", "")),
+        ))
         cves = list(dict.fromkeys(c.upper() for c in CVE_PATTERN.findall(blob)))
         to_check = []
         for cve in cves:
@@ -220,10 +234,9 @@ def verify_findings(findings: list[dict], raw_scan: str, *,
                 finding["source_checks"].append(
                     f"{cve}: CISA KEV {status} ({CISA_PAGE})"
                 )
-    for finding in findings:
+    for finding, base in zip(findings, base_descriptions):
         finding.pop("_checked_cves", None)
         finding["description"] = (
-            str(finding.get("description", "")).rstrip()
-            + "\n\n" + "\n".join(finding["source_checks"])
+            base.rstrip() + "\n\n" + "\n".join(finding["source_checks"])
         ).strip()
     return findings
