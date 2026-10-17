@@ -123,8 +123,8 @@ class AnalysisModeContracts(unittest.TestCase):
             ("SEARCH", "internal.example.local token=SECRET-EXAMPLE"),
             ("SEARCH", "CVE-2024-6387"),
         ]
-        self.dispatch = Mock(return_value="[SEARCH RESULT] synthetic only")
-        self.ports.run_tool_calls = self.dispatch
+        self.dispatch.side_effect = None
+        self.dispatch.return_value = "[SEARCH RESULT] synthetic only"
         with self.assertRaisesRegex(RuntimeError, "after its tool budget"):
             analyse_target("example.test", "fixture", settings=settings,
                            ports=self.ports)
