@@ -259,7 +259,8 @@ def _shodan_snapshots(data: dict) -> dict[str, dict]:
             public_ip = ipaddress.IPv4Address(ip)
         except ValueError:
             continue
-        if not public_ip.is_global or str(public_ip) != ip:
+        if (not public_ip.is_global or public_ip.is_multicast
+                or str(public_ip) != ip):
             continue
         ports = item.get("ports", [])
         cves = item.get("vulns", [])
