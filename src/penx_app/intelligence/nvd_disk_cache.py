@@ -9,6 +9,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import stat
 from pathlib import Path
 import tempfile
 import time
@@ -36,9 +37,24 @@ def load(cpe: str, *, now: float | None = None) -> tuple[dict, ...] | None:
         return None
     path = cache_path(cpe)
     try:
-        if path.is_symlink() or path.stat().st_size > MAX_CACHE_SIZE:
+        # Open one file descriptor and bound the *actual* bytes consumed.
+        # stat(path) followed by read_text(path) allowed a replaced/grown
+        # file to bypass the original size/symlink check.
+        fd = os.open(path, os.O_RDONLY | getattr(os, "O_BINARY", 0)
+                     | getattr(os, "O_NOFOLLOW", 0))
+        with os.fdopen(fd, "rb") as stream:
+            current_file = os.fstat(stream.fileno())
+            path_file = path.lstat()
+            if (not stat.S_ISREG(current_file.st_mode)
+                    or not stat.S_ISREG(path_file.st_mode)
+                    or (current_file.st_dev, current_file.st_ino)
+                    != (path_file.st_dev, path_file.st_ino)
+                    or current_file.st_size > MAX_CACHE_SIZE):
+                return None
+            payload = stream.read(MAX_CACHE_SIZE + 1)
+        if len(payload) > MAX_CACHE_SIZE:
             return None
-        entry = json.loads(path.read_text(encoding="utf-8"))
+        entry = json.loads(payload.decode("utf-8"))
         if not isinstance(entry, dict) or entry.get("version") != 1:
             return None
         if entry.get("key") != hashlib.sha256(cpe.encode("utf-8")).hexdigest():
@@ -62,7 +78,8 @@ def store(cpe: str, records: tuple[dict, ...], *, now: float | None = None) -> b
     """Atomically persist only bounded, successful catalogue responses."""
     if not enabled() or not isinstance(cpe, str) or not cpe.startswith("cpe:"):
         return False
-    if len(records) > MAX_RECORDS or not all(isinstance(v, dict) for v in records):
+    if (not isinstance(records, (tuple, list)) or len(records) > MAX_RECORDS
+            or not all(isinstance(v, dict) for v in records)):
         return False
     data = {
         "version": 1,
@@ -70,7 +87,12 @@ def store(cpe: str, records: tuple[dict, ...], *, now: float | None = None) -> b
         "fetched_at": time.time() if now is None else now,
         "records": records,
     }
-    encoded = json.dumps(data, ensure_ascii=True, separators=(",", ":")).encode("utf-8")
+    try:
+        encoded = json.dumps(data, ensure_ascii=True, allow_nan=False,
+                             separators=(",", ":")).encode("utf-8")
+    except (TypeError, ValueError, OverflowError):
+        # Cache failure is best-effort and must not abort CVE discovery.
+        return False
     if len(encoded) > MAX_CACHE_SIZE:
         return False
     temp = None
