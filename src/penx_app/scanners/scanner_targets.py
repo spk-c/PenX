@@ -102,6 +102,10 @@ def normalize_host(target: str, *, max_addresses: int = MAX_CIDR_ADDRESSES) -> s
 def normalize_web_target(target: str, *, host_resolver=normalize_host) -> str:
     """Preserve an explicit URL/port for web scanners, rejecting CLI options/CIDR."""
     value = target.strip()
+    # A scheme-less path or query is ambiguous and previously got discarded,
+    # changing the requested scan endpoint silently. Require an explicit URL.
+    if '://' not in value and any(char in value for char in '/?#'):
+        raise ValueError('Include http:// or https:// when supplying a URL path or query.')
     host = host_resolver(value)
     if '/' in host:
         raise ValueError('Web scanners expect one host/URL, not a CIDR subnet.')
