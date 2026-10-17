@@ -425,7 +425,7 @@ def run_nikto(target: str, *, cancel_event=None) -> str:
     except OSError as exc:
         return ScannerOutput(f'[!] Nikto script is inaccessible: {exc}',
                              status='FAILED', evidence=False)
-    if installed_script:
+    if installed_script and perl is not None:
         print(f'  [*] Nikto (Perl): {host}')
         result = _process_outcome(_run_external([perl, str(script), *nikto_args], timeout=_scanner_timeout("nikto", 300),
                                            cwd=str(script.parent), env=executable_env(perl),
@@ -682,7 +682,9 @@ def run_tls_check(target: str, *, cancel_event=None) -> ScannerOutput:
         cancelled = _cancelled_after_io(cancel_event)
         if cancelled is not None:
             return cancelled
-        expiry = cert.get("notAfter", "")
+        expiry = cert.get("notAfter", "") if isinstance(cert, dict) else ""
+        if not isinstance(expiry, str):
+            expiry = ""
         expires = datetime.fromtimestamp(ssl.cert_time_to_seconds(expiry), timezone.utc) if expiry else None
         days_left = (expires - datetime.now(timezone.utc)).days if expires else None
         return ScannerOutput(
