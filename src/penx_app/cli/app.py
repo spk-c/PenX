@@ -1,19 +1,19 @@
 """Terminal application: dialogs compose the independent application services."""
 import os
 import sys
-from pathlib import Path
+from pathlib import Path as Path
 from penx_app.cli import cli_views
 from penx_app.application.scan_recovery import save_unanalysed_recon, save_unsaved_assessment
-from penx_app.reporting.export import export_menu
-from penx_app.reporting.report_management import generate_session_reports, generate_session_reports_independent, existing_reports, delete_session_reports, publication_status
+from penx_app.reporting.export import export_menu as export_menu
+from penx_app.reporting.report_management import generate_session_reports, generate_session_reports_independent as generate_session_reports_independent, existing_reports as existing_reports, delete_session_reports as delete_session_reports, publication_status as publication_status
 from penx_app.cli.cli_navigation import is_back, show_back, navigation_input
 from penx_app.config import DB_ENGINE
-from penx_app.storage.db import get_connection, create_session, save_vulnerability, save_fix, save_exploit, save_summary, save_correction, save_assessment, RISK_LEVELS, get_all_history, get_session, get_vulnerabilities, get_fixes, get_exploits, get_corrections, edit_vulnerability, edit_fix, edit_exploit, edit_summary_risk, edit_correction, delete_vulnerability, delete_exploit, delete_fix, delete_correction, delete_full_session
-from penx_app.cli.db_display import print_history, print_session
-from penx_app.storage.db_evals import get_evaluations, delete_evaluation, parse_evaluation_response, import_distilled_rules, parse_distilled_rules, get_learned_rules
-from penx_app.reporting.evaluation_packages import export_eval_package, export_distillation_package
-from penx_app.storage.db_training import export_training_data
-from penx_app.scanners.tools import interactive_tool_run, format_recon_for_llm, run_default_recon, recon_has_evidence, ReconChoice
+from penx_app.storage.db import get_connection, create_session, save_vulnerability as save_vulnerability, save_fix as save_fix, save_exploit as save_exploit, save_summary as save_summary, save_correction as save_correction, save_assessment, RISK_LEVELS as RISK_LEVELS, get_all_history, get_session, get_vulnerabilities as get_vulnerabilities, get_fixes as get_fixes, get_exploits as get_exploits, get_corrections as get_corrections, edit_vulnerability as edit_vulnerability, edit_fix as edit_fix, edit_exploit as edit_exploit, edit_summary_risk as edit_summary_risk, edit_correction as edit_correction, delete_vulnerability as delete_vulnerability, delete_exploit as delete_exploit, delete_fix as delete_fix, delete_correction as delete_correction, delete_full_session
+from penx_app.cli.db_display import print_history as print_history, print_session
+from penx_app.storage.db_evals import get_evaluations as get_evaluations, delete_evaluation as delete_evaluation, parse_evaluation_response as parse_evaluation_response, import_distilled_rules as import_distilled_rules, parse_distilled_rules as parse_distilled_rules, get_learned_rules as get_learned_rules
+from penx_app.reporting.evaluation_packages import export_eval_package as export_eval_package, export_distillation_package as export_distillation_package
+from penx_app.storage.db_training import export_training_data as export_training_data
+from penx_app.scanners.tools import interactive_tool_run, format_recon_for_llm as format_recon_for_llm, run_default_recon as run_default_recon, recon_has_evidence, ReconChoice
 from penx_app.analysis.llm import analyse_target
 from penx_app.reporting.scan_coverage import coverage
 from penx_app.cli.console_ui import badge, phase
