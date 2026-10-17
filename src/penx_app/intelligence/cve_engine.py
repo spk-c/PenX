@@ -30,6 +30,7 @@ MAX_PAGES = 2
 PAGE_SIZE = 50
 MAX_RESULTS = 15
 CVE_ID = re.compile(r"CVE-\d{4}-\d{4,8}\Z", re.ASCII | re.IGNORECASE)
+GHSA_ID = re.compile(r"GHSA-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{4}\Z", re.ASCII | re.IGNORECASE)
 OSV_ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{2,127}\Z", re.ASCII)
 
 def compare_versions(one: str, two: str) -> int | None:
@@ -396,23 +397,39 @@ def github_candidates(package: Package, *, token: str = "",
         if not isinstance(items, list):
             return [], "Unexpected GitHub advisory response."
         result: list[dict] = []
+        malformed = False
         for item in items[:limit]:
             if not isinstance(item, dict):
-                return result, "GitHub Advisories returned malformed records for " + package.purl
-            ident = item.get("cve_id") or item.get("ghsa_id")
-            url = item.get("html_url", "")
-            if not isinstance(ident, str) or not isinstance(url, str):
-                return result, "GitHub Advisories returned malformed records for " + package.purl
-            if not ident or not url.startswith("https://github.com/advisories/"):
+                malformed = True
                 continue
+            ghsa = item.get("ghsa_id")
+            cve = item.get("cve_id")
+            url = item.get("html_url")
+            # A GitHub advisory URL must identify the exact advisory from
+            # the API row, not merely share the github.com/advisories prefix.
+            # Do not turn arbitrary provider text into credible source links.
+            if (not isinstance(ghsa, str) or not GHSA_ID.fullmatch(ghsa)
+                    or not isinstance(url, str)
+                    or url.lower() != "https://github.com/advisories/" + ghsa.lower()):
+                malformed = True
+                continue
+            if cve is not None and (not isinstance(cve, str)
+                                    or not CVE_ID.fullmatch(cve)):
+                malformed = True
+                # A valid GHSA remains usable even if its optional CVE alias
+                # is corrupted; do not publish the malformed CVE ID.
+                cve = None
+            ident = cve.upper() if cve else ghsa.upper()
             result.append({
                 "id": ident, "source": "GitHub Advisory",
                 "status": "package-version-matched",
                 "product": package.name, "version": package.version,
-                "port": "", "evidence": package.purl, "url": url,
+                "port": "", "evidence": package.purl,
+                "url": "https://github.com/advisories/" + ghsa,
                 "vendor_advisories": [],
             })
-        return result, ""
+        return result, ("GitHub Advisories returned malformed records; results may be incomplete."
+                        if malformed else "")
     except (requests.RequestException, ValueError, KeyError, TypeError):
         return [], "GitHub Advisories unavailable for " + package.purl
 
