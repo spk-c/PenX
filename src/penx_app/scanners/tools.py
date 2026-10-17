@@ -7,24 +7,24 @@ Use only on networks or systems you have permission to assess.
 """
 from __future__ import annotations
 
-from enum import Enum
+from enum import Enum as Enum
 import ipaddress
 import os
 from pathlib import Path
 import re
 import shlex
-import queue
-import threading
-import time
+import queue as queue
+import threading as threading
+import time as time
 import shutil
-import subprocess
+import subprocess as subprocess
 import tempfile
 from urllib.parse import urlsplit
 
 import requests
-from penx_app.runtime_options import live_output
-from penx_app.domain.scan_models import ScannerResult, ScanResult, ReconText
-from penx_app.scanners.scan_results import format_recon_for_llm, recon_has_evidence
+from penx_app.runtime_options import live_output as live_output
+from penx_app.domain.scan_models import ScannerResult as ScannerResult, ScanResult as ScanResult, ReconText as ReconText
+from penx_app.scanners.scan_results import format_recon_for_llm, recon_has_evidence as recon_has_evidence
 from bs4 import BeautifulSoup
 
 from penx_app.config import NMAP_PATH, NIKTO_PATH, WHATWEB_PATH
@@ -97,7 +97,7 @@ def tool_status() -> dict[str, str]:
     }
 
 
-from penx_app.scanners.process_runner import _run_tool_live
+from penx_app.scanners.process_runner import _run_tool_live as _run_tool_live
 
 
 from penx_app.scanners.process_runner import run_tool
