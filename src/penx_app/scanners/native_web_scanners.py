@@ -119,17 +119,28 @@ def subfinder_args(executable: str, domain: str) -> list[str]:
     return [executable, "-d", domain, "-silent", "-json", "-max-time", "2"]
 
 
-def katana_args(executable: str, origin: str) -> list[str]:
-    """Constrain crawler to exact FQDN, root depth and request rate."""
-    return [executable, "-u", origin, "-jsonl", "-silent", "-d", "1",
+def katana_args(executable: str, origin: str, *, mapping: bool = False) -> list[str]:
+    """Bounded crawler, with stricter exact-origin and page limits for mapping."""
+    args = [executable, "-u", origin, "-jsonl", "-silent", "-d", "1",
             "-fs", "fqdn", "-c", "1", "-rl", "2", "-timeout", "5"]
+    if mapping:
+        # -fs fqdn by itself includes other schemes/ports on the same host.
+        args.extend(["-cs", "^" + re.escape(origin.rstrip("/")) + "(?:/|$)",
+                     "-mdp", "24", "-ct", "12s", "-retry", "0", "-duc",
+                     "-cos", r"(?i)/(?:logout|signout|delete|remove|checkout|purchase|reset|transfer)(?:/|[?#]|$)"])
+    return args
 
 
-def ffuf_args(executable: str, origin: str, wordlist: Path) -> list[str]:
-    return [executable, "-u", origin.rstrip("/") + "/FUZZ", "-w", str(wordlist),
+def ffuf_args(executable: str, origin: str, wordlist: Path, *,
+              mapping: bool = False) -> list[str]:
+    args = [executable, "-u", origin.rstrip("/") + "/FUZZ", "-w", str(wordlist),
             "-json", "-s", "-noninteractive", "-rate", "2", "-t", "1",
             "-timeout", "5", "-maxtime", "50", "-mc",
             "200,204,301,302,307,308,401,403,405", "-X", "GET"]
+    if mapping:
+        args[args.index("-maxtime") + 1] = "12"
+        args.extend(["-p", "0.6", "-sa"])
+    return args
 
 
 def ffuf_words() -> list[str]:
