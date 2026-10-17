@@ -6,7 +6,8 @@
   Default is a dry run. -Apply is explicit and only deletes refs whose SHA
   still equals the head commit of a MERGED pull request in this repository.
   Never deletes main, unrecognized branch names, branches with open PRs, or
-  branches with new commits since their PR was merged.
+  branches with new commits since their PR was merged. Refuses potentially
+  paginated API responses instead of silently checking incomplete data.
 .EXAMPLE
   powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\prune_merged_github_branches.ps1
 .EXAMPLE
@@ -49,6 +50,11 @@ if ($metadata.full_name -cne $repo -or $metadata.default_branch -ne "main") {
 $branches = @(Invoke-GhJson "repos/$repo/branches?per_page=100")
 $openPRs = @(Invoke-GhJson "repos/$repo/pulls?state=open&per_page=100")
 $closedPRs = @(Invoke-GhJson "repos/$repo/pulls?state=closed&per_page=100")
+# The script intentionally inspects only one REST page. Refuse to delete if
+# the result may be truncated; a missing open PR or merge record is unsafe.
+if ($branches.Count -ge 100 -or $openPRs.Count -ge 100 -or $closedPRs.Count -ge 100) {
+    throw "Branch or PR result reaches 100 records; paginate before branch deletion."
+}
 
 $candidates = @()
 foreach ($branch in $branches) {
@@ -59,7 +65,7 @@ foreach ($branch in $branches) {
     # Deliberately narrow scope: never delete main, dependabot, arbitrary
     # maintainer names or a newly created release tag/branch.
     # Merged maintenance/ topics are eligible too; protected refs are never touched.
-    if ($name -eq "main" -or $branch.protected -or $name -notmatch '^(?:fix|refactor|release|maintenance)/') {
+    if ($name -eq "main" -or $branch.protected -or $name -notmatch '^(?:fix|refactor|release|maintenance|docs|quality)/') {
         continue
     }
     $used = @($openPRs | Where-Object {
