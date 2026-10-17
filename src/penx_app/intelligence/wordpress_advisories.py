@@ -65,9 +65,10 @@ def research_plugins(raw_scan: str, *, token: str = "", enabled: bool = True,
                    "User-Agent": "PenX-WordPress-Advisory/1.0"}
         if token:
             headers["Authorization"] = "Bearer " + token
+        response = None
         try:
             response = fetch(GH_API, params=params, headers=headers,
-                                    timeout=(3, 8), allow_redirects=False)
+                             timeout=(3, 8), allow_redirects=False)
             response.raise_for_status()
             advisories = response.json()
             if not isinstance(advisories, list):
@@ -91,6 +92,11 @@ def research_plugins(raw_scan: str, *, token: str = "", enabled: bool = True,
         except (requests.RequestException, ValueError, TypeError):
             checks.append({"service": "GitHub Advisory", "package": plugin["slug"],
                            "status": "unavailable", "reason": "Request failed or response invalid"})
+        finally:
+            # Requests does not automatically release a response just because
+            # JSON parsing or HTTP-status validation fails.
+            if response is not None:
+                response.close()
     return {"observations": plugins, "checks": checks, "candidates": candidates}
 
 
