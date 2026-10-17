@@ -34,8 +34,16 @@ ANALYSIS_SCHEMA = object_fields({
     "summary": string_field()
 })
 
+MAX_STRUCTURED_RESPONSE_CHARS = 1_000_000
+MAX_FINDINGS_PER_CATEGORY = 100
+
+
 def parse_json_findings(text: str) -> dict:
-    """Accept JSON (optionally fenced); enforce schema, bounds and enums."""
+    """Accept bounded JSON (optionally fenced); enforce schema and enums."""
+    # Provider completion output is untrusted. Reject oversized material
+    # before allocating a parsed tree or traversing it with jsonschema.
+    if not isinstance(text, str) or len(text) > MAX_STRUCTURED_RESPONSE_CHARS:
+        raise ValueError("Structured model report is not text or exceeds 1,000,000 characters.")
     raw = text.strip()
     fence = chr(96) * 3
     if raw.startswith(fence) and raw.endswith(fence):
@@ -43,9 +51,15 @@ def parse_json_findings(text: str) -> dict:
         if raw.lower().startswith("json"):
             raw = raw[4:].strip()
     data = json.loads(raw)
-    validate(data, ANALYSIS_SCHEMA)
-    if any(len(data[k]) > 100 for k in ("vulnerabilities", "recommendations", "exploits")):
+    # A large provider array must not be fully schema-validated before its
+    # configured item-count budget is enforced.
+    if isinstance(data, dict) and any(
+        isinstance(data.get(key), list)
+        and len(data[key]) > MAX_FINDINGS_PER_CATEGORY
+        for key in ("vulnerabilities", "recommendations", "exploits")
+    ):
         raise ValueError("Too many findings: maximum 100 entries per category.")
+    validate(data, ANALYSIS_SCHEMA)
     for v in data["vulnerabilities"]:
         if not v["vuln_name"].strip() or len(v["evidence"]) > 3000:
             raise ValueError("Invalid finding name or evidence length.")
