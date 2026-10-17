@@ -72,7 +72,7 @@ def publication_lock(folder: Path, session: int, *, timeout: float = 30.0):
             try:
                 if os.name == "nt":
                     import msvcrt
-                    msvcrt.locking(stream.fileno(), msvcrt.LK_NBLCK, 1)
+                    msvcrt.locking(stream.fileno(), msvcrt.LK_NBLCK, 1)  # type: ignore[attr-defined]
                 else:
                     import fcntl
                     fcntl.flock(stream.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
@@ -92,7 +92,7 @@ def publication_lock(folder: Path, session: int, *, timeout: float = 30.0):
             stream.seek(0)
             if os.name == "nt":
                 import msvcrt
-                msvcrt.locking(stream.fileno(), msvcrt.LK_UNLCK, 1)
+                msvcrt.locking(stream.fileno(), msvcrt.LK_UNLCK, 1)  # type: ignore[attr-defined]
             else:
                 import fcntl
                 fcntl.flock(stream.fileno(), fcntl.LOCK_UN)
