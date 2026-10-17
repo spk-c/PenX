@@ -60,20 +60,20 @@ def _sqlite_sql(query: str) -> str:
                     idx += 1
             continue
         if query.startswith("--", idx):
-            end = query.find("\n", idx)
-            if end < 0:
+            stop_idx = query.find("\n", idx)
+            if stop_idx < 0:
                 out.append(query[idx:])
                 break
-            out.append(query[idx:end + 1])
-            idx = end + 1
+            out.append(query[idx:stop_idx + 1])
+            idx = stop_idx + 1
             continue
         if query.startswith("/*", idx):
-            end = query.find("*/", idx + 2)
-            if end < 0:
+            stop_idx = query.find("*/", idx + 2)
+            if stop_idx < 0:
                 out.append(query[idx:])
                 break
-            out.append(query[idx:end + 2])
-            idx = end + 2
+            out.append(query[idx:stop_idx + 2])
+            idx = stop_idx + 2
             continue
         if query.startswith("%s", idx):
             out.append("?")
