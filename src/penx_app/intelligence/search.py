@@ -163,7 +163,8 @@ class _PublicOnlyHTTPSConnection(HTTPSConnection):
         last_error = None
         for family, kind, protocol, _canonical, address in answers:
             try:
-                if not ipaddress.ip_address(address[0]).is_global:
+                resolved_ip = ipaddress.ip_address(address[0])
+                if not resolved_ip.is_global or resolved_ip.is_multicast:
                     continue
             except (ValueError, TypeError, IndexError):
                 continue
@@ -223,7 +224,8 @@ def _allowed_page_url(url: str) -> bool:
         # evaluated before the public-domain dot requirement. A valid IPv6
         # address has no dot; encoded IPv4 can have no dot either.
         try:
-            return ipaddress.ip_address(name).is_global
+            literal_ip = ipaddress.ip_address(name)
+            return literal_ip.is_global and not literal_ip.is_multicast
         except ValueError:
             # Operating systems also accept historic numeric IPv4 forms
             # such as 127.1, 2130706433 or 0x7f000001. ipaddress rejects
@@ -231,7 +233,8 @@ def _allowed_page_url(url: str) -> bool:
             # connect to 127.0.0.1. Check the same legacy parser without
             # resolving DNS or sending a request.
             try:
-                return ipaddress.IPv4Address(socket.inet_aton(name)).is_global
+                numeric_ip = ipaddress.IPv4Address(socket.inet_aton(name))
+                return numeric_ip.is_global and not numeric_ip.is_multicast
             except OSError:
                 # A non-IP DNS name must have a dotted public suffix.
                 return "." in name
