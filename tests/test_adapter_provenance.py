@@ -54,7 +54,9 @@ class AdapterProvenanceContracts(unittest.TestCase):
     def test_failed_or_blank_adapters_carry_no_records(self):
         result = self.run_scan("  \n")
         ok, failed = result.results
-        self.assertTrue(ok.evidence)
+        # Blank adapter responses cannot be trusted evidence, even when
+        # their legacy runner reported a COMPLETE process exit.
+        self.assertFalse(ok.evidence)
         self.assertEqual(ok.evidence_records, ())
         self.assertEqual(failed.evidence_records, ())
         self.assertEqual(result.evidence_records(), ())

@@ -180,9 +180,13 @@ class ScannerOutput(str):
             raise ValueError("Invalid scanner outcome status")
         if not isinstance(evidence_records, tuple):
             raise ValueError("Invalid scanner evidence records")
-        value = str.__new__(cls, str(text))
+        # Do not turn None or arbitrary objects into seemingly valid
+        # scanner text. Empty output cannot establish adapter evidence.
+        if not isinstance(text, str):
+            raise TypeError("Scanner output must be text")
+        value = str.__new__(cls, text)
         value.status = status
-        value.evidence = bool(evidence) and status != "FAILED"
+        value.evidence = bool(evidence) and status != "FAILED" and bool(text.strip())
         value.scanner_id = scanner_id
         value.duration_seconds = duration_seconds
         value.exit_code = exit_code
