@@ -115,12 +115,13 @@ class EndpointInventoryContracts(unittest.TestCase):
             path = Path(folder)
             first = EndpointInventory(ORIGIN)
             first.add(ORIGIN + "/api?a=SECRET", "katana")
+            first.add(ORIGIN + "/api?b=OTHER_SECRET", "katana", method="POST")
             saved = save_inventory(first, directory=path)
             self.assertTrue(saved.exists())
             self.assertNotIn(b"SECRET", saved.read_bytes())
             got = load_inventory(ORIGIN, directory=path)
             self.assertEqual(first.public_json(), got.public_json())
-            self.assertEqual(got.entries[ORIGIN + "/api"]["methods"], {"GET"})
+            self.assertEqual(got.entries[ORIGIN + "/api"]["methods"], {"GET", "POST"})
             self.assertEqual(len(load_inventory("https://other.test", directory=path).entries), 0)
             saved.write_bytes(b"X" * 96001)
             self.assertFalse(load_inventory(ORIGIN, directory=path).entries)
@@ -237,6 +238,26 @@ class EndpointMappingExecutionContracts(unittest.TestCase):
         self.assertEqual(len(calls), 1)
         self.assertEqual(out.status, "PARTIAL")
         self.assertFalse(out.evidence)
+
+    def test_cancellation_during_ffuf_stops_all_remaining_passes(self):
+        token = threading.Event()
+        calls = []
+
+        def execute(argv, **kwargs):
+            calls.append(argv)
+            if "-mdp" in argv:
+                return ScannerOutput(katana_row(ORIGIN + "/api/users"),
+                                     status="COMPLETE", evidence=True)
+            token.set()
+            return ScannerOutput(ffuf_row(ORIGIN + "/api/health"),
+                                 status="COMPLETE", evidence=True)
+
+        with patch.object(tools, "find_native", return_value="scanner.exe"), \\
+             patch.object(tools, "_run_external", side_effect=execute):
+            output = tools.run_endpoint_mapping(ORIGIN, cancel_event=token)
+        self.assertEqual(output.status, "PARTIAL")
+        self.assertFalse(output.evidence)
+        self.assertEqual(len(calls), 2)
 
     def test_no_authorized_discoveries_means_no_followup_ffuf(self):
         result, calls = self.run_mapping(katana_row("https://evil.test/"))
