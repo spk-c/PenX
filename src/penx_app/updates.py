@@ -42,7 +42,8 @@ def version_tuple(value: str) -> tuple[int, int, int]:
     match = VERSION_RE.fullmatch(value if value.startswith("v") else "v" + value)
     if not match:
         raise ValueError("Unsupported release version")
-    return tuple(int(part) for part in match.groups())
+    major, minor, patch = match.groups()
+    return int(major), int(minor), int(patch)
 
 
 def _safe_url(url: str, *, asset: str, tag: str) -> bool:
