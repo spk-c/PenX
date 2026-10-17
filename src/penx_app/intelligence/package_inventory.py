@@ -7,7 +7,9 @@ installed package versions. If data is missing or ambiguous, return unknown.
 from __future__ import annotations
 
 import json
+import os
 import re
+import stat
 from pathlib import Path
 
 MAX_INVENTORY_BYTES = 250_000
@@ -24,10 +26,22 @@ def load_inventory(path: str) -> dict:
     if not path:
         return {}
     src = Path(path).expanduser()
-    if src.stat().st_size > MAX_INVENTORY_BYTES:
+    # A path may change between stat() and json.load(). Open only once,
+    # reject symlinks and read at most one byte beyond the declared bound.
+    fd = os.open(src, os.O_RDONLY | getattr(os, "O_BINARY", 0)
+                 | getattr(os, "O_NOFOLLOW", 0))
+    with os.fdopen(fd, "rb") as handle:
+        opened = os.fstat(handle.fileno())
+        named = src.lstat()
+        if (not stat.S_ISREG(opened.st_mode) or not stat.S_ISREG(named.st_mode)
+                or (opened.st_dev, opened.st_ino) != (named.st_dev, named.st_ino)):
+            raise InventoryError("Package inventory must be a regular, non-symlink file.")
+        if opened.st_size > MAX_INVENTORY_BYTES:
+            raise InventoryError("Package inventory exceeds 250 KB.")
+        data = handle.read(MAX_INVENTORY_BYTES + 1)
+    if len(data) > MAX_INVENTORY_BYTES:
         raise InventoryError("Package inventory exceeds 250 KB.")
-    with src.open("r", encoding="utf-8") as handle:
-        info = json.load(handle)
+    info = json.loads(data.decode("utf-8"))
     if not isinstance(info, dict) or not isinstance(info.get("packages"), list):
         raise InventoryError("Expected JSON object with packages list.")
     distro, release = str(info.get("distro", "")).lower(), str(info.get("release", "")).lower()
