@@ -43,6 +43,20 @@ def _manifest_path(folder: Path, session: int) -> Path:
     return Path(folder) / f".penx-publication_SL{int(session)}.json"
 
 
+def validate_staged_report(path: str | Path, directory: str | Path) -> Path:
+    """Require a real, direct-child file in the renderer staging directory.
+
+    A staged symlink can pass is_file() and parent checks, then survive
+    os.replace() as a report pointing outside the intended output folder.
+    """
+    staged = Path(path)
+    root = Path(directory).resolve()
+    if (staged.is_symlink() or not staged.is_file()
+            or staged.parent.resolve() != root):
+        raise OSError("Renderer did not create a regular report inside staging")
+    return staged
+
+
 def _atomic_write_json(path: Path, payload: dict) -> Path:
     """Atomically publish ``payload`` as JSON at ``path`` (temp + os.replace)."""
     path = Path(path)
@@ -96,7 +110,7 @@ def finalize_publication(folder: Path, session: int,
 def publication_state(folder: Path, session: int) -> dict | None:
     """Return the recorded manifest for this session, or None if absent/corrupt."""
     path = _manifest_path(folder, session)
-    if not path.is_file():
+    if path.is_symlink() or not path.is_file():
         return None
     try:
         state = json.loads(path.read_text(encoding="utf-8"))
@@ -148,7 +162,11 @@ def publish_reports(
     for fmt in formats:
         try:
             if fmt in {"json", "sarif"}:
-                result.created[fmt] = Path(machine_export(data, folder, fmt=fmt))
+                report = Path(machine_export(data, folder, fmt=fmt))
+                if (report.is_symlink() or not report.is_file()
+                        or report.parent.resolve() != folder.resolve()):
+                    raise OSError("Machine exporter did not create a local regular report")
+                result.created[fmt] = report
                 continue
             destination = targets[fmt]
             if destination.parent != folder:
@@ -159,9 +177,7 @@ def publish_reports(
                 raise OSError("Report destination is not a regular file")
             with tempfile.TemporaryDirectory(prefix=".penx-format-", dir=str(folder)) as temporary:
                 renderer = html_export if fmt == "html" else pdf_export
-                staged = Path(renderer(data, temporary))
-                if not staged.is_file() or staged.parent.resolve() != Path(temporary).resolve():
-                    raise OSError("Renderer did not create local report")
+                staged = validate_staged_report(renderer(data, temporary), temporary)
                 if destination.is_symlink():
                     raise OSError("Refusing to overwrite symlink")
                 os.replace(staged, destination)
