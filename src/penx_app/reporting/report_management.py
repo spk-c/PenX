@@ -76,82 +76,84 @@ def generate_session_reports(sl_no: int, *, directory: str | Path | None = None)
     output_paths = report_paths(sl_no, history[1], directory)
     folder = output_paths["html"].parent
     folder.mkdir(parents=True, exist_ok=True)
-    for path in output_paths.values():
-        if path.is_symlink():
-            raise OSError(f"Refusing to overwrite report symlink: {path.name}")
+    from penx_app.reporting.report_batch import publication_lock
+    with publication_lock(folder, sl_no):
+        for path in output_paths.values():
+            if path.is_symlink():
+                raise OSError(f"Refusing to overwrite report symlink: {path.name}")
 
-    from penx_app.reporting.report_batch import (
-        begin_publication, finalize_publication, validate_staged_report,
-    )
-    # Crash-detection marker: written before any report file is touched. A process
-    # that dies before finalize leaves an in_progress manifest that a re-run
-    # detects and completes (each individual file write is already atomic).
-    begin_publication(folder, sl_no, ("html", "pdf"))
+        from penx_app.reporting.report_batch import (
+            begin_publication, finalize_publication, validate_staged_report,
+        )
+        # Crash-detection marker: written before any report file is touched. A process
+        # that dies before finalize leaves an in_progress manifest that a re-run
+        # detects and completes (each individual file write is already atomic).
+        begin_publication(folder, sl_no, ("html", "pdf"))
 
-    try:
-        with tempfile.TemporaryDirectory(prefix=f".penx_SL{sl_no}_", dir=str(folder)) as temporary:
-            html = validate_staged_report(export_html(data, temporary), temporary)
-            pdf = validate_staged_report(export_pdf(data, temporary), temporary)
-            if html == pdf:
-                raise OSError("HTML and PDF renderers returned the same staged file.")
-            # Each replace is atomic on its own filesystem, not as a *pair*.
-            # Snapshot both previous versions before touching either destination.
-            # If publishing PDF fails after HTML succeeds, restore HTML (or remove
-            # the newly created HTML when there was no earlier report).
-            staged = {"html": html, "pdf": pdf}
-            backups: dict[str, Path] = {}
-            for kind, destination in output_paths.items():
-                if destination.is_symlink():
-                    raise OSError(f"Refusing to overwrite report symlink: {destination.name}")
-                if destination.exists():
-                    if not destination.is_file():
-                        raise OSError(f"Report destination is not a regular file: {destination.name}")
-                    backup = Path(temporary) / f".previous_{destination.name}"
-                    shutil.copy2(destination, backup)
-                    backups[kind] = backup
-            published: list[str] = []
-            try:
+        try:
+            with tempfile.TemporaryDirectory(prefix=f".penx_SL{sl_no}_", dir=str(folder)) as temporary:
+                html = validate_staged_report(export_html(data, temporary), temporary)
+                pdf = validate_staged_report(export_pdf(data, temporary), temporary)
+                if html == pdf:
+                    raise OSError("HTML and PDF renderers returned the same staged file.")
+                # Each replace is atomic on its own filesystem, not as a *pair*.
+                # Snapshot both previous versions before touching either destination.
+                # If publishing PDF fails after HTML succeeds, restore HTML (or remove
+                # the newly created HTML when there was no earlier report).
+                staged = {"html": html, "pdf": pdf}
+                backups: dict[str, Path] = {}
                 for kind, destination in output_paths.items():
-                    # Guard against a path changing after initial validation.
                     if destination.is_symlink():
                         raise OSError(f"Refusing to overwrite report symlink: {destination.name}")
-                    os.replace(str(staged[kind]), str(destination))
-                    published.append(kind)
-            except OSError as exc:
-                rollback_errors = []
-                for kind in reversed(published):
-                    destination = output_paths[kind]
-                    try:
+                    if destination.exists():
+                        if not destination.is_file():
+                            raise OSError(f"Report destination is not a regular file: {destination.name}")
+                        backup = Path(temporary) / f".previous_{destination.name}"
+                        shutil.copy2(destination, backup)
+                        backups[kind] = backup
+                published: list[str] = []
+                try:
+                    for kind, destination in output_paths.items():
+                        # Guard against a path changing after initial validation.
                         if destination.is_symlink():
-                            raise OSError(f"Refusing to restore over symlink: {destination.name}")
-                        if kind in backups:
-                            os.replace(str(backups[kind]), str(destination))
-                        else:
-                            destination.unlink(missing_ok=True)
-                    except OSError as rollback_exc:
-                        rollback_errors.append(f"{destination.name}: {rollback_exc}")
-                if rollback_errors:
-                    # Backups in TemporaryDirectory are best-effort; do not hide
-                    # an incomplete rollback as if the report pair were intact.
-                    raise OSError(
-                        f"Publishing reports failed ({exc}); rollback incomplete: "
-                        + "; ".join(rollback_errors)
-                    ) from exc
-                raise
-    except Exception as exc:
-        # A recoverable renderer/IO failure is not a process crash. Keep the
-        # original error and rollback behavior, but finalize the manifest.
-        try:
-            finalize_publication(
-                folder, sl_no, {}, {"batch": f"{type(exc).__name__}: {exc}"},
-            )
-        except OSError:
-            # Preserve the original failure; the in_progress marker still
-            # provides a conservative signal that a re-run is needed.
-            pass
-        raise
-    finalize_publication(folder, sl_no, output_paths, {})
-    return output_paths
+                            raise OSError(f"Refusing to overwrite report symlink: {destination.name}")
+                        os.replace(str(staged[kind]), str(destination))
+                        published.append(kind)
+                except OSError as exc:
+                    rollback_errors = []
+                    for kind in reversed(published):
+                        destination = output_paths[kind]
+                        try:
+                            if destination.is_symlink():
+                                raise OSError(f"Refusing to restore over symlink: {destination.name}")
+                            if kind in backups:
+                                os.replace(str(backups[kind]), str(destination))
+                            else:
+                                destination.unlink(missing_ok=True)
+                        except OSError as rollback_exc:
+                            rollback_errors.append(f"{destination.name}: {rollback_exc}")
+                    if rollback_errors:
+                        # Backups in TemporaryDirectory are best-effort; do not hide
+                        # an incomplete rollback as if the report pair were intact.
+                        raise OSError(
+                            f"Publishing reports failed ({exc}); rollback incomplete: "
+                            + "; ".join(rollback_errors)
+                        ) from exc
+                    raise
+        except Exception as exc:
+            # A recoverable renderer/IO failure is not a process crash. Keep the
+            # original error and rollback behavior, but finalize the manifest.
+            try:
+                finalize_publication(
+                    folder, sl_no, {}, {"batch": f"{type(exc).__name__}: {exc}"},
+                )
+            except OSError:
+                # Preserve the original failure; the in_progress marker still
+                # provides a conservative signal that a re-run is needed.
+                pass
+            raise
+        finalize_publication(folder, sl_no, output_paths, {})
+        return output_paths
 
 
 
@@ -178,19 +180,21 @@ def delete_session_reports(sl_no: int, target: str, *,
     candidates = report_paths(sl_no, target, directory)
     from penx_app.reporting.report_batch import _manifest_path
     manifest = _manifest_path(candidates["html"].parent, sl_no)
-    # Prevalidate every existing path BEFORE deleting any report or metadata.
-    # A directory or symlink in one slot must not cause a partial deletion.
-    for path in (*candidates.values(), manifest):
-        if path.is_symlink() or (path.exists() and not path.is_file()):
-            raise OSError(f"Refusing to delete non-regular report path: {path.name}")
-    deleted = []
-    for path in candidates.values():
-        try:
-            path.unlink()
-        except FileNotFoundError:
-            continue
-        deleted.append(path)
-    # Metadata contains report filenames (and potentially the scanned host).
-    # Remove it only once both report-file deletions succeeded.
-    manifest.unlink(missing_ok=True)
-    return deleted
+    from penx_app.reporting.report_batch import publication_lock
+    with publication_lock(manifest.parent, sl_no):
+        # Prevalidate every existing path BEFORE deleting any report or metadata.
+        # A directory or symlink in one slot must not cause a partial deletion.
+        for path in (*candidates.values(), manifest):
+            if path.is_symlink() or (path.exists() and not path.is_file()):
+                raise OSError(f"Refusing to delete non-regular report path: {path.name}")
+        deleted = []
+        for path in candidates.values():
+            try:
+                path.unlink()
+            except FileNotFoundError:
+                continue
+            deleted.append(path)
+        # Metadata contains report filenames (and potentially the scanned host).
+        # Remove it only once both report-file deletions succeeded.
+        manifest.unlink(missing_ok=True)
+        return deleted
