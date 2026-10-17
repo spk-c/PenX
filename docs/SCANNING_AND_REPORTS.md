@@ -46,6 +46,7 @@ AI assessment starts.
 [9] ffuf
 [s] Subfinder (passive)
 [c] Katana (same-host crawl)
+[e] Endpoint Mapping (opt-in Katana + targeted ffuf)
 [d] TLS certificate / handshake
 [a] Standard Scan (1–5)
 [n] Standard Scan + Nikto (1–6)
@@ -315,6 +316,48 @@ limit Windows account access, keep them out of synchronized/public folders,
 and remove them through PenX's history/report controls when no longer needed.
 Deleting a file is **not** guaranteed secure erasure on SSDs.
 
+### Authorized endpoint mapping with Katana + ffuf
+
+Select **[e] Endpoint Mapping** explicitly and confirm the active HTTP checks.
+This mode does **not** run automatically with [x] Full Scan or from the LLM.
+
+1. Katana crawls only the precise authorized HTTP(S) scheme, hostname and port,
+   at depth 1 and a **24-page cap**. Redirect following is disabled. The crawler
+   runs with one worker, a native rate cap of 2 requests/s, and a short deadline.
+2. Parsed Katana JSONL feeds a local inventory, deduplicated by URL path.
+   Each entry retains **parameter names**, observed HTTP methods and source
+   scanner labels, but **not query values, request bodies, cookies or credentials**.
+   Non-GET endpoints remain inventory-only.
+3. ffuf checks safe, directly discovered **GET paths** at the root and enumerates
+   root plus up to two newly discovered parent directories. Unsafe action verbs
+   (e.g. logout/delete/checkout/transfer), encoded paths, unexpected syntax,
+   and non-GET-only routes are never added to direct-follow-up wordlists.
+   ffuf never replays discovered query values or fuzzes parameter values.
+4. A shared planning budget reserves up to **24 crawled pages + 56 ffuf
+   candidates = 80 planned operations** across the sequential phases.
+   Both subprocesses cap their native rate at **2 requests/s**; a gap between
+   phases prevents a sudden burst. Press **Ctrl+C** to stop the subprocess
+   tree and skip remaining passes.
+
+**Important limits:** The 80-operation figure is a *planning bound*, **not**
+a hard network-level request ceiling: Katana's page cap does not count every
+auxiliary request, and remote redirects/proxies or scanner retries may otherwise
+affect traffic. Do not interpret this as guaranteed total HTTP requests or as a
+shared limiter across independent PenX scanner selections. The 2/s caps apply
+to each native process, which this mode executes **sequentially**, not to all
+other concurrently running PenX instances. ffuf follows no redirects in this
+profile, and it uses only GET. The mode does not test SQLi, XSS, access control,
+authorization bypass or other vulnerabilities automatically.
+
+An inventory is stored locally under `data/endpoints/<sha256-prefix>.json`
+for the single normalized origin. Repeated authorized mapping runs merge
+deduplicated endpoint metadata, but **historical entries never authorize fresh
+network probes**. Only URLs validated from the current complete crawl
+determine ffuf follow-ups. Treat even URL *paths* as potentially sensitive:
+the file is local data, should not be committed, and should be deleted when
+no longer required. Incomplete or cancelled scanner runs are marked partial;
+their missing findings are not evidence of a secure endpoint.
+
 ### Optional native web scanner adapters
 
 The [1] New Scan tool picker also provides [7] Nuclei, [8] ProjectDiscovery
@@ -329,7 +372,9 @@ inventory only, not automatic scan targets. [b] remains the Back alias.
 binary installer for x64. Native scanner paths can also be supplied by private
 `.env` entries `PENX_NUCLEI_PATH`, `PENX_HTTPX_PATH` and
 `PENX_FFUF_PATH`, `PENX_SUBFINDER_PATH` and `PENX_KATANA_PATH`.
-TLS checks require no external executable. The simple built-in ffuf wordlist is capped to a few dozen
+TLS checks require no external executable. The dedicated [e] mapping mode
+also checks selected safe paths discovered in the current crawl. The ordinary
+[9] ffuf adapter remains a root-only wordlist check. The simple built-in ffuf wordlist is capped to a few dozen
 single-origin GET requests. Optional `PENX_FFUF_WORDLIST` accepts up to 80
 safe relative paths. All scan profiles have fixed timeouts/concurrency and
 do not accept arbitrary user- or model-supplied CLI flags.

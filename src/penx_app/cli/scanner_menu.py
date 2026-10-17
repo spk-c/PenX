@@ -32,8 +32,8 @@ def interactive_tool_run(target: str, *, menu: dict, formatter) -> str | ReconCh
         print('[!] Nuclei, ffuf, Katana and endpoint mapping generate additional HTTP requests.')
         print(f'[!] Only scan systems you are authorized to assess: {target}')
         if "e" in selected_keys:
-            print('[!] [e] runs a same-origin Katana crawl and multiple bounded ffuf directory probes.')
-            print('[!] Estimated budget: 24 crawler pages + <= 56 ffuf URLs at <= 2 requests/s.')
+            print('[!] [e] maps same-origin URLs/methods/parameter names, then uses ffuf for safe GET paths and directories.')
+            print('[!] Planned budget: 24 crawler pages + <= 56 ffuf GET URLs at <= 2 requests/s, run sequentially.')
             print('[!] Page count is not a strict wire-level request cap; redirects and server effects must be reviewed.')
         consent = navigation_input('Run these bounded active checks? [y/N]: ').strip().lower()
         if consent not in ('y', 'yes', 'j', 'ja'):
