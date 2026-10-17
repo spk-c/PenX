@@ -142,7 +142,7 @@ def applicability(cve: dict, product: Product) -> str:
             return None
         return value
 
-    values = []
+    values: list[bool | None] = []
     for cfg in configs:
         if not isinstance(cfg, dict):
             continue
