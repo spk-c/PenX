@@ -47,7 +47,7 @@ def _global_ipv4(value: str) -> str | None:
         ip = ipaddress.ip_address(value.strip())
     except ValueError:
         return None
-    return str(ip) if ip.version == 4 and ip.is_global else None
+    return str(ip) if ip.version == 4 and ip.is_global and not ip.is_multicast else None
 
 
 def resolve_public_ipv4(host: str, limit: int = 3, *, dns_resolve=None) -> tuple[list[str], str]:
@@ -63,7 +63,7 @@ def resolve_public_ipv4(host: str, limit: int = 3, *, dns_resolve=None) -> tuple
     if ip is not None:
         if ip.version == 6:
             return [], "IPv6 is not supported by the InternetDB lookup; skipped."
-        if not ip.is_global:
+        if not ip.is_global or ip.is_multicast:
             return [], "Non-public IP: Shodan lookup skipped."
         return [str(ip)], ""
     try:

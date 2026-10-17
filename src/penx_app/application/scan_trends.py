@@ -250,7 +250,17 @@ def _shodan_snapshots(data: dict) -> dict[str, dict]:
         if not isinstance(item, dict) or item.get("source") != "Shodan InternetDB":
             continue
         ip = item.get("ip")
-        if not isinstance(ip, str) or not re.fullmatch(r"(?:\d{1,3}\.){3}\d{1,3}", ip):
+        if not isinstance(ip, str):
+            continue
+        # InternetDB integration only queries public IPv4 addresses. A
+        # digit-and-dot regex accepts impossible or reserved IPs and could
+        # turn malformed historical data into invented indexed-port changes.
+        try:
+            public_ip = ipaddress.IPv4Address(ip)
+        except ValueError:
+            continue
+        if (not public_ip.is_global or public_ip.is_multicast
+                or str(public_ip) != ip):
             continue
         ports = item.get("ports", [])
         cves = item.get("vulns", [])
