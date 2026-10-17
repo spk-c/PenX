@@ -63,7 +63,7 @@ def resolve_public_ipv4(host: str, limit: int = 3, *, dns_resolve=None) -> tuple
     if ip is not None:
         if ip.version == 6:
             return [], "IPv6 is not supported by the InternetDB lookup; skipped."
-        if not ip.is_global:
+        if not ip.is_global or ip.is_multicast:
             return [], "Non-public IP: Shodan lookup skipped."
         return [str(ip)], ""
     try:
