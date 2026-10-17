@@ -33,7 +33,7 @@ def find_runtime(tool: str) -> str | None:
     bases = [drive, Path(os.environ.get('LOCALAPPDATA', str(drive / 'Users'))),
              Path(os.environ.get('ProgramFiles', str(drive / 'Program Files'))),
              Path(os.environ.get('ProgramFiles(x86)', str(drive / 'Program Files (x86)')))]
-    candidates = []
+    candidates: list[Path] = []
     if tool == 'perl':
         candidates.extend((drive / 'Strawberry' / 'perl' / 'bin' / exe,
                            drive / 'Strawberry' / 'c' / 'bin' / exe))
