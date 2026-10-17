@@ -7,6 +7,7 @@ Used by LLM tool dispatch when AI writes [SEARCH: query]
 """
 
 from collections.abc import Callable
+from itertools import islice
 import ipaddress
 import socket
 from urllib.parse import urlsplit
@@ -22,36 +23,63 @@ except ImportError:
 # DDG SEARCH
 # ─────────────────────────────────────────────
 
+MAX_SEARCH_RESULTS = 10
+MAX_SEARCH_QUERY_CHARS = 2048
+
+
+def _search_field(value: object, limit: int) -> str:
+    """Keep remote snippets single-line and bounded for model-facing results."""
+    if not isinstance(value, str):
+        return ""
+    return " ".join(value.split())[:limit]
+
+
 def web_search(query: str, max_results: int = 5, *,
                ddgs_factory: Callable | None = None,
                emit: Callable | None = None) -> str:
+    """Bound untrusted search responses before they reach the model context.
+
+    Invalid third-party entries are skipped rather than discarding valid hits.
+    Never materialize an unbounded provider iterator into a list.
     """
-    Search DuckDuckGo and return formatted results.
-    No API key. No rate limit issues for reasonable usage.
-    Returns a string ready to paste into LLM prompt.
-    """
+    if (not isinstance(query, str) or not query.strip()
+            or len(query) > MAX_SEARCH_QUERY_CHARS):
+        return "[!] Invalid or oversized search query."
+    if type(max_results) is not int or not 1 <= max_results <= MAX_SEARCH_RESULTS:
+        return "[!] Invalid search result limit."
     (print if emit is None else emit)(f"  [*] Searching: {query}")
     if DDGS is None and ddgs_factory is None:
         return "[!] Missing ddgs package. Install requirements.txt."
     try:
         with (DDGS if ddgs_factory is None else ddgs_factory)() as ddgs:
-            results = list(ddgs.text(query, max_results=max_results))
+            # The client should honour max_results, but do not rely on it to
+            # enforce our local capture and output size budget.
+            results = []
+            for row in islice(ddgs.text(query, max_results=max_results), max_results):
+                if not isinstance(row, dict):
+                    continue
+                title = _search_field(row.get("title"), 240)
+                url = _search_field(row.get("href"), 512)
+                body = _search_field(row.get("body"), 1200)
+                if not title or not url:
+                    continue
+                results.append((title, url, body))
 
         if not results:
-            return "[!] No search results found."
+            return "[!] No usable search results found."
 
         output = f"[WEB SEARCH RESULTS FOR: {query}]\n"
         output += "─" * 50 + "\n"
-        for i, r in enumerate(results, 1):
-            output += f"\n[{i}] {r['title']}\n"
-            output += f"    URL     : {r['href']}\n"
-            output += f"    Snippet : {r['body']}\n"
-
+        for i, (title, url, body) in enumerate(results, 1):
+            output += f"\n[{i}] {title}\n"
+            output += f"    URL     : {url}\n"
+            output += f"    Snippet : {body}\n"
         return output
 
-    except Exception as e:
-        return f"[!] Search failed: {e}"
-
+    except Exception as exc:
+        # Provider diagnostics can contain user query data or tokens. Avoid
+        # copying raw exception text into a model-facing result.
+        return f"[!] Search failed ({type(exc).__name__})."
 
 # ─────────────────────────────────────────────
 # CVE SPECIFIC SEARCH
