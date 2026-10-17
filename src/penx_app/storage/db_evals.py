@@ -81,6 +81,18 @@ def parse_evaluation_response(sl_no: int, evaluator: str, response_text: str) ->
     with closing(get_connection()) as conn:
         cursor = conn.cursor()
         try:
+            # The duplicate check below must share a write transaction with
+            # the inserts. SQLite SELECTs do not implicitly pin a transaction
+            # in legacy mode: two imports can otherwise both see "missing"
+            # and then race to insert the same evaluation. This no-op update
+            # obtains SQLite's RESERVED writer lock / MariaDB's row lock
+            # before reading names and existing evaluation identities.
+            cursor.execute(
+                "UPDATE history SET status = status WHERE sl_no = %s", (sl_no,)
+            )
+            cursor.execute("SELECT sl_no FROM history WHERE sl_no = %s", (sl_no,))
+            if cursor.fetchone() is None:
+                raise ValueError("Evaluation session does not exist.")
             cursor.execute(
                 "SELECT id, vuln_name, severity, confidence, description "
                 "FROM vulnerabilities WHERE sl_no = %s", (sl_no,)
