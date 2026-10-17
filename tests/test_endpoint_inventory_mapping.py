@@ -77,6 +77,39 @@ class EndpointInventoryContracts(unittest.TestCase):
         self.assertEqual(set(inv.entries),
                          {ORIGIN + "/api/a", ORIGIN + "/api/health"})
 
+    def test_safe_direct_get_paths_keep_methods_and_never_replay_queries(self):
+        inv = EndpointInventory(ORIGIN)
+        raw = "\n".join([
+            katana_row(ORIGIN + "/api/users?session=CONFIDENTIAL"),
+            katana_row(ORIGIN + "/api/items?page=2"),
+            json.dumps({"request": {"method": "POST", "endpoint":
+                                    ORIGIN + "/api/create?key=SENSITIVE"}}),
+            katana_row(ORIGIN + "/api/delete-user?id=3"),
+            katana_row(ORIGIN + "/logout.php?token=4"),
+            katana_row(ORIGIN + "/v1/%2fprivate"),
+        ])
+        accepted, rejected = inv.collect_jsonl(raw, "katana")
+        self.assertEqual((accepted, rejected), (5, 1))
+        self.assertEqual(inv.entries[ORIGIN + "/api/create"]["methods"], {"POST"})
+        paths = inv.paths_for_probe(max_paths=24)
+        self.assertEqual(paths, ["api/items", "api/users"])
+        self.assertNotIn("CONFIDENTIAL", json.dumps(inv.public_json()))
+        self.assertNotIn("SENSITIVE", inv.summary())
+        self.assertNotIn("logout.php", "\n".join(paths))
+        self.assertEqual(inv.paths_for_probe(max_paths=1), ["api/items"])
+        self.assertEqual(inv.paths_for_probe(max_paths=0), [])
+
+    def test_ffuf_rows_require_real_http_status(self):
+        inv = EndpointInventory(ORIGIN)
+        raw = "\n".join([
+            ffuf_row(ORIGIN + "/missing", 0),
+            ffuf_row(ORIGIN + "/error", 700),
+            json.dumps({"url": ORIGIN + "/fake", "status": True}),
+            ffuf_row(ORIGIN + "/good", 403),
+        ])
+        self.assertEqual(inv.collect_jsonl(raw, "ffuf"), (1, 3))
+        self.assertEqual(list(inv.entries), [ORIGIN + "/good"])
+
     def test_bounded_atomic_persistence_and_invalid_file(self):
         with tempfile.TemporaryDirectory() as folder:
             path = Path(folder)
@@ -87,6 +120,7 @@ class EndpointInventoryContracts(unittest.TestCase):
             self.assertNotIn(b"SECRET", saved.read_bytes())
             got = load_inventory(ORIGIN, directory=path)
             self.assertEqual(first.public_json(), got.public_json())
+            self.assertEqual(got.entries[ORIGIN + "/api"]["methods"], {"GET"})
             self.assertEqual(len(load_inventory("https://other.test", directory=path).entries), 0)
             saved.write_bytes(b"X" * 96001)
             self.assertFalse(load_inventory(ORIGIN, directory=path).entries)
@@ -116,9 +150,9 @@ class EndpointMappingExecutionContracts(unittest.TestCase):
         )
 
         def execute(argv, **kwargs):
-            words_used = (len(Path(argv[argv.index("-w") + 1]).read_text().splitlines())
-                          if "-w" in argv else 0)
-            calls.append((argv, {**kwargs, "words_used": words_used}))
+            selected = (Path(argv[argv.index("-w") + 1]).read_text().splitlines()
+                        if "-w" in argv else [])
+            calls.append((argv, {**kwargs, "words_used": len(selected), "words": selected}))
             return katana if "-mdp" in argv else ffuf
 
         with tempfile.TemporaryDirectory() as folder, \
@@ -150,6 +184,28 @@ class EndpointMappingExecutionContracts(unittest.TestCase):
         self.assertEqual(ffuf_argv[ffuf_argv.index("-rate") + 1], "2")
         self.assertIn("-p", ffuf_argv)
         self.assertLessEqual(sum(c[1]["words_used"] for c in calls[1:]), 56)
+
+    def test_direct_endpoint_probes_share_budget_and_exclude_state_changes(self):
+        raw = "\n".join([
+            katana_row(ORIGIN + "/api/item" + str(i) + "?secret=NEVER_SEND")
+            for i in range(35)
+        ] + [
+            katana_row(ORIGIN + "/api/logout.php"),
+            katana_row(ORIGIN + "/api/delete-account?id=1"),
+            json.dumps({"request": {"method": "POST", "endpoint":
+                                    ORIGIN + "/api/transfer?amount=10"}}),
+        ])
+        output, calls = self.run_mapping(raw)
+        self.assertEqual(len(calls), 3)
+        words = [row[1]["words"] for row in calls[1:]]
+        self.assertIn("api/item0", words[0])
+        self.assertNotIn("api/logout.php", words[0])
+        self.assertNotIn("api/delete-account", words[0])
+        self.assertNotIn("api/transfer", words[0])
+        self.assertLessEqual(sum(len(w) for w in words), 56)
+        self.assertNotIn("NEVER_SEND", str(output))
+        self.assertIn("parameter name(s)", str(output))
+        self.assertIn("api/transfer [POST]", str(output))
 
     def test_different_origin_discoveries_never_become_ffuf_targets(self):
         raw = katana_row(ORIGIN + "/api/users") + "\n" + katana_row("https://outside.test/a")
