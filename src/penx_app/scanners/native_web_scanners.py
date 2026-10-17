@@ -9,6 +9,7 @@ import json
 import os
 from pathlib import Path
 import re
+import stat
 import shutil
 import subprocess
 from urllib.parse import urlsplit
@@ -137,11 +138,28 @@ def ffuf_words() -> list[str]:
     if not override:
         return list(DEFAULT_FFUF_PATHS)
     path = Path(override)
-    if not path.is_file() or path.stat().st_size > 8192:
+    # Never re-open the pathname after checking its size. A local symlink
+    # swap or file growth between stat and read_text could bypass the 8 KiB
+    # memory/request budget despite the later 80-item limit.
+    try:
+        fd = os.open(path, os.O_RDONLY | getattr(os, "O_BINARY", 0)
+                     | getattr(os, "O_NOFOLLOW", 0))
+        with os.fdopen(fd, "rb") as stream:
+            opened = os.fstat(stream.fileno())
+            named = path.lstat()
+            if (not stat.S_ISREG(opened.st_mode) or not stat.S_ISREG(named.st_mode)
+                    or (opened.st_dev, opened.st_ino) != (named.st_dev, named.st_ino)):
+                raise ValueError("ffuf wordlist must be an unchanged regular file")
+            if opened.st_size > 8192:
+                raise ValueError("ffuf wordlist missing or larger than 8 KiB")
+            payload = stream.read(8193)
+    except OSError as exc:
+        raise ValueError("ffuf wordlist missing or inaccessible") from exc
+    if len(payload) > 8192:
         raise ValueError("ffuf wordlist missing or larger than 8 KiB")
     words: list[str] = []
     seen: set[str] = set()
-    for line in path.read_text(encoding="utf-8-sig").splitlines():
+    for line in payload.decode("utf-8-sig").splitlines():
         word = line.strip()
         if not word or word.startswith("#"):
             continue
