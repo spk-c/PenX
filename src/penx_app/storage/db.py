@@ -77,7 +77,7 @@ def _lock_session_writer(cursor, sl_no: int) -> None:
         except sqlite3.OperationalError as exc:
             # SQLITE_BUSY_SNAPSHOT and other extended errors cannot be
             # resolved by repeating the statement in the same transaction.
-            if (getattr(exc, "sqlite_errorcode", None) != sqlite3.SQLITE_BUSY
+            if (getattr(exc, "sqlite_errorcode", None) != getattr(sqlite3, "SQLITE_BUSY", 5)
                     or time.monotonic() + pause >= deadline):
                 raise
             time.sleep(pause)
