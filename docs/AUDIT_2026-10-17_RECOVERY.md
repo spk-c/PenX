@@ -56,6 +56,34 @@ Unicode JSON, cyclic JSON serialization failures, UTF-8 encoding failures,
 simulated publication failures, invalid session IDs, invalid payload types,
 and no stray staged files.
 
+## Remediation follow-up — 17 October 2026
+
+The following additional hardening changes have **passed all required
+CI checks and been squash-merged into main** after this original audit:
+
+| Audit item | Remedy | Merged PR / commit |
+| --- | --- | --- |
+| NVD cache: size check followed by a fresh path read | Open one non-symlink, regular file descriptor; validate open-file identity and bound actual bytes read. Non-serializable best-effort writes now fail without crashing CVE discovery. | [#57](https://github.com/spk-c/PenX/pull/57) / `17887fd821702e5785354a63bab77e2507dfaa59` |
+| Package inventory: `stat()` then `json.load()` | Open once, reject swapped or symbolic-link paths and enforce the byte limit on the opened descriptor. | [#57](https://github.com/spk-c/PenX/pull/57) |
+| Arbitrary public-name DNS rebinding during HTTPS research | Verify public A/AAAA endpoints as sockets are created, connect directly to checked address without another DNS lookup, preserve TLS hostname validation, and ignore untrusted proxy environment configuration. | [#58](https://github.com/spk-c/PenX/pull/58) / `a69a986010373614249b5ed252652194be0d2f25` |
+
+Seven offline tests cover local file boundaries, and eight test public HTTPS
+DNS/socket behavior without making real connections. Ubuntu and Windows offline
+tests, the Windows package/installer smoke test, Python compatibility contracts,
+dependency scanning, CodeQL and Gitleaks passed for each PR. This certifies
+those test cases **only**.
+
+### Remaining acceptance items — not automatically fixable in CI
+
+The original Windows/Npcap/UAC field trials, all 12 scanner modes on
+authorized disposable targets, physical installer upgrade/rollback,
+sanitized SQLite/MariaDB backup restoration, power-loss report recovery,
+real rendered PDF review and model-runtime compatibility evidence still
+require independent operator execution and recorded sign-off per
+[`REFACTOR_ACCEPTANCE.md`](REFACTOR_ACCEPTANCE.md). These are *unperformed
+validation activities*, not necessarily reproducible code bugs. The
+refactor remains **NOT SIGNED OFF** until the worksheet gates are satisfied.
+
 ## Other audit observations and limitations
 
 | Area | Verified observation | Status / follow-up |
@@ -69,9 +97,10 @@ and no stray staged files.
 | Inventory import | Input limits and exact package-version checks exist | Separate `stat()` and `json.load()` also depend on a stable local file; no hostile-local-writer test was run |
 | Release updater | Official release URLs, exact SHA-256 asset verification, maximum installer size and explicit opt-in are enforced in code | Genuine Windows installer upgrade/rollback and signing are not proven by this audit |
 
-Potential race-hardening observations are **not** asserted as independently
-reproduced vulnerabilities in this audit, and no misleading CVE labels have
-been assigned.
+The source-level file-read and DNS hardening items described above were
+implemented after this initial audit; the original observations remain here
+for traceability. They are not assigned CVE identifiers or treated as proof of
+external exploitability.
 
 ## Validation and merge policy
 
