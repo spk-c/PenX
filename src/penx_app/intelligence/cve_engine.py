@@ -9,7 +9,7 @@ from __future__ import annotations
 from functools import lru_cache
 from collections.abc import Callable
 from penx_app.intelligence.nvd_disk_cache import load as load_nvd_cache, store as store_nvd_cache
-import json
+
 import time
 from urllib.parse import quote, urlsplit
 
