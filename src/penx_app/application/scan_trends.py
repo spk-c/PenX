@@ -92,14 +92,20 @@ def _ports(data: dict, *, host_scoped: bool = False) -> tuple[dict, bool]:
                     if state is None or state.get("state") != "open":
                         continue
                     proto, number = port.get("protocol", ""), port.get("portid", "")
-                    if not number.isdigit() or proto not in {"tcp", "udp"}:
+                    # Nmap port IDs must be 1..65535. Canonicalizing the
+                    # number also makes XML "080" and "80" the same port.
+                    if (not number.isascii() or not number.isdecimal()
+                            or len(number) > 5 or proto not in {"tcp", "udp"}):
+                        continue
+                    numeric_port = int(number)
+                    if not 1 <= numeric_port <= 65535:
                         continue
                     service = port.find("service")
                     name = service.get("name", "unknown") if service is not None else "unknown"
                     version = " ".join(
                         service.get(part, "") for part in ("product", "version", "extrainfo")
                     ).strip() if service is not None else ""
-                    key = f"{number}/{proto}"
+                    key = f"{numeric_port}/{proto}"
                     if host_scoped:
                         key = f"{address} {key}"
                     found[key] = {"service": name, "version": version}
@@ -110,7 +116,10 @@ def _ports(data: dict, *, host_scoped: bool = False) -> tuple[dict, bool]:
         identity_complete = not host_scoped
         for match in _PORT.finditer(raw):
             port, proto, service, detail = match.groups()
-            found[f"{int(port)}/{proto.lower()}"] = {
+            numeric_port = int(port)
+            if not 1 <= numeric_port <= 65535:
+                continue
+            found[f"{numeric_port}/{proto.lower()}"] = {
                 "service": service, "version": (detail or "").strip()
             }
     # XML must include successful runstats; text-only Nmap must show its
