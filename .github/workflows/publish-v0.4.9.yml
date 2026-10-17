@@ -1,0 +1,108 @@
+name: Publish verified PenX v0.4.9
+
+# Runs only after a push to main has passed the complete offline test matrix.
+# The GITHUB_TOKEN-created tag cannot trigger a push workflow; explicitly
+# dispatch Windows Release against that immutable tag instead.
+on:
+  workflow_run:
+    workflows: ["Offline tests"]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: penx-release-v0.4.9
+  cancel-in-progress: false
+
+jobs:
+  verify-tag-dispatch:
+    if: github.repository == 'spk-c/PenX' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push' && github.event.workflow_run.head_repository.full_name == 'spk-c/PenX'
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      GH_TOKEN: ${{ github.token }}
+      EXPECTED_SHA: ${{ github.event.workflow_run.head_sha }}
+      OFFLINE_RUN: ${{ github.event.workflow_run.id }}
+      RELEASE_TAG: v0.4.9
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          persist-credentials: false
+      - name: Validate exact main commit, version, offline build and peer CI
+        shell: bash
+        run: |
+          set -euo pipefail
+          repo="$GITHUB_REPOSITORY"
+          main_sha="$(gh api "repos/$repo/git/ref/heads/main" --jq '.object.sha')"
+          if [ "$main_sha" != "$EXPECTED_SHA" ]; then
+            echo 'main moved since offline CI; aborting stale tag creation'
+            exit 1
+          fi
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          version = Path('src/penx_app/version.py').read_text(encoding='utf-8')
+          project = Path('pyproject.toml').read_text(encoding='utf-8')
+          assert re.search(r'^VERSION = "0\.4\.9"$', version, re.M)
+          assert re.search(r'^version = "0\.4\.9"$', project, re.M)
+          print('Matched PenX source and package version: v0.4.9')
+          PY
+          offline_ok="$(gh api "repos/$repo/actions/runs/$OFFLINE_RUN/jobs?per_page=100" --jq '[.jobs[] | select(.name == "tests (windows-latest)" or .name == "tests (ubuntu-latest)" or .name == "Windows packaged app & installer") | select(.conclusion == "success")] | length')"
+          if [ "$offline_ok" != 3 ]; then
+            echo "Missing complete Windows/Ubuntu/installer proof for $EXPECTED_SHA"
+            exit 1
+          fi
+          # The peer workflows start concurrently with the Offline tests;
+          # wait for their final outcomes, never assume an older green SHA.
+          verified=false
+          for attempt in $(seq 1 60); do
+            runs="$(gh api "repos/$repo/actions/runs?head_sha=$EXPECTED_SHA&per_page=100")"
+            python_ok="$(jq -r '[.workflow_runs[] | select(.name == "Python compatibility contracts" and .event == "push")] | first | .conclusion // "pending"' <<< "$runs")"
+            security_ok="$(jq -r '[.workflow_runs[] | select(.name == "Security audit" and .event == "push")] | first | .conclusion // "pending"' <<< "$runs")"
+            if [ "$python_ok" = success ] && [ "$security_ok" = success ]; then
+              verified=true
+              break
+            fi
+            for status in "$python_ok" "$security_ok"; do
+              if [ "$status" != pending ] && [ "$status" != null ] && [ "$status" != success ]; then
+                echo "Required peer workflow failed: $status"
+                exit 1
+              fi
+            done
+            sleep 15
+          done
+          if [ "$verified" != true ]; then
+            echo 'Timed out waiting for peer security/compatibility CI'
+            exit 1
+          fi
+          current="$(gh api "repos/$repo/git/ref/heads/main" --jq '.object.sha')"
+          test "$current" = "$EXPECTED_SHA" || { echo 'main moved during checks'; exit 1; }
+      - name: Create immutable v0.4.9 tag and dispatch tagged Windows Release
+        shell: bash
+        run: |
+          set -euo pipefail
+          repo="$GITHUB_REPOSITORY"
+          current="$(gh api "repos/$repo/git/ref/heads/main" --jq '.object.sha')"
+          test "$current" = "$EXPECTED_SHA" || { echo 'main moved before tag'; exit 1; }
+          if tagged_sha="$(gh api "repos/$repo/git/ref/tags/$RELEASE_TAG" --jq '.object.sha' 2>/dev/null)"; then
+            if [ "$tagged_sha" != "$EXPECTED_SHA" ]; then
+              echo 'Release tag exists at a different object; refusing overwrite'
+              exit 1
+            fi
+            if gh api "repos/$repo/releases/tags/$RELEASE_TAG" >/dev/null 2>&1; then
+              echo 'Release already published; no duplicate dispatch'
+              exit 0
+            fi
+            echo 'Exact tag already exists but no published release: dispatching a retry'
+          else
+            gh api --method POST "repos/$repo/git/refs" -f "ref=refs/tags/$RELEASE_TAG" -f "sha=$EXPECTED_SHA" --silent
+            echo "Created refs/tags/$RELEASE_TAG for $EXPECTED_SHA"
+          fi
+          # This is essential: tag pushes created with GITHUB_TOKEN do not
+          # fire tag-push workflows. workflow_dispatch is an allowed exception.
+          gh workflow run release.yml --repo "$repo" --ref "$RELEASE_TAG"
+          echo "Tagged build requested for $RELEASE_TAG at $EXPECTED_SHA"
