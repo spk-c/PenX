@@ -13,7 +13,7 @@ def interactive_tool_run(target: str, *, menu: dict, formatter) -> str | ReconCh
         print(f'  [{key}] {name}')
     print('  [a] Standard Scan (1-5)')
     print('  [n] Standard Scan + Nikto (1-6)')
-    print('  [x] Full Scan (all 12 including Subfinder, Katana and TLS; confirmation)')
+    print('  [x] Full Scan (original 12 tools; endpoint mapping requires explicit [e])')
     show_back()
     choice = navigation_input('\nChoice(s), e.g. 0, 1 2 4, a, n, x: ').strip().lower()
     if any(is_back(item) and item != "0" for item in choice.replace(",", " ").split()):
@@ -29,8 +29,12 @@ def interactive_tool_run(target: str, *, menu: dict, formatter) -> str | ReconCh
             print('[!] Invalid scanner selection. No scanners started.')
         return None
     if CONSENT_KEYS.intersection(selected_keys):
-        print('[!] Nuclei, ffuf and Katana generate additional HTTP requests.')
+        print('[!] Nuclei, ffuf, Katana and endpoint mapping generate additional HTTP requests.')
         print(f'[!] Only scan systems you are authorized to assess: {target}')
+        if "e" in selected_keys:
+            print('[!] [e] runs a same-origin Katana crawl and multiple bounded ffuf directory probes.')
+            print('[!] Estimated budget: 24 crawler pages + <= 56 ffuf URLs at <= 2 requests/s.')
+            print('[!] Page count is not a strict wire-level request cap; redirects and server effects must be reviewed.')
         consent = navigation_input('Run these bounded active checks? [y/N]: ').strip().lower()
         if consent not in ('y', 'yes', 'j', 'ja'):
             print('[*] Active web checks cancelled; no scanner was started.')
