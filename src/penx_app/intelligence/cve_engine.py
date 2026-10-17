@@ -243,7 +243,7 @@ setattr(_cached_nvd, "cache_clear", _memory_nvd.cache_clear)
 
 def _vendor_refs(cve: dict) -> list[str]:
     """Retain valid HTTPS vendor links despite malformed provider siblings."""
-    links = []
+    links: list[str] = []
     rows = cve.get("references", []) or []
     if not isinstance(rows, list):
         return links
