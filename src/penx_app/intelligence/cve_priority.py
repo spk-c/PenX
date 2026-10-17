@@ -63,6 +63,19 @@ def fetch_epss(ids, *, http_get=None):
     except (requests.RequestException, ValueError, TypeError, KeyError):
         return {}, "EPSS unavailable; risk score unknown."
 
+def _safe_numeric_score(candidate: dict, field: str, ceiling: float) -> float:
+    """Untrusted candidate metadata must never crash ranking or raise priority.
+
+    Only finite numeric scores within their documented ranges contribute to
+    ranking. Text, booleans, NaN, infinity and out-of-range numbers are unknown.
+    """
+    value = candidate.get(field)
+    if (isinstance(value, (int, float)) and not isinstance(value, bool)
+            and math.isfinite(value) and 0 <= value <= ceiling):
+        return float(value)
+    return -1.0
+
+
 def enrich_priority(candidates, enabled=True, *, epss_lookup=None, kev_lookup=None):
     """Use explicit advisory clients while keeping unavailable sources unknown."""
     if not enabled:
@@ -101,6 +114,19 @@ def enrich_priority(candidates, enabled=True, *, epss_lookup=None, kev_lookup=No
         key = str(item.get("id", "")).upper()
         item.update(epss.get(key, {}))
         item["kev_status"] = "unknown" if kev is None else "listed" if key in kev else "not-listed" if key in ids else "not-applicable"
-        item["priority_label"] = "known-exploited" if item["kev_status"] == "listed" else "high-epss" if item.get("epss", -1) >= 0.5 else "high-cvss" if item.get("cvss_score", -1) >= 9 else "review"
-    candidates.sort(key=lambda x: (x["kev_status"] == "listed", x.get("epss", -1), x.get("cvss_score", -1)), reverse=True)
+        epss_score = _safe_numeric_score(item, "epss", 1)
+        cvss_score = _safe_numeric_score(item, "cvss_score", 10)
+        item["priority_label"] = (
+            "known-exploited" if item["kev_status"] == "listed"
+            else "high-epss" if epss_score >= 0.5
+            else "high-cvss" if cvss_score >= 9
+            else "review"
+        )
+    candidates.sort(
+        key=lambda x: (
+            x["kev_status"] == "listed",
+            _safe_numeric_score(x, "epss", 1),
+            _safe_numeric_score(x, "cvss_score", 10),
+        ), reverse=True,
+    )
     return candidates, notes
