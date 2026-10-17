@@ -1,7 +1,7 @@
 ; PenX per-user Windows installer. Build with Inno Setup 6 (ISCC.exe).
 ; The portable ZIP remains independent and keeps its existing path behavior.
 #ifndef MyAppVersion
-  #define MyAppVersion "0.4.7"
+  #define MyAppVersion "0.4.8"
 #endif
 #define MyAppName "PenX"
 #define MyAppPublisher "spk-c"

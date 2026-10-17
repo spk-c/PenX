@@ -36,12 +36,12 @@ class FakeResponse:
 
 class InstallerUpdateTests(unittest.TestCase):
     def test_versions_share_single_source_of_truth(self):
-        self.assertEqual(VERSION, "0.4.7")
+        self.assertRegex(VERSION, r"^\d+\.\d+\.\d+$")
         with self.assertRaises(ValueError):
             updates.version_tuple("v0.4.6-rc1")
         self.assertGreater(updates.version_tuple("v0.4.10"), updates.version_tuple("v0.4.9"))
         metadata = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
-        self.assertIn('version = "0.4.7"', metadata)
+        self.assertIn(f'version = "{VERSION}"', metadata)
         self.assertIn("MyAppVersion", (ROOT / "installer" / "penx.iss").read_text())
 
     def test_installer_paths_are_separate_and_portable_stays_portable(self):
@@ -60,13 +60,13 @@ class InstallerUpdateTests(unittest.TestCase):
                 self.assertEqual(app_paths.application_root(), local / "PenX")
 
     def test_stable_release_assets_must_be_official(self):
-        payload = {"tag_name": "v0.4.8", "draft": False, "prerelease": False, "assets": [
-            {"name": "PenX-Setup-x64.exe", "browser_download_url": updates.DOWNLOAD_PREFIX + "v0.4.8/PenX-Setup-x64.exe"},
-            {"name": "SHA256SUMS.txt", "browser_download_url": updates.DOWNLOAD_PREFIX + "v0.4.8/SHA256SUMS.txt"},
+        payload = {"tag_name": "v0.4.9", "draft": False, "prerelease": False, "assets": [
+            {"name": "PenX-Setup-x64.exe", "browser_download_url": updates.DOWNLOAD_PREFIX + "v0.4.9/PenX-Setup-x64.exe"},
+            {"name": "SHA256SUMS.txt", "browser_download_url": updates.DOWNLOAD_PREFIX + "v0.4.9/SHA256SUMS.txt"},
         ]}
         with patch.object(updates, "_read_url", return_value=json.dumps(payload).encode()):
             release = updates.fetch_latest()
-        self.assertEqual(release.tag, "v0.4.8")
+        self.assertEqual(release.tag, "v0.4.9")
         self.assertTrue(updates.is_newer(release))
         payload["assets"][0]["browser_download_url"] = "https://evil.example/PenX-Setup-x64.exe"
         with patch.object(updates, "_read_url", return_value=json.dumps(payload).encode()):
@@ -81,10 +81,10 @@ class InstallerUpdateTests(unittest.TestCase):
 
     def test_checksum_protects_installer_and_cleans_corruption(self):
         release = updates.Release(
-            "v0.4.8",
-            updates.DOWNLOAD_PREFIX + "v0.4.8/PenX-Setup-x64.exe",
-            updates.DOWNLOAD_PREFIX + "v0.4.8/SHA256SUMS.txt",
-            "https://github.com/spk-c/PenX/releases/tag/v0.4.8")
+            "v0.4.9",
+            updates.DOWNLOAD_PREFIX + "v0.4.9/PenX-Setup-x64.exe",
+            updates.DOWNLOAD_PREFIX + "v0.4.9/SHA256SUMS.txt",
+            "https://github.com/spk-c/PenX/releases/tag/v0.4.9")
         payload = b"synthetic installer bytes"
         checksum = hashlib.sha256(payload).hexdigest()
         with tempfile.TemporaryDirectory() as root:
@@ -103,9 +103,9 @@ class InstallerUpdateTests(unittest.TestCase):
 
     def test_update_requires_installed_mode_and_explicit_consent(self):
         release = updates.Release(
-            "v0.4.8", updates.DOWNLOAD_PREFIX + "v0.4.8/PenX-Setup-x64.exe",
-            updates.DOWNLOAD_PREFIX + "v0.4.8/SHA256SUMS.txt",
-            "https://github.com/spk-c/PenX/releases/tag/v0.4.8")
+            "v0.4.9", updates.DOWNLOAD_PREFIX + "v0.4.9/PenX-Setup-x64.exe",
+            updates.DOWNLOAD_PREFIX + "v0.4.9/SHA256SUMS.txt",
+            "https://github.com/spk-c/PenX/releases/tag/v0.4.9")
         with patch.object(updates, "check_update", return_value=release), \
              patch.object(updates, "installed_mode", return_value=True), \
              patch.object(updates.os, "name", "nt"), \
