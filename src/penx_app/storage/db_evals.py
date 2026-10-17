@@ -7,7 +7,7 @@ Evaluation CRUD, eval package export, and evaluation response parser.
 import re
 from contextlib import closing
 from datetime import datetime
-from penx_app.storage.db import get_connection, _assert_vulnerability_owner
+from penx_app.storage.db import get_connection, _assert_vulnerability_owner, _lock_session_writer
 
 
 # ─────────────────────────────────────────────
@@ -87,9 +87,7 @@ def parse_evaluation_response(sl_no: int, evaluator: str, response_text: str) ->
             # and then race to insert the same evaluation. This no-op update
             # obtains SQLite's RESERVED writer lock / MariaDB's row lock
             # before reading names and existing evaluation identities.
-            cursor.execute(
-                "UPDATE history SET status = status WHERE sl_no = %s", (sl_no,)
-            )
+            _lock_session_writer(cursor, sl_no)
             cursor.execute("SELECT sl_no FROM history WHERE sl_no = %s", (sl_no,))
             if cursor.fetchone() is None:
                 raise ValueError("Evaluation session does not exist.")
