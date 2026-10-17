@@ -55,7 +55,15 @@ def save_vulnerability(sl_no: int, vuln_name: str, severity: str,
 
 
 def _assert_vulnerability_owner(cursor, sl_no: int, vuln_id: int) -> None:
-    """Enforce child-row ownership inside the same transaction as its insert."""
+    """Pin the session writer before checking a finding's ownership.
+
+    In SQLite's legacy mode a SELECT does not begin a write transaction. If
+    a second connection deletes the finding between this check and an INSERT,
+    the caller can fail with a foreign-key error. Locking the owning history
+    row serializes this check with finding deletion and evaluator imports,
+    and is portable to MariaDB without SELECT FOR UPDATE.
+    """
+    cursor.execute("UPDATE history SET status = status WHERE sl_no = %s", (sl_no,))
     cursor.execute("SELECT id FROM vulnerabilities WHERE id = %s AND sl_no = %s",
                    (vuln_id, sl_no))
     if cursor.fetchone() is None:
@@ -414,6 +422,10 @@ def delete_vulnerability(vuln_id: int, *, sl_no: int) -> bool:
     conn = get_connection()
     try:
         c = conn.cursor()
+        # Use the same lock order as child inserts: session, then finding.
+        # Without this, a correction can be inserted after our ownership
+        # check but before the dependent rows are removed.
+        c.execute("UPDATE history SET status = status WHERE sl_no = %s", (sl_no,))
         c.execute("SELECT id FROM vulnerabilities WHERE id = %s AND sl_no = %s", (vuln_id, sl_no))
         if c.fetchone() is None:
             return False
