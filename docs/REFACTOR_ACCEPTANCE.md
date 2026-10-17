@@ -1,6 +1,6 @@
 # PenX — final refactor acceptance and remaining implementation gates
 
-Updated 16 October 2026. **Status: NOT SIGNED OFF.** This is a reproducible acceptance worksheet, not proof that the full refactor is finished. For code-level implementation details and committed regression tests, see [REFACTOR_PROGRESS.md](REFACTOR_PROGRESS.md).
+Updated 17 October 2026. **Status: NOT SIGNED OFF.** This is a reproducible acceptance worksheet, not proof that the full refactor is finished. For code-level implementation details and committed regression tests, see [REFACTOR_PROGRESS.md](REFACTOR_PROGRESS.md).
 
 ## Acceptance rules
 
@@ -109,7 +109,7 @@ tests before marking Pk04/Pk05 complete. No field sign-off is asserted.
 ## Tracked outstanding issues (16 October 2026)
 
 The full refactor remains **NOT SIGNED OFF**. To avoid treating published
-v0.4.7 binaries as proof of hardware/field acceptance, follow the dedicated
+v0.4.8 binaries as proof of hardware/field acceptance, follow the dedicated
 checklists: [Windows/scanner + Npcap](https://github.com/spk-c/PenX/issues/11),
 [DB restores/evidence/report parity](https://github.com/spk-c/PenX/issues/12),
 [model/CLI refactor](https://github.com/spk-c/PenX/issues/13), and
