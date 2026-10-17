@@ -575,16 +575,41 @@ def run_subfinder(target: str, *, cancel_event=None) -> ScannerOutput:
         if outcome.status != "COMPLETE":
             return ScannerOutput(str(outcome)[:2000], status=outcome.status, evidence=False)
         found = set()
+        malformed = 0
+        valid_rows = 0
         for line in str(outcome).splitlines():
+            if not line.strip():
+                continue
             try:
                 item = json.loads(line)
             except ValueError:
+                malformed += 1
                 continue
-            if not isinstance(item, dict):
+            if not isinstance(item, dict) or not isinstance(item.get("host"), str):
+                malformed += 1
                 continue
-            host = str(item.get("host", "")).strip().rstrip(".").lower()
-            if host and (host == domain or host.endswith("." + domain)) and len(host) <= 253:
+            host = item["host"].strip().rstrip(".").lower()
+            # Provider JSON is untrusted. Matching a string suffix is not
+            # enough: 'bad@.example.test' or embedded controls would otherwise
+            # be presented to the model as discovered DNS hostnames.
+            try:
+                canonical = normalize_host(host)
+            except ValueError:
+                malformed += 1
+                continue
+            if not host or canonical != host:
+                malformed += 1
+                continue
+            valid_rows += 1
+            if host == domain or host.endswith("." + domain):
                 found.add(host)
+        if malformed:
+            note = f"[!] Subfinder emitted {malformed} malformed JSONL record(s); discovery incomplete."
+            inventory = ("\n[PASSIVE SUBDOMAIN INVENTORY — NOT ACTIVELY VERIFIED]\n"
+                         + "\n".join(sorted(found)[:100])) if found else ""
+            return ScannerOutput(note + inventory,
+                                 status="PARTIAL" if valid_rows else "FAILED",
+                                 evidence=bool(found))
         if not found:
             return ScannerOutput("[*] No in-scope subdomains discovered.", evidence=False)
         return ScannerOutput("[PASSIVE SUBDOMAIN INVENTORY — NOT ACTIVELY VERIFIED]\n" +
@@ -612,19 +637,33 @@ def run_katana(target: str, *, cancel_event=None) -> ScannerOutput:
             return ScannerOutput(str(outcome)[:2000], status=outcome.status, evidence=False)
         found = set()
         failures = 0
+        malformed = 0
+        valid_rows = 0
         for line in str(outcome).splitlines():
+            if not line.strip():
+                continue
             try:
                 item = json.loads(line)
             except ValueError:
+                malformed += 1
                 continue
             if not isinstance(item, dict):
+                malformed += 1
                 continue
             if item.get("error"):
                 failures += 1
                 continue  # A requested URL with an i/o timeout was NOT crawled.
-            candidate = item.get("request", {}).get("endpoint", "") if isinstance(item.get("request"), dict) else ""
+            request = item.get("request")
+            candidate = request.get("endpoint") if isinstance(request, dict) else None
+            if (not isinstance(candidate, str) or not candidate
+                    or any(ord(ch) < 32 or ch.isspace() for ch in candidate)):
+                malformed += 1
+                continue
             try:
-                parsed = urlsplit(str(candidate))
+                parsed = urlsplit(candidate)
+                if not parsed.hostname or parsed.scheme not in ("http", "https"):
+                    malformed += 1
+                    continue
                 same_origin = (
                     parsed.scheme == allowed.scheme
                     and parsed.hostname == allowed.hostname
@@ -632,16 +671,25 @@ def run_katana(target: str, *, cancel_event=None) -> ScannerOutput:
                     and not parsed.username and not parsed.password
                 )
             except ValueError:
-                # A single malformed provider URL must not discard valid crawl data.
-                failures += 1
+                # Keep valid crawl data but do not silently discard bad rows.
+                malformed += 1
                 continue
+            valid_rows += 1
             if same_origin:
                 found.add(parsed._replace(fragment="").geturl()[:350])
-        if failures:
-            note = f"[!] Katana had {failures} failed HTTP request(s), e.g. timeout; crawl incomplete."
+        if failures or malformed:
+            notes = []
+            if failures:
+                notes.append(f"{failures} failed HTTP request(s), e.g. timeout")
+            if malformed:
+                notes.append(f"{malformed} malformed JSONL record(s)")
+            note = "[!] Katana had " + " and ".join(notes) + "; crawl incomplete."
             urls = "\n".join(sorted(found)[:100])
-            return ScannerOutput(note + ("\n[SAME-HOST CRAWL INVENTORY]\n" + urls if urls else ""),
-                                 status="PARTIAL", evidence=bool(found))
+            return ScannerOutput(
+                note + ("\n[SAME-HOST CRAWL INVENTORY]\n" + urls if urls else ""),
+                status="PARTIAL" if valid_rows or failures else "FAILED",
+                evidence=bool(found),
+            )
         if not found:
             return ScannerOutput("[*] No in-scope URLs discovered (no pages verified).", evidence=False)
         return ScannerOutput("[SAME-HOST CRAWL INVENTORY]\n" +
