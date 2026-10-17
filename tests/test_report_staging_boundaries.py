@@ -60,9 +60,9 @@ class ReportStagingBoundaries(unittest.TestCase):
     def test_pair_export_rejects_renderer_file_outside_staging(self):
         # Existing file outside TemporaryDirectory must never be moved by
         # os.replace into the final report destination.
-        with patch.object(report_management, "get_session", return_value=self.data), \\
+        with patch.object(report_management, "get_session", return_value=self.data), \
              patch.object(report_management, "add_saved_comparison",
-                          side_effect=lambda data: data), \\
+                          side_effect=lambda data: data), \
              patch.object(report_management, "export_html",
                           return_value=str(self.outside)):
             with self.assertRaisesRegex(OSError, "inside staging"):
@@ -75,9 +75,9 @@ class ReportStagingBoundaries(unittest.TestCase):
                          "partial")
 
     def test_pair_export_rejects_staged_symlink(self):
-        with patch.object(report_management, "get_session", return_value=self.data), \\
+        with patch.object(report_management, "get_session", return_value=self.data), \
              patch.object(report_management, "add_saved_comparison",
-                          side_effect=lambda data: data), \\
+                          side_effect=lambda data: data), \
              patch.object(report_management, "export_html",
                           side_effect=lambda _data, staging: self.link(staging)):
             with self.assertRaisesRegex(OSError, "inside staging"):
