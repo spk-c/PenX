@@ -20,23 +20,31 @@ from penx_app.storage.schema_migrations import initialize_sqlite
 
 
 class ProbeCursor(SQLiteCursor):
-    def __init__(self, cursor, counter):
+    def __init__(self, cursor, counter, busy_event=None):
         super().__init__(cursor)
         self.counter = counter
+        self.busy_event = busy_event
 
     def execute(self, sql, params=()):
         if sql.startswith("UPDATE history SET status = status"):
             self.counter.append(sql)
-        return super().execute(sql, params)
+        try:
+            return super().execute(sql, params)
+        except sqlite3.OperationalError as exc:
+            if (self.busy_event is not None
+                    and getattr(exc, "sqlite_errorcode", None) == sqlite3.SQLITE_BUSY):
+                self.busy_event.set()
+            raise
 
 
 class ProbeConnection(SQLiteConnection):
-    def __init__(self, connection, counter):
+    def __init__(self, connection, counter, busy_event=None):
         super().__init__(connection)
         self.counter = counter
+        self.busy_event = busy_event
 
     def cursor(self):
-        return ProbeCursor(self._connection.cursor(), self.counter)
+        return ProbeCursor(self._connection.cursor(), self.counter, self.busy_event)
 
 
 class FakeCommittedBusy(ProbeConnection):
@@ -65,10 +73,10 @@ class SqliteSessionLockRetryTests(unittest.TestCase):
             )
             conn.commit()
 
-    def connection(self, counter, timeout=0.02, factory=ProbeConnection):
+    def connection(self, counter, timeout=0.02, factory=ProbeConnection, busy_event=None):
         conn = sqlite3.connect(self.path, timeout=timeout)
         conn.execute("PRAGMA foreign_keys=ON")
-        return factory(conn, counter)
+        return factory(conn, counter, busy_event)
 
     def rows(self, table):
         with closing(sqlite3.connect(self.path)) as conn:
@@ -99,13 +107,15 @@ class SqliteSessionLockRetryTests(unittest.TestCase):
     def test_short_busy_lock_retries_then_saves_exactly_once(self):
         attempts = []
         release, blocker, errors = self.blocker()
+        busy = threading.Event()
         releaser = threading.Thread(
-            target=lambda: (time.sleep(0.15), release.set()), daemon=True,
+            target=lambda: (busy.wait(5), time.sleep(0.07), release.set()),
+            daemon=True,
         )
         releaser.start()
         try:
             with patch.object(db, "get_connection",
-                              side_effect=lambda: self.connection(attempts)):
+                              side_effect=lambda: self.connection(attempts, busy_event=busy)):
                 identifier = db.save_correction(
                     1, 11, "verified", "old", "", "synthetic retry",
                 )
@@ -186,7 +196,7 @@ class SqliteSessionLockRetryTests(unittest.TestCase):
         releaser.start()
         try:
             with patch.object(db_evals, "get_connection",
-                              side_effect=lambda: self.connection(attempts)):
+                              side_effect=lambda: self.connection(attempts, busy_event=busy)):
                 saved = db_evals.parse_evaluation_response(1, "fixture", response)
         finally:
             release.set()
