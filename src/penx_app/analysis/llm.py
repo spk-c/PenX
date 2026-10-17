@@ -23,7 +23,10 @@ from penx_app.intelligence.cve_engine import discover, format_report
 from penx_app.analysis.scan_input_budget import bound_scan_text as bound_scan_text
 from penx_app.analysis.structured_scan_evidence import model_evidence as model_evidence
 from penx_app.intelligence.wordpress_advisories import research_plugins, format_plugin_report as format_plugin_report
-from penx_app.intelligence.exploitdb_references import lookup as exploitdb_lookup, format_report as exploitdb_report
+from penx_app.intelligence.exploitdb_references import lookup as exploitdb_lookup
+from penx_app.intelligence import exploitdb_references as _exploitdb_references
+# Legacy import seam retained for external callers.
+exploitdb_report = _exploitdb_references.format_report
 from penx_app.intelligence.source_verification import CVE_PATTERN as CVE_PATTERN
 from penx_app.analysis.llm_client import complete_chat, fetch_models, ModelConfigurationError, EmptyModelResponse, explain_http_error
 from penx_app.analysis.model_retry import prepare_empty_retry
