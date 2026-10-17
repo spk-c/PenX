@@ -122,9 +122,11 @@ def _allowed_page_url(url: str) -> bool:
             return False
         name = host.casefold().rstrip(".")
         if (name in ("localhost", "localhost.localdomain")
-                or name.endswith((".local", ".localhost", ".internal", ".test"))
-                or "." not in name):
+                or name.endswith((".local", ".localhost", ".internal", ".test"))):
             return False
+        # IP literals (including IPv6 and historic IPv4 notation) must be
+        # evaluated before the public-domain dot requirement. A valid IPv6
+        # address has no dot; encoded IPv4 can have no dot either.
         try:
             return ipaddress.ip_address(name).is_global
         except ValueError:
@@ -136,7 +138,8 @@ def _allowed_page_url(url: str) -> bool:
             try:
                 return ipaddress.IPv4Address(socket.inet_aton(name)).is_global
             except OSError:
-                return True
+                # A non-IP DNS name must have a dotted public suffix.
+                return "." in name
     except (ValueError, TypeError):
         return False
 
