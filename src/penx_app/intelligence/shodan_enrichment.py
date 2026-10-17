@@ -47,7 +47,7 @@ def _global_ipv4(value: str) -> str | None:
         ip = ipaddress.ip_address(value.strip())
     except ValueError:
         return None
-    return str(ip) if ip.version == 4 and ip.is_global else None
+    return str(ip) if ip.version == 4 and ip.is_global and not ip.is_multicast else None
 
 
 def resolve_public_ipv4(host: str, limit: int = 3, *, dns_resolve=None) -> tuple[list[str], str]:
