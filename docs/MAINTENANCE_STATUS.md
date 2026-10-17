@@ -1,0 +1,36 @@
+# PenX — maintenance and release status
+
+Checked: **17 October 2026**. This is a living maintenance index, not certification that PenX is defect-free or field-tested.
+
+## Release status
+
+- Last published and downloadable Windows release: **[v0.4.8](https://github.com/spk-c/PenX/releases/tag/v0.4.8)**.
+- The maintained [main branch](https://github.com/spk-c/PenX/tree/main) includes many additional fixes merged **after** the v0.4.8 release. The v0.4.8 installer and portable ZIP do **not** automatically include those fixes.
+- The canonical version in `src/penx_app/version.py` remains `0.4.8`. Release automation must not move or overwrite the existing release tag. Next publication needs a distinct version, matching build and verified hashes.
+- Current maintenance release task: **[#80 — publish the checked main fixes](https://github.com/spk-c/PenX/issues/80)**.
+
+## Outstanding independent acceptance
+
+| Priority | Work item | Definition of done |
+| --- | --- | --- |
+| P1 | [#81 Windows/Npcap/12 scanners](https://github.com/spk-c/PenX/issues/81) | All scanner choices on an explicitly authorized disposable target; cancellation, timeouts, process tree, missing dependencies, UAC/Npcap, operator-reviewed logs |
+| P1 | [#82 Database/installer/report recovery](https://github.com/spk-c/PenX/issues/82) | Restore sanitized SQLite WAL and MariaDB test copies; Windows upgrade/rollback/uninstall; long PDF/HTML/JSON/SARIF review and interrupted-publication recovery |
+| P1 | [FIELD_ACCEPTANCE.md](FIELD_ACCEPTANCE.md) | Operator evidence matrix, exact test build, results, rollback and reviewer sign-off; currently **NOT SIGNED OFF** |
+| P2 | Source/architecture cleanup | Inventory and prove old compatibility facades unused before removing them; widen Ruff/mypy and Windows/Python 3.13 confidence; don't delete public entrypoints without contract tests |
+
+**Scope:** Automated CI green means only tested code contracts passed. Real scanning, model availability, security coverage, historical database backups, human PDF inspection and physical installer behavior are not proven by synthetic mocks.
+
+## Repository hygiene
+
+- **Documentation:** `docs/REFACTOR_ACCEPTANCE.md` was intentionally deleted in [#79](https://github.com/spk-c/PenX/pull/79); [FIELD_ACCEPTANCE.md](FIELD_ACCEPTANCE.md) is now the single operator field acceptance checklist. Historical refactor/audit notes remain for traceability.
+- **Branches:** On 17 October a pre-cleanup comparison found 62 topic branches with a corresponding merged PR at the *exact* branch-head SHA, and one leftover release branch without that proof. The [safe branch-prune helper](../scripts/prune_merged_github_branches.ps1) keeps a dry-run default, rechecks PR state and SHA, and refuses paginated results. The [maintenance workflow](../.github/workflows/prune-merged-branches.yml) runs only on the initial merge of its own workflow file into `main`. If GitHub denies deletion, review its logs and run the helper via an authorized GitHub CLI; **never force-delete the unverified release branch**.
+- **Mirrors and packaging:** Optional `.gitlab-ci.yml`, `.gitlab/` and historical WinGet manifests are intentionally retained pending a separate decision about GitLab mirroring and registry submissions. Do not mistake manifests for public registry availability.
+
+## Next release checklist
+
+1. Ensure all required Windows/Ubuntu installer, dependency and CodeQL checks pass on the exact release commit.
+2. Complete the operator-owned [Windows field scenarios](FIELD_ACCEPTANCE.md) or explicitly identify any NOT RUN criteria in release notes; never claim complete field certification from CI alone.
+3. Choose a **new** version higher than v0.4.8, bump `src/penx_app/version.py`, build from the reviewed tag, verify checksums and the packaged application's reported version.
+4. Publish tagged Windows installer/portable ZIP/checksums via reviewed release workflow, then update the README, download instructions, and manifest drafts. Do not publish an old main snapshot under the v0.4.8 tag.
+
+No production scanner targets, private credentials or customer databases are required for documentation/CI maintenance.
