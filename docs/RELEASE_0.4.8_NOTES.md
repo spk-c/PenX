@@ -12,6 +12,8 @@
 - Harden malformed NVD configuration parsing and bound external page retrieval to 512 KiB of public HTTPS without redirects.
 - Correct no-op MariaDB edit feedback, preserve literal `%s` inside SQLite SQL, reject malformed scanner argv and nontext evidence, serialize full-session deletion, make evaluation deletion status honest, and bound report manifest JSON reads.
 
+The source audit fixes were implemented through PRs #40 and #41 and must both be present in the tagged commit. The version-bump PR is only the final release preparation step.
+
 ## Release build and acceptance
 
 Release workflow: `.github/workflows/release.yml`. It runs offline regressions, builds the complete PyInstaller ZIP and per-user Windows installer, verifies installer and EXE startup, and publishes `SHA256SUMS.txt` and the CVE quality fixture.
