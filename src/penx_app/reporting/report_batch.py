@@ -65,7 +65,7 @@ def publication_lock(folder: Path, session: int, *, timeout: float = 30.0):
     fd = os.open(lock_path, flags, 0o600)
     with os.fdopen(fd, "r+b", buffering=0) as stream:
         if os.fstat(stream.fileno()).st_size == 0:
-            stream.write(b"\\0")
+            stream.write(b"0")
         deadline = time.monotonic() + timeout
         while True:
             stream.seek(0)
