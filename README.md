@@ -18,7 +18,7 @@
 </p>
 
 > [!NOTE]
-> **Latest stable release:** [PenX v0.4.8](https://github.com/spk-c/PenX/releases/tag/v0.4.8) is published with the Windows installer, portable ZIP and SHA-256 checksums. Download the full package, not GitHub's automatic source archive. **Newer fixes in `main` are not part of that installer**; see [current maintenance status](docs/MAINTENANCE_STATUS.md) and [release task #80](https://github.com/spk-c/PenX/issues/80). Physical Windows/database field acceptance remains **not signed off**.
+> **Latest stable release:** [PenX v0.4.9](https://github.com/spk-c/PenX/releases/tag/v0.4.9) is published with the Windows installer, portable ZIP and SHA-256 checksums, including the security and reliability fixes since v0.4.8. Download the full package, not GitHub's automatic source archive. See the [release notes](docs/RELEASE_0.4.9_NOTES.md) and [maintenance status](docs/MAINTENANCE_STATUS.md). Physical Windows/database field acceptance remains **not signed off**.
 
 <p align="center">
   <a href="#quick-start"><strong>Install from source</strong></a> ·
@@ -56,7 +56,7 @@ Python **3.13 is recommended** (source support: 3.10–3.13). The setup configur
 
 ### Windows installer and portable ZIP
 
-The published [v0.4.8 release](https://github.com/spk-c/PenX/releases/tag/v0.4.8) contains **`PenX-Setup-x64.exe`** (Windows installer), **`PenX-Windows-x64.zip`** (portable folder) and **`SHA256SUMS.txt`** (integrity file). Check the release tag and SHA-256 hashes and read the [Windows instructions](WINDOWS.md). Do not confuse GitHub's auto-generated source archives with a packaged EXE.
+The published [v0.4.9 release](https://github.com/spk-c/PenX/releases/tag/v0.4.9) contains **`PenX-Setup-x64.exe`** (Windows installer), **`PenX-Windows-x64.zip`** (portable folder) and **`SHA256SUMS.txt`** (integrity file). Check the release tag and SHA-256 hashes and read the [Windows instructions](WINDOWS.md). Do not confuse GitHub's auto-generated source archives with a packaged EXE.
 
 For the portable ZIP, extract the **entire folder** (including `_internal`) and run `PenX.exe`. Scanner binaries and local AI models are not bundled. The in-app updater now checks **stable, verified GitHub releases**. It only offers a Windows installer when both the official release asset and its checksum exist, and never installs without explicit consent.
 
@@ -175,7 +175,7 @@ PenX/
 └── .github/workflows/      # Active GitHub tests, releases and issue triage
 ~~~
 
-Tagged GitHub Windows releases should publish **PenX-Setup-x64.exe** (installer), **PenX-Windows-x64.zip** (portable), and **SHA256SUMS.txt** after Windows build/test verification. The v0.4.8 Windows assets are now published; every future version still requires its own successful release workflow. The ZIP contains the Python application and first-run setup assistant, **not** the proprietary model or third-party scanner EXEs.
+Tagged GitHub Windows releases should publish **PenX-Setup-x64.exe** (installer), **PenX-Windows-x64.zip** (portable), and **SHA256SUMS.txt** after Windows build/test verification. The v0.4.9 Windows assets are now published; every future version still requires its own successful release workflow. The ZIP contains the Python application and first-run setup assistant, **not** the proprietary model or third-party scanner EXEs.
 
 ## Documentation
 
@@ -187,7 +187,7 @@ Tagged GitHub Windows releases should publish **PenX-Setup-x64.exe** (installer)
 | [Demo](docs/DEMO.md) | Illustrated flow and synthetic reports |
 | [Community launch kit](docs/COMMUNITY_LAUNCH.md) | Sharing guidance, repository metadata and social-preview setup |
 | [Development](docs/DEVELOPMENT.md) | Architecture, offline tests, CI and Windows builds |
-| [Maintenance status](docs/MAINTENANCE_STATUS.md) | Release gap, tracked next steps and field acceptance |
+| [Maintenance status](docs/MAINTENANCE_STATUS.md) | Current release, tracked next steps and field acceptance |
 | [GitHub workflow](docs/GITHUB.md) | GitHub Actions, releases and issue triage |
 | [GitLab mirror](docs/GITLAB.md) | Optional GitLab workflow and mirror setup |
 | [Contributing](CONTRIBUTING.md) | Pull requests and development guidelines |
