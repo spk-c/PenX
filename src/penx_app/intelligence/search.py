@@ -166,11 +166,11 @@ def fetch_page(url: str, max_chars: int = 3000, *,
                              "html.parser")
         for tag in soup(["script", "style", "nav", "footer", "header", "aside"]):
             tag.decompose()
-        clean = "\\n".join(l for l in soup.get_text(separator="\\n", strip=True).splitlines()
+        clean = "\n".join(l for l in soup.get_text(separator="\n", strip=True).splitlines()
                           if l.strip())
         limit = max(0, min(int(max_chars), 20000))
         if len(clean) > limit:
-            clean = clean[:limit] + f"\\n... [truncated at {limit} chars]"
+            clean = clean[:limit] + f"\n... [truncated at {limit} chars]"
         return clean
     except requests.exceptions.ConnectionError:
         return "[!] Could not connect to URL — check network."
