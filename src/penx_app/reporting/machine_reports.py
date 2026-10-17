@@ -2,7 +2,7 @@
 
 These exports do not claim that AI findings prove exploitability. They never
 include full scanner raw output or secrets from the user's private .env.
-Redaction is best-effort masking of the assessed host and IPv4 literals.
+Redaction is best-effort masking of the assessed host and IP literals.
 """
 from __future__ import annotations
 
@@ -18,6 +18,14 @@ from penx_app.intelligence.source_verification import evidence_in_scan
 
 
 _IPV4 = re.compile(r"(?<![\w.])(?:[0-9]{1,3}\.){3}[0-9]{1,3}(?![\w.])")
+# Recognize IPv6 addresses including compressed, mapped and scoped forms.
+# Only a successfully parsed IPv6Address is masked; ordinary colon-delimited
+# text and URLs without a literal IPv6 address remain unchanged.
+_IPV6 = re.compile(
+    r"(?<![A-Za-z0-9_.:])(?:[0-9A-Fa-f]{0,4}:){2,7}"
+    r"(?:[0-9A-Fa-f]{0,4}|(?:[0-9]{1,3}\.){3}[0-9]{1,3})"
+    r"(?:%[A-Za-z0-9_.-]+)?(?![A-Za-z0-9_.:])"
+)
 _SARIF_LEVEL = {"critical": "error", "high": "error", "medium": "warning",
                 "low": "note", "info": "note"}
 
@@ -34,6 +42,15 @@ def _mask(value: str, target: str, enabled: bool) -> str:
         except ipaddress.AddressValueError:
             return match.group()
         return "[IPv4 REDACTED]"
+
+    def mask_ipv6(match):
+        try:
+            ipaddress.IPv6Address(match.group())
+        except ipaddress.AddressValueError:
+            return match.group()
+        return "[IPv6 REDACTED]"
+
+    text = _IPV6.sub(mask_ipv6, text)
     return _IPV4.sub(mask_address, text)
 
 
@@ -86,7 +103,7 @@ def report_payload(data: dict, *, redact: bool = False) -> dict:
             "AI conclusions are hypotheses until independently verified.",
             "Scanner-quote-matched means an exact quote exists; not proof of exploitability.",
             "Raw scanner output is intentionally omitted from machine-readable exports.",
-            "Redaction masks the assessed target and IPv4 literals only; review before sharing."
+            "Redaction masks the assessed target and IPv4/IPv6 literals only; review before sharing."
         ],
     }
 
