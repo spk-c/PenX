@@ -10,11 +10,10 @@ import argparse
 import hashlib
 import ipaddress
 import json
-import os
 from pathlib import Path
 import re
-import tempfile
 
+from penx_app.file_output import publish_unique
 from penx_app.intelligence.source_verification import evidence_in_scan
 
 
@@ -146,25 +145,11 @@ def write_machine_report(data: dict, output_dir: str | Path, *, fmt: str = "json
         raise ValueError("Invalid saved session")
     basename = f"penx_SL{session}_{'redacted_' if redact else ''}assessment"
     contents = json.dumps(report, ensure_ascii=False, indent=2) + "\n"
-    tmp = None
-    try:
-        with tempfile.NamedTemporaryFile("w", dir=root, prefix=".penx-report-", suffix=".tmp",
-                                         delete=False, encoding="utf-8") as stream:
-            tmp = Path(stream.name)
-            stream.write(contents)
-        # Refuse to overwrite prior report files (including races).
-        for n in range(101):
-            name = f"{basename}{('_' + str(n)) if n else ''}.{fmt}"
-            target = root / name
-            try:
-                os.link(tmp, target)
-                return target
-            except FileExistsError:
-                continue
-        raise FileExistsError("Too many existing reports; no saved file was overwritten")
-    finally:
-        if tmp and tmp.exists():
-            tmp.unlink()
+    # The shared publisher fsyncs the completed staging file before linking
+    # an exclusive final name. The old local implementation linked an
+    # unsynchronized temporary file, risking incomplete recovery after a
+    # storage interruption. Preserve existing filenames and no-overwrite.
+    return publish_unique(root, basename, "." + fmt, contents)
 
 
 def export_cli(argv: list[str]) -> int:
