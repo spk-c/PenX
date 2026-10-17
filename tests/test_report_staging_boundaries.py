@@ -22,10 +22,7 @@ class ReportStagingBoundaries(unittest.TestCase):
         self.folder.mkdir()
         self.outside = self.root / "original.txt"
         self.outside.write_text("never move or expose this file", encoding="utf-8")
-        self.targets = {
-            "html": self.folder / "penx_SL7_fixture.html",
-            "pdf": self.folder / "penx_SL7_fixture.pdf",
-        }
+        self.targets = report_management.report_paths(7, "fixture.test", self.folder)
         self.data = {
             "history": (7, "fixture.test", "today", "active"),
             "summary": (1, 7, "raw", "analysis", "LOW", "local", "today"),
