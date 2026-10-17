@@ -2,11 +2,11 @@
 
 **Status: package manifests are drafts, not public registry listings.**
 PenX is a Windows-first Python application; npm is not an appropriate primary distribution channel.
-The GitHub repository has published verified Windows binaries for [v0.4.8](https://github.com/spk-c/PenX/releases/tag/v0.4.8). The **current checked-in Scoop and WinGet drafts** pin that official ZIP and SHA-256, but they have not been published or certified by their community registries. The historical v0.4.4 WinGet drafts remain for reference; these are not current downloads.
+The GitHub repository has published verified Windows binaries for [v0.4.9](https://github.com/spk-c/PenX/releases/tag/v0.4.9). The **current checked-in Scoop and WinGet drafts** pin that official ZIP and SHA-256, but they have not been published or certified by their community registries. Historical v0.4.4 and v0.4.8 WinGet draft folders remain for reference; these are not current downloads.
 
 ## Release/version warning
 
-Both current draft manifests reference the **published v0.4.8 ZIP** under `spk-c/PenX`, pinned to SHA-256 `ed8ea9aa6c0653396d0e3fcd091cb4a01d2aa1130e17f753817eb519d4237071`.
+Both current draft manifests reference the **published v0.4.9 ZIP** under `spk-c/PenX`, pinned to SHA-256 `d80db9d78940df626f532c283c5bb41c850579ba8c9345e3c202a6a1c4a9f358`.
 The historical v0.4.4 WinGet manifests under `0.4.4/` remain archival snapshots.
 The WinGet package identifier `SLP-DEV1.PenX` is retained as a draft identifier; changing it or promoting this manifest to a public community repository requires separate publisher and package-identity review.
 Automated GitHub Release smoke tests are **not** proof of native WinGet/Scoop install, upgrade, uninstall or rollback behavior, and full hardware/field acceptance is **NOT SIGNED OFF**.

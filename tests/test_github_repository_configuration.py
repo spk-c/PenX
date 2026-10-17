@@ -34,16 +34,17 @@ class GitHubRepositoryConfigurationTests(unittest.TestCase):
 
     def test_current_draft_manifest_uses_published_release_and_digest(self):
         manifest = json.loads((ROOT / "packaging/scoop/penx.json").read_text())
+        from penx_app.version import VERSION
         self.assertEqual(manifest["homepage"], "https://github.com/spk-c/PenX")
-        self.assertEqual(manifest["version"], "0.4.8")
+        self.assertEqual(manifest["version"], VERSION)
         self.assertEqual(
             manifest["architecture"]["64bit"]["url"],
-            "https://github.com/spk-c/PenX/releases/download/v0.4.8/PenX-Windows-x64.zip",
+            f"https://github.com/spk-c/PenX/releases/download/v{VERSION}/PenX-Windows-x64.zip",
         )
-        self.assertEqual(
-            manifest["architecture"]["64bit"]["hash"],
-            "ed8ea9aa6c0653396d0e3fcd091cb4a01d2aa1130e17f753817eb519d4237071",
-        )
+        archive_hash = manifest["architecture"]["64bit"]["hash"]
+        self.assertRegex(archive_hash, r"^[0-9a-f]{64}$")
+        published_notes = (ROOT / f"docs/RELEASE_{VERSION}_NOTES.md").read_text(encoding="utf-8")
+        self.assertIn(archive_hash, published_notes)
         doc = (ROOT / "docs/PACKAGING.md").read_text(encoding="utf-8")
         self.assertIn("historical", doc.lower())
         self.assertIn("not", doc.lower())

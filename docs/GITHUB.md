@@ -10,7 +10,7 @@ The active GitHub Actions workflows under [`.github/workflows/`](../.github/work
 
 ## Releases
 
-The Windows release workflow builds and smoke-tests a complete portable folder and Inno Setup installer, then publishes `PenX-Setup-x64.exe`, `PenX-Windows-x64.zip`, and `SHA256SUMS.txt` when a version tag matches the source version. Manually triggered workflow builds produce artifacts but do not create a public release. The stable [v0.4.8 release](https://github.com/spk-c/PenX/releases/tag/v0.4.8) includes verified Windows downloads; later `main` commits are not automatically included in that release. Automatic source code archives are not Windows binaries.
+The Windows release workflow builds and smoke-tests a complete portable folder and Inno Setup installer, then publishes `PenX-Setup-x64.exe`, `PenX-Windows-x64.zip`, and `SHA256SUMS.txt` when a version tag matches the source version. Manually triggered workflow builds produce artifacts but do not create a public release. The stable [v0.4.9 release](https://github.com/spk-c/PenX/releases/tag/v0.4.9) includes verified Windows downloads; later `main` commits are not automatically included in that release. Automatic source code archives are not Windows binaries.
 
 ## Issue triage
 
@@ -38,13 +38,13 @@ powershell -ExecutionPolicy Bypass -File scripts/configure_github.ps1
 
 The ruleset requires pull requests and the current Linux/Windows test checks before merging, blocks branch deletion and force pushes, and requires no second approver for a single-maintainer project. It does not apply until imported by the script (or via GitHub's Rulesets settings page).
 
-To publish a future official Windows release **after the latest main checks pass**, run the same script with `-PublishRelease`. It validates the current `main` workflow results, checks that the tag matches the version in `src/penx_app/version.py`, then creates only the appropriate Git tag. The tag triggers `.github/workflows/release.yml`, which builds and publishes the release **only on successful tests and packaging**. Do not manually upload unverified binaries or create a release with just GitHub's source code archive.
+To publish a future official Windows release **after the latest main checks pass**, run the same script with `-PublishRelease`. It validates the current `main` workflow results, checks that the tag matches the version in `src/penx_app/version.py`, then creates only the appropriate Git tag. A tag created by your own GitHub CLI credentials triggers `.github/workflows/release.yml`. When a tag is created by an Actions `GITHUB_TOKEN`, its push event does not trigger another workflow; the version-specific release orchestrator instead dispatches `release.yml` **against the tag**. Both paths publish only after successful tests and packaging. Do not manually upload unverified binaries or create a release with just GitHub's source code archive.
 
 Issue triage retries one old issue per day and continues to respond to newly opened issues and manual owner re-reviews. Groq AI reviews require the separately configured `PENX_TRIAGE_GROQ_API_KEY` secret; without it, triage remains conservative.
 
 ## Current release and future publication
 
-The stable [v0.4.8 release](https://github.com/spk-c/PenX/releases/tag/v0.4.8) has completed its tagged Windows build. For **future** versions, the owner can use `scripts/configure_github.ps1 -PublishRelease` after required checks pass. The release workflow publishes matching Windows binaries and checksums; manual Windows/Npcap/database field acceptance remains separate. See [maintenance status](MAINTENANCE_STATUS.md) and [release issue #80](https://github.com/spk-c/PenX/issues/80) for what is still missing from the published artifacts.
+The stable [v0.4.9 release](https://github.com/spk-c/PenX/releases/tag/v0.4.9) has completed its verified Windows build. For **future** versions, the owner can use `scripts/configure_github.ps1 -PublishRelease` after required checks pass. The release workflow publishes matching Windows binaries and checksums; manual Windows/Npcap/database field acceptance remains separate. See [maintenance status](MAINTENANCE_STATUS.md) and [release issue #80](https://github.com/spk-c/PenX/issues/80) for what is still missing from the published artifacts.
 
 ## Cleaning up merged work branches
 

@@ -3,6 +3,8 @@ name: Publish verified PenX v0.4.9
 # Runs only after a push to main has passed the complete offline test matrix.
 # The GITHUB_TOKEN-created tag cannot trigger a push workflow; explicitly
 # dispatch Windows Release against that immutable tag instead.
+# Retired after publication: the exact original SHA guard prevents future
+# commits and versions from re-running this one-off tag publisher.
 on:
   workflow_run:
     workflows: ["Offline tests"]
@@ -19,7 +21,7 @@ concurrency:
 
 jobs:
   verify-tag-dispatch:
-    if: github.repository == 'spk-c/PenX' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push' && github.event.workflow_run.head_repository.full_name == 'spk-c/PenX'
+    if: github.repository == 'spk-c/PenX' && github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push' && github.event.workflow_run.head_repository.full_name == 'spk-c/PenX' && github.event.workflow_run.head_sha == '8dec6ba14a3c082bd05058613db06ff3bf531f75'
     runs-on: ubuntu-latest
     timeout-minutes: 25
     env:
