@@ -80,7 +80,9 @@ def generate_session_reports(sl_no: int, *, directory: str | Path | None = None)
         if path.is_symlink():
             raise OSError(f"Refusing to overwrite report symlink: {path.name}")
 
-    from penx_app.reporting.report_batch import begin_publication, finalize_publication
+    from penx_app.reporting.report_batch import (
+        begin_publication, finalize_publication, validate_staged_report,
+    )
     # Crash-detection marker: written before any report file is touched. A process
     # that dies before finalize leaves an in_progress manifest that a re-run
     # detects and completes (each individual file write is already atomic).
@@ -88,10 +90,10 @@ def generate_session_reports(sl_no: int, *, directory: str | Path | None = None)
 
     try:
         with tempfile.TemporaryDirectory(prefix=f".penx_SL{sl_no}_", dir=str(folder)) as temporary:
-            html = Path(export_html(data, temporary))
-            pdf = Path(export_pdf(data, temporary))
-            if not html.is_file() or not pdf.is_file():
-                raise OSError("Report exporter did not create both files.")
+            html = validate_staged_report(export_html(data, temporary), temporary)
+            pdf = validate_staged_report(export_pdf(data, temporary), temporary)
+            if html == pdf:
+                raise OSError("HTML and PDF renderers returned the same staged file.")
             # Each replace is atomic on its own filesystem, not as a *pair*.
             # Snapshot both previous versions before touching either destination.
             # If publishing PDF fails after HTML succeeds, restore HTML (or remove
