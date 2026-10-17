@@ -11,6 +11,7 @@ from collections.abc import Callable
 from penx_app.intelligence.nvd_disk_cache import load as load_nvd_cache, store as store_nvd_cache
 
 import time
+import re
 from urllib.parse import quote, urlsplit
 
 import requests
@@ -28,6 +29,7 @@ USER_AGENT = {"User-Agent": "PenX-CVE-Discovery/0.1 (authorized research)"}
 MAX_PAGES = 2
 PAGE_SIZE = 50
 MAX_RESULTS = 15
+CVE_ID = re.compile(r"CVE-\\d{4}-\\d{4,8}\\Z", re.ASCII | re.IGNORECASE)
 
 def compare_versions(one: str, two: str) -> int | None:
     """Return strict ordering; unknown/vendor-specific version syntax is uncertain."""
@@ -240,8 +242,12 @@ def _cached_nvd(cpe: str, api_key: str) -> tuple[dict, ...]:
 setattr(_cached_nvd, "cache_clear", _memory_nvd.cache_clear)
 
 def _vendor_refs(cve: dict) -> list[str]:
+    """Retain valid HTTPS vendor links despite malformed provider siblings."""
     links = []
-    for item in cve.get("references", []) or []:
+    rows = cve.get("references", []) or []
+    if not isinstance(rows, list):
+        return links
+    for item in rows[:100]:
         if not isinstance(item, dict):
             continue
         tags = item.get("tags", [])
@@ -250,12 +256,21 @@ def _vendor_refs(cve: dict) -> list[str]:
         if "Vendor Advisory" not in tags and "Patch" not in tags:
             continue
         url = item.get("url", "")
-        if not isinstance(url, str):
+        if (not isinstance(url, str) or len(url) > 2048
+                or any(char.isspace() or ord(char) < 32 for char in url)):
             continue
-        parsed = urlsplit(url)
-        if parsed.scheme == "https" and parsed.hostname and not parsed.username:
-            links.append(url)
-    return links[:2]
+        try:
+            parsed = urlsplit(url)
+            if (parsed.scheme == "https" and parsed.hostname
+                    and not parsed.username and not parsed.password
+                    and parsed.port != 0):
+                links.append(url)
+        except ValueError:
+            # Invalid IPv6 brackets or ports must not discard the CVE itself.
+            continue
+        if len(links) >= 2:
+            break
+    return links
 
 def nvd_candidates(product: Product, *, api_key: str = "",
                    limit: int = MAX_RESULTS,
@@ -274,8 +289,12 @@ def nvd_candidates(product: Product, *, api_key: str = "",
             continue
         cve = item["cve"]
         identifier = cve.get("id", "")
-        if not isinstance(identifier, str) or not identifier.startswith("CVE-") or cve.get("vulnStatus") in ("Rejected", "REJECT"):
+        if not isinstance(identifier, str) or not CVE_ID.fullmatch(identifier):
+            malformed = True
             continue
+        if str(cve.get("vulnStatus") or "").casefold() == "rejected":
+            continue
+        identifier = identifier.upper()
         try:
             state = applicability(cve, product)
             # Malformed provider versions/bounds must not terminate research.
