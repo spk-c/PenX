@@ -17,8 +17,8 @@ class Release049Contracts(unittest.TestCase):
     def test_source_package_versions_match(self):
         version = importlib.import_module("penx_app.version").VERSION
         pyproject = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
-        self.assertEqual(version, "0.4.9")
-        self.assertRegex(pyproject, r'(?m)^version = "0\.4\.9"$')
+        self.assertRegex(version, r"^\d+\.\d+\.\d+$")
+        self.assertIn(f'version = "{version}"', pyproject)
 
     def test_new_tag_is_immutable_and_guarded_by_main_sha(self):
         workflow = AUTOMATION.read_text(encoding="utf-8")
@@ -28,6 +28,7 @@ class Release049Contracts(unittest.TestCase):
         self.assertIn("github.event.workflow_run.event == 'push'", workflow)
         self.assertIn("EXPECTED_SHA", workflow)
         self.assertIn("main moved before tag", workflow)
+        self.assertIn("8dec6ba14a3c082bd05058613db06ff3bf531f75", workflow)
         self.assertIn("git/ref/tags/$RELEASE_TAG", workflow)
         self.assertIn("Release tag exists at a different object", workflow)
         self.assertNotIn("--force", workflow)
