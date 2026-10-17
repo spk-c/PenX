@@ -7,6 +7,8 @@ Database: penx
 
 from contextlib import closing
 from datetime import datetime
+import sqlite3
+import time
 from penx_app.storage.db_backend import (
     CORRECTION_COLUMNS, EXPLOIT_COLUMNS, FIX_COLUMNS,
     get_connection, VULNERABILITY_COLUMNS,
@@ -54,6 +56,34 @@ def save_vulnerability(sl_no: int, vuln_name: str, severity: str,
         return vuln_id
 
 
+_SESSION_LOCK_RETRY_WINDOW_SECONDS = 0.5
+_SESSION_LOCK_RETRY_INITIAL_SECONDS = 0.025
+
+
+def _lock_session_writer(cursor, sl_no: int) -> None:
+    """Acquire a session writer lock with short, bounded SQLite BUSY retries.
+
+    Do not replay INSERT/UPDATE operations after their execution or commit:
+    only this harmless lock-acquisition UPDATE may be repeated. In regular
+    SQLite mode the driver already waits up to its configured busy_timeout;
+    the extra retry budget only helps short busy_timeout connections.
+    """
+    deadline = time.monotonic() + _SESSION_LOCK_RETRY_WINDOW_SECONDS
+    pause = _SESSION_LOCK_RETRY_INITIAL_SECONDS
+    while True:
+        try:
+            cursor.execute("UPDATE history SET status = status WHERE sl_no = %s", (sl_no,))
+            return
+        except sqlite3.OperationalError as exc:
+            # SQLITE_BUSY_SNAPSHOT and other extended errors cannot be
+            # resolved by repeating the statement in the same transaction.
+            if (getattr(exc, "sqlite_errorcode", None) != getattr(sqlite3, "SQLITE_BUSY", 5)
+                    or time.monotonic() + pause >= deadline):
+                raise
+            time.sleep(pause)
+            pause = min(2 * pause, 0.1)
+
+
 def _assert_vulnerability_owner(cursor, sl_no: int, vuln_id: int) -> None:
     """Pin the session writer before checking a finding's ownership.
 
@@ -63,7 +93,7 @@ def _assert_vulnerability_owner(cursor, sl_no: int, vuln_id: int) -> None:
     row serializes this check with finding deletion and evaluator imports,
     and is portable to MariaDB without SELECT FOR UPDATE.
     """
-    cursor.execute("UPDATE history SET status = status WHERE sl_no = %s", (sl_no,))
+    _lock_session_writer(cursor, sl_no)
     cursor.execute("SELECT id FROM vulnerabilities WHERE id = %s AND sl_no = %s",
                    (vuln_id, sl_no))
     if cursor.fetchone() is None:
@@ -107,7 +137,7 @@ def _guard_create_once(cursor, sl_no: int) -> None:
     MariaDB and serializes concurrent writers for the same session. The
     no-op UPDATE need not report any rows changed on MariaDB.
     """
-    cursor.execute("UPDATE history SET status = status WHERE sl_no = %s", (sl_no,))
+    _lock_session_writer(cursor, sl_no)
     cursor.execute("SELECT sl_no FROM history WHERE sl_no = %s", (sl_no,))
     if cursor.fetchone() is None:
         raise ValueError("Assessment session does not exist.")
@@ -425,7 +455,7 @@ def delete_vulnerability(vuln_id: int, *, sl_no: int) -> bool:
         # Use the same lock order as child inserts: session, then finding.
         # Without this, a correction can be inserted after our ownership
         # check but before the dependent rows are removed.
-        c.execute("UPDATE history SET status = status WHERE sl_no = %s", (sl_no,))
+        _lock_session_writer(c, sl_no)
         c.execute("SELECT id FROM vulnerabilities WHERE id = %s AND sl_no = %s", (vuln_id, sl_no))
         if c.fetchone() is None:
             return False
