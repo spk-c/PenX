@@ -352,7 +352,9 @@ def osv_candidates(package: Package, *, limit: int = MAX_RESULTS,
                 # such as GHSA-, PYSEC-, RUSTSEC-, GO- and CVE-.
                 identifier = vuln.get("id")
                 if (not isinstance(identifier, str)
-                        or not OSV_ID.fullmatch(identifier)):
+                        or not OSV_ID.fullmatch(identifier)
+                        or (identifier.upper().startswith("CVE-")
+                            and not CVE_ID.fullmatch(identifier))):
                     malformed_ids = True
                     continue
                 results.append({
