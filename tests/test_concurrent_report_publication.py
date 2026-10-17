@@ -35,8 +35,8 @@ class ReportPublicationLockContracts(unittest.TestCase):
         def renderer(data, staging):
             if started is not None:
                 started.set()
-                if not release.wait(8):
-                    raise TimeoutError("fixture renderer was not released")
+            if release is not None and not release.wait(8):
+                raise TimeoutError("fixture renderer was not released")
             output = Path(staging) / "rendered.html"
             output.write_text(text, encoding="utf-8")
             return output
@@ -71,6 +71,9 @@ class ReportPublicationLockContracts(unittest.TestCase):
         self.assertFalse(b.is_alive())
         self.assertEqual(errors, [])
         self.assertEqual(len(outcomes), 2)
+        for result in outcomes:
+            if isinstance(result, report_batch.ReportPublication):
+                self.assertTrue(result.complete, result.failed)
 
     def test_two_independent_exports_are_serialized(self):
         started = threading.Event()
