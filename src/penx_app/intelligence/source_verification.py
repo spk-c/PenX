@@ -187,8 +187,11 @@ def verify_findings(findings: list[dict], raw_scan: str, *,
         old_checks = finding.get("source_checks")
         if (isinstance(old_checks, list) and old_checks
                 and all(isinstance(line, str) for line in old_checks)):
-            suffix = "\n\n" + "\n".join(old_checks)
-            if description.endswith(suffix):
+            generated = "\n".join(old_checks)
+            suffix = "\n\n" + generated
+            if description == generated:
+                description = ""
+            elif description.endswith(suffix):
                 description = description[:-len(suffix)].rstrip()
         base_descriptions.append(description)
         matched = evidence_in_scan(finding.get("evidence", ""), raw_scan)
