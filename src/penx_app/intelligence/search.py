@@ -7,6 +7,8 @@ Used by LLM tool dispatch when AI writes [SEARCH: query]
 """
 
 from collections.abc import Callable
+import ipaddress
+from urllib.parse import urlsplit
 import requests
 from bs4 import BeautifulSoup
 try:
@@ -105,35 +107,71 @@ def search_fix(vuln_name: str, *, web_search_client: Callable | None = None) -> 
 # PAGE FETCHER
 # ─────────────────────────────────────────────
 
+MAX_PAGE_BYTES = 512 * 1024
+
+
+def _allowed_page_url(url: str) -> bool:
+    """Only public HTTPS endpoints; redirects are never followed."""
+    try:
+        parsed = urlsplit(url)
+        host = parsed.hostname
+        if (parsed.scheme != "https" or not host or parsed.username is not None
+                or parsed.password is not None or parsed.fragment
+                or parsed.port == 0):
+            return False
+        name = host.casefold().rstrip(".")
+        if (name in ("localhost", "localhost.localdomain")
+                or name.endswith((".local", ".localhost", ".internal", ".test"))
+                or "." not in name):
+            return False
+        try:
+            return ipaddress.ip_address(name).is_global
+        except ValueError:
+            return True
+    except (ValueError, TypeError):
+        return False
+
+
 def fetch_page(url: str, max_chars: int = 3000, *,
                http_get: Callable | None = None) -> str:
+    """Fetch a bounded external HTTPS page, without following redirects.
+
+    A private/internal target must not be fetched through model-supplied
+    commands; arbitrary caller-selected public DNS domains still depend on
+    DNS trust and must not be treated as a full anti-rebinding sandbox.
     """
-    Fetch a URL and return extracted plain text.
-    Strips all HTML tags. Truncated to max_chars for LLM context.
-    """
+    if not isinstance(url, str) or not _allowed_page_url(url):
+        return "[!] Page fetch blocked: requires a public HTTPS URL."
     resp = None
     try:
-        headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Gecko/20100101 Firefox/120.0"}
-        resp = (requests.get if http_get is None else http_get)(url, headers=headers, timeout=15)
+        headers = {"User-Agent": "PenX/0.4"}
+        client = requests.get if http_get is None else http_get
+        resp = client(url, headers=headers, timeout=15,
+                      allow_redirects=False, stream=True)
+        if 300 <= resp.status_code < 400:
+            return "[!] Page fetch refused a redirect."
         resp.raise_for_status()
 
-        soup = BeautifulSoup(resp.text, "html.parser")
-
-        # remove nav/footer/script noise
+        chunks = []
+        total = 0
+        for piece in resp.iter_content(chunk_size=8192):
+            if not piece:
+                continue
+            total += len(piece)
+            if total > MAX_PAGE_BYTES:
+                return "[!] Page fetch response exceeded 512 KiB."
+            chunks.append(piece)
+        encoding = resp.encoding or "utf-8"
+        soup = BeautifulSoup(b"".join(chunks).decode(encoding, errors="replace"),
+                             "html.parser")
         for tag in soup(["script", "style", "nav", "footer", "header", "aside"]):
             tag.decompose()
-
-        text = soup.get_text(separator="\n", strip=True)
-
-        # collapse blank lines
-        lines = [l for l in text.splitlines() if l.strip()]
-        clean = "\n".join(lines)
-
-        if len(clean) > max_chars:
-            clean = clean[:max_chars] + f"\n... [truncated at {max_chars} chars]"
-
+        clean = "\n".join(l for l in soup.get_text(separator="\n", strip=True).splitlines()
+                          if l.strip())
+        limit = max(0, min(int(max_chars), 20000))
+        if len(clean) > limit:
+            clean = clean[:limit] + f"\n... [truncated at {limit} chars]"
         return clean
-
     except requests.exceptions.ConnectionError:
         return "[!] Could not connect to URL — check network."
     except requests.exceptions.Timeout:

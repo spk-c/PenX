@@ -114,18 +114,23 @@ class PublicSourceSearchInjectionTests(unittest.TestCase):
         self.assertTrue(search.web_search("fixture", ddgs_factory=factory).startswith("[!]"))
 
     def test_html_fetch_injection_removes_scripts_and_truncates(self):
-        response = Mock(text="<html><script>ignore()</script><p>Visible</p><p>Text</p></html>")
+        response = Mock()
+        response.status_code = 200
+        response.encoding = "utf-8"
+        response.iter_content.side_effect = lambda **kw: iter([
+            b"<html><script>ignore()</script><p>Visible</p><p>Text</p></html>"
+        ])
         get = Mock(return_value=response)
         with patch.object(search.requests, "get", side_effect=AssertionError("unexpected HTTP")):
-            output = search.fetch_page("https://example.test/page", max_chars=7, http_get=get)
+            output = search.fetch_page("https://example.org/page", max_chars=7, http_get=get)
         self.assertIn("Visible", output)
         self.assertIn("[truncated at 7 chars]", output)
         self.assertNotIn("ignore()", output)
-        self.assertEqual(get.call_args.args, ("https://example.test/page",))
+        self.assertEqual(get.call_args.args, ("https://example.org/page",))
         self.assertEqual(get.call_args.kwargs["timeout"], 15)
 
     def test_html_fetch_injected_timeout_returns_warning(self):
-        output = search.fetch_page("https://example.test", http_get=Mock(
+        output = search.fetch_page("https://example.org", http_get=Mock(
             side_effect=requests.Timeout("offline")))
         self.assertEqual(output, "[!] Page fetch timed out.")
 

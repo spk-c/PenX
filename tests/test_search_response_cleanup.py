@@ -12,7 +12,11 @@ from penx_app.intelligence.search import fetch_page
 class ResearchPageConnectionContracts(unittest.TestCase):
     def test_success_closes_fetched_response(self):
         response = Mock()
-        response.text = "<html><script>ignore()</script><p>Useful evidence</p></html>"
+        response.status_code = 200
+        response.encoding = "utf-8"
+        response.iter_content.side_effect = lambda **kw: iter([
+            b"<html><script>ignore()</script><p>Useful evidence</p></html>",
+        ])
         get = Mock(return_value=response)
         value = fetch_page("https://fixture.invalid/info", http_get=get)
         self.assertIn("Useful evidence", value)
@@ -22,6 +26,7 @@ class ResearchPageConnectionContracts(unittest.TestCase):
 
     def test_http_failure_returns_warning_and_closes_response(self):
         response = Mock()
+        response.status_code = 503
         response.raise_for_status.side_effect = requests.HTTPError("503 service unavailable")
         value = fetch_page("https://fixture.invalid/info",
                            http_get=lambda *args, **kwargs: response)
@@ -33,11 +38,12 @@ class ResearchPageConnectionContracts(unittest.TestCase):
             def __init__(self):
                 self.closed = False
 
+            status_code = 200
+
             def raise_for_status(self):
                 return None
 
-            @property
-            def text(self):
+            def iter_content(self, **_kwargs):
                 raise ValueError("unusable encoding")
 
             def close(self):

@@ -96,5 +96,45 @@ class AnalysisModeContracts(unittest.TestCase):
         self.dispatch.assert_not_called()
 
 
+    def test_model_search_is_disabled_by_default_even_with_injected_query(self):
+        self.model.return_value = "RISK_LEVEL: LOW\\nSUMMARY: no findings"
+        self.extract.return_value = [
+            ("SEARCH", "internal.example.local token=SECRET-EXAMPLE"),
+        ]
+        result = analyse_target(
+            "example.test", "synthetic secrets", settings=self.settings("off"),
+            ports=self.ports,
+        )
+        self.assertEqual(result["risk_level"], "LOW")
+        self.dispatch.assert_not_called()
+        self.assertTrue(any("web search disabled" in item for item in self.notes))
+
+    def test_opted_in_model_search_only_dispatches_public_cve_ids(self):
+        settings = load_settings(root=self.root, env={
+            "PENX_STRUCTURED_OUTPUT": "off",
+            "PENX_CVE_DISCOVERY": "off",
+            "PENX_VERIFY_SOURCES": "off",
+            "PENX_MAX_LOOPS": "1",
+            "PENX_LLM_URL": "http://localhost:1234",
+            "PENX_ALLOW_MODEL_WEB_SEARCH": "on",
+        })
+        self.model.return_value = "RISK_LEVEL: LOW\\nSUMMARY: no findings"
+        self.extract.side_effect = lambda _response: [
+            ("SEARCH", "internal.example.local token=SECRET-EXAMPLE"),
+            ("SEARCH", "CVE-2024-6387"),
+        ]
+        self.dispatch.side_effect = None
+        self.dispatch.return_value = "[SEARCH RESULT] synthetic only"
+        with self.assertRaisesRegex(RuntimeError, "after its tool budget"):
+            analyse_target("example.test", "fixture", settings=settings,
+                           ports=self.ports)
+        self.dispatch.assert_called_once()
+        self.assertEqual(
+            self.dispatch.call_args.args[0],
+            [("SEARCH", "CVE-2024-6387")],
+        )
+        self.assertTrue(any("web query blocked" in item for item in self.notes))
+
+
 if __name__ == "__main__":
     unittest.main()

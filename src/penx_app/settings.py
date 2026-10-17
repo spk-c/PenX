@@ -70,6 +70,8 @@ def load_settings(*, root: Path, env: Mapping[str, str] | None = None,
         LLM_MODELS_URL=base.rstrip('/') + '/v1/models',
         MODEL_NAME=get('MODEL', 'your-local-model'), LLM_API_KEY=get('LLM_API_KEY', ''),
         STRUCTURED_MODE=mode, VERIFY_SOURCES=enabled('VERIFY_SOURCES'),
+        # Model-originated queries leave the local machine; never enable by default.
+        ALLOW_MODEL_WEB_SEARCH=enabled('ALLOW_MODEL_WEB_SEARCH', 'off'),
         NVD_API_KEY=get('NVD_API_KEY', ''), CVE_DISCOVERY=enabled('CVE_DISCOVERY'),
         CVE_MAX_SERVICES=number('CVE_MAX_SERVICES', '3'),
         CVE_MAX_PACKAGES=number('CVE_MAX_PACKAGES', '4'),

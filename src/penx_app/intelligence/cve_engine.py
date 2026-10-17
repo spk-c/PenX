@@ -93,7 +93,10 @@ def applicability(cve: dict, product: Product) -> str:
         nonlocal observed, unknown_version
         if not isinstance(item, dict):
             return None
-        criteria = cpe_components(item.get("criteria", ""))
+        criteria_text = item.get("criteria", "")
+        if not isinstance(criteria_text, str):
+            return None
+        criteria = cpe_components(criteria_text)
         if not target or not criteria:
             return None
         if any(expected not in ("*", actual) for expected, actual in zip(criteria[:3], target[:3])):
@@ -122,13 +125,15 @@ def applicability(cve: dict, product: Product) -> str:
         nonlocal complex_expression
         if not isinstance(node, dict):
             return None
-        op = node.get("operator", "OR").upper()
-        if op not in ("AND", "OR"):
+        op = node.get("operator", "OR")
+        if not isinstance(op, str) or op not in ("AND", "OR"):
             return None
         if op == "AND" or node.get("negate"):
             complex_expression = True
         leaves = node.get("cpeMatch") or []
         children = node.get("children") or []
+        if not isinstance(leaves, list) or not isinstance(children, list):
+            return None
         values = [evaluate_leaf(x) for x in leaves if isinstance(x, dict)]
         values += [evaluate_node(x) for x in children if isinstance(x, dict)]
         value = combine(values, op)
@@ -137,14 +142,20 @@ def applicability(cve: dict, product: Product) -> str:
             return None
         return value
 
-    values = []
+    values: list[bool | None] = []
     for cfg in configs:
         if not isinstance(cfg, dict):
             continue
-        op = cfg.get("operator", "OR").upper()
+        op = cfg.get("operator", "OR")
+        if not isinstance(op, str) or op not in ("AND", "OR"):
+            values.append(None)
+            continue
         if op == "AND":
             complex_expression = True
         nodes = cfg.get("nodes") or []
+        if not isinstance(nodes, list):
+            values.append(None)
+            continue
         values.append(combine([evaluate_node(n) for n in nodes], op))
     if not observed:
         return "no-match"
@@ -239,6 +250,8 @@ def _vendor_refs(cve: dict) -> list[str]:
         if "Vendor Advisory" not in tags and "Patch" not in tags:
             continue
         url = item.get("url", "")
+        if not isinstance(url, str):
+            continue
         parsed = urlsplit(url)
         if parsed.scheme == "https" and parsed.hostname and not parsed.username:
             links.append(url)
@@ -263,7 +276,14 @@ def nvd_candidates(product: Product, *, api_key: str = "",
         identifier = cve.get("id", "")
         if not isinstance(identifier, str) or not identifier.startswith("CVE-") or cve.get("vulnStatus") in ("Rejected", "REJECT"):
             continue
-        state = applicability(cve, product)
+        try:
+            state = applicability(cve, product)
+            # Malformed provider versions/bounds must not terminate research.
+            refs = _vendor_refs(cve)
+            metrics = extract_cvss(cve.get("metrics", {}))
+        except (AttributeError, TypeError, ValueError, IndexError):
+            malformed = True
+            continue
         if state == "no-match":
             continue
         candidates.append({
@@ -271,8 +291,8 @@ def nvd_candidates(product: Product, *, api_key: str = "",
             "product": product.label, "version": product.version,
             "port": product.port, "evidence": product.evidence,
             "url": "https://nvd.nist.gov/vuln/detail/" + identifier,
-            "vendor_advisories": _vendor_refs(cve),
-            **extract_cvss(cve.get("metrics", {})),
+            "vendor_advisories": refs,
+            **metrics,
         })
         if len(candidates) >= limit:
             break
