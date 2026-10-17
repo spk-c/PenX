@@ -32,10 +32,18 @@ class GitHubRepositoryConfigurationTests(unittest.TestCase):
         self.assertRegex(workflow, r"cron:\s*'17 6 \* \* \*'")
         self.assertIn("types: [opened]", workflow)
 
-    def test_old_archive_url_not_misrepresented_as_live_release(self):
+    def test_current_draft_manifest_uses_published_release_and_digest(self):
         manifest = json.loads((ROOT / "packaging/scoop/penx.json").read_text())
         self.assertEqual(manifest["homepage"], "https://github.com/spk-c/PenX")
-        self.assertIn("SLP-DEV1", manifest["architecture"]["64bit"]["url"])
+        self.assertEqual(manifest["version"], "0.4.8")
+        self.assertEqual(
+            manifest["architecture"]["64bit"]["url"],
+            "https://github.com/spk-c/PenX/releases/download/v0.4.8/PenX-Windows-x64.zip",
+        )
+        self.assertEqual(
+            manifest["architecture"]["64bit"]["hash"],
+            "ed8ea9aa6c0653396d0e3fcd091cb4a01d2aa1130e17f753817eb519d4237071",
+        )
         doc = (ROOT / "docs/PACKAGING.md").read_text(encoding="utf-8")
         self.assertIn("historical", doc.lower())
         self.assertIn("not", doc.lower())
