@@ -45,9 +45,9 @@ def compare_menu() -> None:
         diff = compare_ids(older_id, newer_id)
         print("\n" + report_text(diff))
         print("\n[TREND]")
-        for row in history_trend(target):
-            print(f"  SL#{row['session']} {row['date']} | "
-                  f"{row['risk']:<9} | findings={row['findings']}")
+        for trend in history_trend(target):
+            print(f"  SL#{trend['session']} {trend['date']} | "
+                  f"{trend['risk']:<9} | findings={trend['findings']}")
         paths = export_diff_reports(diff, APP_ROOT / "reports")
         print("[+] Comparison reports: " + ", ".join(str(v) for v in paths.values()))
         if input("Summarize diff with your local AI model? [y/N]: ").strip().lower() == "y":
