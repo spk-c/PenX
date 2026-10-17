@@ -167,11 +167,24 @@ def publication_state(folder: Path, session: int) -> dict | None:
     path = _manifest_path(folder, session)
     if path.is_symlink() or not path.is_file():
         return None
+    # Never parse an unbounded local file when a damaged or hostile manifest
+    # is encountered. Each regular PenX manifest is only a few KiB.
     try:
-        state = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
+        if path.stat().st_size > 65536:
+            return None
+        with path.open("rb") as stream:
+            data = stream.read(65537)
+        if len(data) > 65536:
+            return None
+        state = json.loads(data)
+    except (OSError, ValueError, UnicodeError):
         return None
-    return state if isinstance(state, dict) else None
+    if (not isinstance(state, dict) or state.get("schema") != _MANIFEST_SCHEMA
+            or type(state.get("session")) is not int
+            or state["session"] != int(session)
+            or state.get("status") not in ("in_progress", "partial", "complete")):
+        return None
+    return state
 
 
 def interrupted_publication(folder: Path, session: int) -> bool:

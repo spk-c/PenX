@@ -77,8 +77,11 @@ class MariaDBIntegrationTests(unittest.TestCase):
         self.assertEqual(vuln[4], "possible")  # Stable migrated tuple layout.
         self.assertEqual(vuln[5:7], ("80", "http"))
         self.assertTrue(db.edit_vulnerability(vuln[0], "description", "Revised", sl_no=self.sl))
+        # MariaDB may report zero changed rows for a no-op assignment.
+        self.assertTrue(db.edit_vulnerability(vuln[0], "description", "Revised", sl_no=self.sl))
         self.assertFalse(db.edit_vulnerability(vuln[0], "description", "Wrong session",
                                                sl_no=self.sl + 9999))
+        self.assertTrue(db.edit_summary_risk(self.sl, "HIGH"))
         self.assertTrue(db.edit_summary_risk(self.sl, "HIGH"))
         self.assertFalse(db.edit_summary_risk(self.sl + 9999, "HIGH"))
         self.assertEqual(db.get_session(self.sl)["summary"][4], "HIGH")

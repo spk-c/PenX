@@ -46,12 +46,17 @@ def get_evaluations(sl_no: int):
         return rows
 
 
-def delete_evaluation(eval_id: int, *, sl_no: int):
+def delete_evaluation(eval_id: int, *, sl_no: int) -> bool:
     with closing(get_connection()) as conn:
         c = conn.cursor()
         c.execute("DELETE FROM evaluations WHERE id = %s AND sl_no = %s", (eval_id, sl_no))
+        deleted = c.rowcount > 0
         conn.commit()
-        print(f"[+] Evaluation id={eval_id} deleted.")
+        if deleted:
+            print(f"[+] Evaluation id={eval_id} deleted.")
+        else:
+            print(f"[!] Evaluation id={eval_id} does not exist in SL#{sl_no}.")
+        return deleted
 
 
 # ─────────────────────────────────────────────

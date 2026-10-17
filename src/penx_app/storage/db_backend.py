@@ -27,13 +27,70 @@ EVALUATION_COLUMNS = ("id, sl_no, vuln_id, evaluator, evidence_cited, verdict, "
 from penx_app.storage.schema_migrations import SCHEMA as SCHEMA, initialize_sqlite
 
 
+def _sqlite_sql(query: str) -> str:
+    """Replace MySQL placeholders only in executable SQL, not quoted data.
+
+    SQLite permits single/double/backtick quoted text or identifiers, square
+    identifiers, and both -- and /* */ comments. Replacing arbitrary %s
+    inside one of these regions changes query meaning silently.
+    """
+    out = []
+    idx = 0
+    length = len(query)
+    while idx < length:
+        char = query[idx]
+        if char in ("'", '"', "`", "["):
+            end = "]" if char == "[" else char
+            out.append(char)
+            idx += 1
+            while idx < length:
+                part = query[idx]
+                out.append(part)
+                idx += 1
+                if part == end:
+                    if idx < length and query[idx] == end:
+                        out.append(query[idx])
+                        idx += 1
+                    else:
+                        break
+                elif part == "\\" and idx < length and end != "]":
+                    # Preserve escaped characters where an adapter's SQL
+                    # dialect happens to accept a backslash-quoted string.
+                    out.append(query[idx])
+                    idx += 1
+            continue
+        if query.startswith("--", idx):
+            stop_idx = query.find("\n", idx)
+            if stop_idx < 0:
+                out.append(query[idx:])
+                break
+            out.append(query[idx:stop_idx + 1])
+            idx = stop_idx + 1
+            continue
+        if query.startswith("/*", idx):
+            stop_idx = query.find("*/", idx + 2)
+            if stop_idx < 0:
+                out.append(query[idx:])
+                break
+            out.append(query[idx:stop_idx + 2])
+            idx = stop_idx + 2
+            continue
+        if query.startswith("%s", idx):
+            out.append("?")
+            idx += 2
+            continue
+        out.append(char)
+        idx += 1
+    return "".join(out)
+
+
 class SQLiteCursor:
     def __init__(self, cursor: sqlite3.Cursor):
         self._cursor = cursor
 
     def execute(self, query: str, params=()):
         # Parameter placeholders are the only MySQL construct used by CRUD paths.
-        self._cursor.execute(query.replace('%s', '?'), params)
+        self._cursor.execute(_sqlite_sql(query), params)
         return self
 
     def fetchone(self):

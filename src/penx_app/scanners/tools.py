@@ -40,7 +40,15 @@ def _process_outcome(value: str) -> ScannerOutput:
     """Accept legacy mocked tool output without mistaking errors for evidence."""
     if isinstance(value, ScannerOutput):
         return value
-    text = str(value)
+    # Legacy mocked adapters may return plain text. An arbitrary object
+    # representation (None, False, list, dict, repr(...)) cannot attest that
+    # a scanner actually ran successfully.
+    if not isinstance(value, str):
+        return ScannerOutput(
+            f"[!] Unsupported scanner output type: {type(value).__name__}",
+            status="FAILED", evidence=False,
+        )
+    text = value
     if text.lstrip().startswith("[!] Timed out"):
         return ScannerOutput(text, status="PARTIAL", evidence=False)
     failed = text.lstrip().startswith(("[!", "[EXIT CODE", "[ERROR]", "Traceback "))
