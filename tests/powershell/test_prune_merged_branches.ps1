@@ -80,7 +80,7 @@ if ($preview -notmatch 'Candidates: 4') {
 }
 $applied = (& $scriptFile -Apply 6>&1 | Out-String)
 if ($applied -notmatch 'Candidates: 2') {
-    throw "Expected two eligible branches in apply mode, got: $applied"
+    throw "Expected four eligible branches in apply mode, got: $applied"
 }
 if ($global:Deleted.Count -ne 4) {
     throw "Expected exactly four fake deletion calls, got $($global:Deleted.Count): $applied"
