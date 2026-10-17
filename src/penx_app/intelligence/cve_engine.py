@@ -226,7 +226,7 @@ def _cached_nvd(cpe: str, api_key: str) -> tuple[dict, ...]:
 
 
 # Keep existing test/caller cache reset API for the disabled-memory-cache path.
-_cached_nvd.cache_clear = _memory_nvd.cache_clear
+setattr(_cached_nvd, "cache_clear", _memory_nvd.cache_clear)
 
 def _vendor_refs(cve: dict) -> list[str]:
     links = []
@@ -280,12 +280,12 @@ def nvd_candidates(product: Product, *, api_key: str = "",
 
 def osv_candidates(package: Package, *, limit: int = MAX_RESULTS,
                    http_post: Callable | None = None) -> tuple[list[dict], str]:
-    results = []
+    results: list[dict] = []
     post = requests.post if http_post is None else http_post
     token = ""
     try:
         for _ in range(MAX_PAGES):
-            payload = {"package": {"purl": package.purl}}
+            payload: dict[str, object] = {"package": {"purl": package.purl}}
             if token:
                 payload["page_token"] = token
             response = post(OSV, json=payload, headers=USER_AGENT,
@@ -339,7 +339,7 @@ def github_candidates(package: Package, *, token: str = "",
                      headers=headers, http_get=http_get)
         if not isinstance(items, list):
             return [], "Unexpected GitHub advisory response."
-        result = []
+        result: list[dict] = []
         for item in items[:limit]:
             if not isinstance(item, dict):
                 return result, "GitHub Advisories returned malformed records for " + package.purl
