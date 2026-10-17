@@ -86,7 +86,7 @@ For the portable ZIP, extract the **entire folder** (including `_internal`) and 
 
 ## Scanner coverage
 
-There are **12 selectable scanner tools**. Missing runtimes, permission errors, or unavailable endpoints are reported rather than silently treated as successful scans.
+There are **12 original scanner tools**, plus a separately selected **[e] endpoint-mapping workflow** that coordinates Katana and ffuf. Missing runtimes, permission errors, or unavailable endpoints are reported rather than silently treated as successful scans.
 
 | Key | Scanner | Purpose | Implementation |
 |:---:|---|---|---|
@@ -99,6 +99,7 @@ There are **12 selectable scanner tools**. Missing runtimes, permission errors, 
 | <code>7</code> | **Nuclei** | Bounded HTTP/TLS template checks | Explicit active-scan consent |
 | <code>8</code> | **ProjectDiscovery httpx** | HTTP probing/technology information | Native Go-based scanner |
 | <code>9</code> | **ffuf** | Bounded path discovery | Limited wordlist/rate/time |
+| <code>e</code> | **Katana → ffuf endpoint mapping** | Same-origin paths and parameter-name inventory; directory-targeted GET checks | Explicit consent; sequential, limited crawl/requests |
 | <code>s</code> | **Subfinder** | Passive subdomain inventory | No automatic follow-up scanning |
 | <code>c</code> | **Katana** | Bounded same-host crawling | Explicit active-scan consent |
 | <code>d</code> | **TLS check** | Verified handshake, certificate expiry | Python standard library; not a full cipher audit |
@@ -112,11 +113,11 @@ Scanner setup on Windows x64 can install **Nuclei, httpx, ffuf, Subfinder and Ka
 [a] Standard Scan                      (tools 1–5)
 [n] Standard Scan + Nikto              (tools 1–6)
 [x] Full Scan                          (all 12; active checks require consent)
-[1–9, s, c, d] Individual choices
+[1–9, s, c, d, e] Individual choices
 [Esc] Back
 ~~~
 
-For example, enter <code>1 4 8 s d</code> to select five tools. <code>b</code> and <code>back</code> remain navigation aliases; **Subfinder is <code>s</code>**. Nuclei, ffuf and Katana require consent before **any selected tool** begins. Full Scan runs the selected adapters sequentially; it is not a scheduled background scan or evidence of successful completion by every tool.
+For example, enter <code>1 4 8 s d</code> to select five tools. <code>b</code> and <code>back</code> remain navigation aliases; **Subfinder is <code>s</code>**. Nuclei, ffuf and Katana require consent before **any selected tool** begins. Full Scan runs the original 12 adapters sequentially; **[e] is never included automatically**. It is not a scheduled background scan or evidence of successful completion by every tool.
 
 Read [Scanning and reports](docs/SCANNING_AND_REPORTS.md) for scope rules, timeouts, active versus passive scanning, and interpretation of findings.
 
