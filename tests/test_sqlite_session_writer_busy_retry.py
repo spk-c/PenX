@@ -190,8 +190,10 @@ class SqliteSessionLockRetryTests(unittest.TestCase):
             "NOTES: evidence fixture\n"
         )
         release, blocker, errors = self.blocker()
+        busy = threading.Event()
         releaser = threading.Thread(
-            target=lambda: (time.sleep(0.15), release.set()), daemon=True,
+            target=lambda: (busy.wait(5), time.sleep(0.07), release.set()),
+            daemon=True,
         )
         releaser.start()
         try:
