@@ -167,8 +167,17 @@ def parse_exploits(response: str) -> list:
 
 
 def parse_risk_level(response: str) -> str:
-    """Extract RISK_LEVEL from AI response."""
-    match = re.search(r'RISK_LEVEL:\s*(CRITICAL|HIGH|MEDIUM|LOW)', response, re.IGNORECASE)
+    """Read the explicitly labelled final risk field, never a substring.
+
+    Reviewer fields such as ADJUSTED_RISK_LEVEL or prose containing a sample
+    RISK_LEVEL token must not silently substitute for the model's final label.
+    Accept the documented plain and basic Markdown label forms.
+    """
+    match = re.search(
+        r'(?im)^[ \t]*(?:[-*][ \t]+)?(?:\*\*)?RISK_LEVEL:(?:\*\*)?[ \t]*'
+        r'(CRITICAL|HIGH|MEDIUM|LOW)\b',
+        response,
+    )
     return match.group(1).upper() if match else "UNKNOWN"
 
 
