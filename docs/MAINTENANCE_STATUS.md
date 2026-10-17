@@ -4,10 +4,10 @@ Checked: **17 October 2026**. This is a living maintenance index, not certificat
 
 ## Release status
 
-- Last published and downloadable Windows release: **[v0.4.8](https://github.com/spk-c/PenX/releases/tag/v0.4.8)**.
-- The maintained [main branch](https://github.com/spk-c/PenX/tree/main) includes many additional fixes merged **after** the v0.4.8 release. The v0.4.8 installer and portable ZIP do **not** automatically include those fixes.
-- The canonical version in `src/penx_app/version.py` remains `0.4.8`. Release automation must not move or overwrite the existing release tag. Next publication needs a distinct version, matching build and verified hashes.
-- Current maintenance release task: **[#80 — publish the checked main fixes](https://github.com/spk-c/PenX/issues/80)**.
+- Latest published and downloadable Windows release: **[v0.4.9](https://github.com/spk-c/PenX/releases/tag/v0.4.9)** (tag: `8dec6ba14a3c082bd05058613db06ff3bf531f75`; [successful release CI](https://github.com/spk-c/PenX/actions/runs/39064672723)).
+- The v0.4.9 installer and portable ZIP include the accumulated fixes merged up to the tagged release commit. Any changes merged into [main](https://github.com/spk-c/PenX/tree/main) **after** that tag require a newer published build.
+- `src/penx_app/version.py` and `pyproject.toml` both identify version `0.4.9`. The versioned tag is immutable and previous `v0.4.8` binaries were not overwritten.
+- Release publication: **completed** in [#80](https://github.com/spk-c/PenX/issues/80); public installer, portable ZIP, checksum file and CVE-quality artifact have been verified on GitHub. Unperformed physical Windows field acceptance remains in #81 and #82.
 
 ## Outstanding independent acceptance
 
@@ -30,7 +30,7 @@ Checked: **17 October 2026**. This is a living maintenance index, not certificat
 
 1. Ensure all required Windows/Ubuntu installer, dependency and CodeQL checks pass on the exact release commit.
 2. Complete the operator-owned [Windows field scenarios](FIELD_ACCEPTANCE.md) or explicitly identify any NOT RUN criteria in release notes; never claim complete field certification from CI alone.
-3. Choose a **new** version higher than v0.4.8, bump `src/penx_app/version.py`, build from the reviewed tag, verify checksums and the packaged application's reported version.
-4. Publish tagged Windows installer/portable ZIP/checksums via reviewed release workflow, then update the README, download instructions, and manifest drafts. Do not publish an old main snapshot under the v0.4.8 tag.
+3. For a **future** release, choose a version higher than v0.4.9, update `src/penx_app/version.py` and `pyproject.toml`, and build from a newly reviewed tag; never reuse `v0.4.9`.
+4. Publish the tagged Windows installer, portable ZIP and checksums via the reviewed release workflow, then update README, download instructions and pinned manifest drafts. Verify hashes independently and never move an existing release tag.
 
 No production scanner targets, private credentials or customer databases are required for documentation/CI maintenance.
