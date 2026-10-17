@@ -8,6 +8,7 @@ checks are applied before persisting any vulnerability.
 from __future__ import annotations
 
 import re
+from penx_app.analysis.scan_input_budget import bound_scan_text
 from penx_app.intelligence.source_verification import evidence_in_scan
 
 
@@ -27,21 +28,42 @@ OBSERVATIONS = (
 )
 
 
+MAX_REVIEW_SECTIONS = 48
+MAX_REVIEW_CHARS = 60_000
+
+
 def review_evidence(raw_scan: str, *, per_source: int = 12000) -> str:
-    """Show the beginning AND end of every scanner section, within a bounded budget."""
+    """Balanced review evidence with a hard combined model-context budget."""
+    per_source = max(256, min(int(per_source), 12000))
     boundaries = [m for m in HEADINGS.finditer(raw_scan)
                   if m.group(1).strip().upper() != "PARTIAL"]
     if not boundaries:
-        return _clip(raw_scan, max(per_source, 30000))
+        return bound_scan_text(_clip(raw_scan, max(per_source, 30000)),
+                               limit=MAX_REVIEW_CHARS)
+    section_indices = list(range(len(boundaries)))
     sections = []
-    for i, match in enumerate(boundaries):
+    if len(boundaries) > MAX_REVIEW_SECTIONS:
+        head = MAX_REVIEW_SECTIONS // 2
+        tail = MAX_REVIEW_SECTIONS - head
+        section_indices = list(range(head)) + list(range(len(boundaries) - tail,
+                                                         len(boundaries)))
+        omitted = len(boundaries) - MAX_REVIEW_SECTIONS
+        sections.append(
+            f"[REVIEW EVIDENCE SAMPLED: {omitted} scanner section(s) omitted; "
+            "original raw scan retained. Omitted data is not a negative finding.]"
+        )
+    for i in section_indices:
+        match = boundaries[i]
         end = boundaries[i + 1].start() if i + 1 < len(boundaries) else len(raw_scan)
         segment = raw_scan[match.end():end].strip()
         # A verbose Nmap XML appendix should not eclipse port/service evidence.
         if match.group(1).strip().upper() == "NMAP":
             segment = segment.split("[NMAP STRUCTURED XML]", 1)[0]
         sections.append(f"[{match.group(1).strip()} OUTPUT]\n{_clip(segment, per_source)}")
-    return "\n\n".join(sections)
+    # Each section can be 12 kB; the total must still fit the next model
+    # request. Use the existing balanced selector to preserve early and late
+    # high-signal lines while marking omissions clearly.
+    return bound_scan_text("\n\n".join(sections), limit=MAX_REVIEW_CHARS)
 
 
 def _clip(value: str, limit: int) -> str:
