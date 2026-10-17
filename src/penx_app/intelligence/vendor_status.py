@@ -1,6 +1,8 @@
 """Vendor-maintained advisory context; no automatic assertion of package patch state."""
 from functools import lru_cache
+import os
 import re
+import stat
 import requests
 from penx_app.intelligence.package_inventory import package_status
 from pathlib import Path
@@ -61,12 +63,35 @@ def _installed_for_row(row: dict, inventory: dict, *, fixed: str = "") -> dict:
              "installed_status": "no-comparable-published-fix"}
             if version else {"installed_status": "no-exact-package-match"})
 
+MAX_DEBIAN_SNAPSHOT_BYTES = 30_000_000
+
+
 @lru_cache(maxsize=2)
 def _read_debian_snapshot(path_string: str, modified: int):
+    """Load one bounded regular-file snapshot, not a swapped pathname.
+
+    The mtime is a cache key only; it is not a substitute for validating
+    the actual opened file. Never follow symlinks or read more than 30 MB.
+    """
     path = Path(path_string)
-    if path.stat().st_size > 30_000_000:
+    descriptor = os.open(
+        path, os.O_RDONLY | getattr(os, "O_BINARY", 0)
+        | getattr(os, "O_NOFOLLOW", 0),
+    )
+    with os.fdopen(descriptor, "rb") as stream:
+        opened = os.fstat(stream.fileno())
+        named = path.lstat()
+        if (not stat.S_ISREG(opened.st_mode)
+                or not stat.S_ISREG(named.st_mode)
+                or (opened.st_dev, opened.st_ino)
+                != (named.st_dev, named.st_ino)):
+            raise ValueError("Debian tracker snapshot must be a regular, unchanged file.")
+        if opened.st_size > MAX_DEBIAN_SNAPSHOT_BYTES:
+            raise ValueError("Debian tracker snapshot exceeds 30 MB.")
+        data = stream.read(MAX_DEBIAN_SNAPSHOT_BYTES + 1)
+    if len(data) > MAX_DEBIAN_SNAPSHOT_BYTES:
         raise ValueError("Debian tracker snapshot exceeds 30 MB.")
-    return json.loads(path.read_text(encoding="utf-8"))
+    return json.loads(data.decode("utf-8"))
 
 
 def _debian_tracker_entry(cve: str, package: str, release: str,
@@ -79,7 +104,9 @@ def _debian_tracker_entry(cve: str, package: str, release: str,
         return None
     path = Path(filename).expanduser()
     try:
-        db = _read_debian_snapshot(str(path.resolve()), path.stat().st_mtime_ns)
+        # Passing resolve() here would follow a symbolic link before the
+        # reader has a chance to reject it. Preserve the supplied path.
+        db = _read_debian_snapshot(str(path), path.lstat().st_mtime_ns)
         record = ((db.get(package) or {}).get(cve) or {}).get("releases", {}).get(release)
         return record if isinstance(record, dict) else None
     except (OSError, ValueError, TypeError, AttributeError):
