@@ -60,3 +60,29 @@ prove hardware, first-run UAC, actual backup recovery or visual PDF quality.
 **Status: NOT SIGNED OFF.** A checklist item is not PASS until its evidence
 and reviewer are recorded. Only scan hosts that you own or are authorized
 to assess.
+ 
+## Issue #81/#82 evidence worksheet validation
+
+The read-only collector also creates separate rows for the **12 full-preset
+scanner modes** (1–9, s, c, d), the separately opted-in endpoint mapper (e),
+Windows consent/cancellation/Npcap cases and restore/upgrade/report scenarios.
+All rows start as `NOT RUN`; the script does not inspect or operate any
+production environment.
+
+After carrying out the checks on a disposable Windows VM and filling in the
+expected/actual results, tool/build/backup SHA-256 hashes, approved target,
+rollback details, sanitized evidence and independent reviewer/date:
+
+```powershell
+python .\scripts\validate_field_acceptance.py .\refactor-field-evidence\FIELD_ACCEPTANCE.md
+```
+
+To check the **uncompleted template's structural completeness**, use
+`--allow-incomplete`. This accepts `NOT RUN`, `FAIL` and `BLOCKED`
+but still rejects a `PASS` with missing provenance, missing scenario IDs,
+duplicate rows and invalid statuses. It does **not** sign off testing.
+A structurally complete `PASS` record still needs human review of the
+actual, local evidence. Never treat a CI-generated worksheet or a filled
+table alone as proof of hardware tests. Upload only sanitized summaries;
+keep original VM images, logs and backups in private operator-controlled storage.
+
