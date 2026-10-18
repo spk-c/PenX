@@ -164,6 +164,10 @@ jobs:
           $fieldContent = Get-Content -LiteralPath $fieldFile -Raw
           if (-not $fieldContent.Contains("Status: NOT SIGNED OFF")) { throw "Collector claimed unsigned field tests passed" }
           if (-not $fieldContent.Contains("Installer SHA256:")) { throw "Collector did not hash the installer" }
+          # Validate all 12 rows and mandatory acceptance scenarios without
+          # mistaking a generated NOT RUN worksheet for field-test sign-off.
+          & python scripts/validate_field_acceptance.py $fieldFile --allow-incomplete
+          if ($LASTEXITCODE -ne 0) { throw "Field worksheet matrix validation failed" }
           Remove-Item -LiteralPath $fieldFile -Force
 
           $smoke = Join-Path $env:RUNNER_TEMP "PenX-PR-Installer-Smoke"
