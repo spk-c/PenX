@@ -455,9 +455,11 @@ def run_nikto(target: str, *, cancel_event=None) -> str:
         return ScannerOutput(str(result), status="FAILED", evidence=False)
     # Nikto can exit normally despite terminating early after TLS errors.
     if re.search(r"(?i)(?:error limit\s*\(\d+\)\s*reached|scan terminated:\s*\d+\s+errors|ssl connect failed)", str(result)):
-        # A scanner's error/timeout banner alone does not attest to verified
-        # vulnerability evidence, even if its process exited successfully.
-        return ScannerOutput(str(result), status="PARTIAL", evidence=False)
+        # Error/timeout banners are not vulnerability evidence. In particular,
+        # never upgrade an already FAILED scanner execution to PARTIAL.
+        return ScannerOutput(str(result),
+                             status="PARTIAL" if result.status == "COMPLETE" else result.status,
+                             evidence=False)
     return result
 
 
@@ -630,7 +632,6 @@ def run_katana(target: str, *, cancel_event=None) -> ScannerOutput:
         import json
         from urllib.parse import urlsplit
         origin = web_endpoint(target, _web_target)
-        allowed = urlsplit(origin)
         executable = find_native("katana")
         if not executable:
             raise ValueError("Katana not installed; set PENX_KATANA_PATH")
