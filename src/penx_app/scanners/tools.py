@@ -31,7 +31,7 @@ from penx_app.config import NMAP_PATH, NIKTO_PATH, WHATWEB_PATH
 from penx_app.scanners.scanner_targets import normalize_host, normalize_web_target, target_urls, MAX_CIDR_ADDRESSES
 from penx_app.scanners.scanner_runtime import find_runtime, executable_env, find_nmap, npcap_present
 from penx_app.scanners.native_web_scanners import find_native, web_endpoint, nuclei_args, httpx_args, ffuf_args, ffuf_words, nuclei_templates, subfinder_args, katana_args, summarize_output
-from penx_app.scanners.endpoint_inventory import EndpointInventory, load_inventory, save_inventory
+from penx_app.scanners.endpoint_inventory import EndpointInventory, load_inventory, save_inventory, normalize_discovery
 
 
 from penx_app.domain.scan_models import ScannerOutput
@@ -455,7 +455,9 @@ def run_nikto(target: str, *, cancel_event=None) -> str:
         return ScannerOutput(str(result), status="FAILED", evidence=False)
     # Nikto can exit normally despite terminating early after TLS errors.
     if re.search(r"(?i)(?:error limit\s*\(\d+\)\s*reached|scan terminated:\s*\d+\s+errors|ssl connect failed)", str(result)):
-        return ScannerOutput(str(result), status="PARTIAL", evidence=True)
+        # A scanner's error/timeout banner alone does not attest to verified
+        # vulnerability evidence, even if its process exited successfully.
+        return ScannerOutput(str(result), status="PARTIAL", evidence=False)
     return result
 
 
@@ -665,19 +667,16 @@ def run_katana(target: str, *, cancel_event=None) -> ScannerOutput:
                 if not parsed.hostname or parsed.scheme not in ("http", "https"):
                     malformed += 1
                     continue
-                same_origin = (
-                    parsed.scheme == allowed.scheme
-                    and parsed.hostname == allowed.hostname
-                    and parsed.port == allowed.port
-                    and not parsed.username and not parsed.password
-                )
+                # Normalize scheme, hostname and *effective* port. Never
+                # retain URLs with query values (tokens, secrets, session IDs).
+                normalized = normalize_discovery(candidate, origin)
             except ValueError:
                 # Keep valid crawl data but do not silently discard bad rows.
                 malformed += 1
                 continue
             valid_rows += 1
-            if same_origin:
-                found.add(parsed._replace(fragment="").geturl()[:350])
+            if normalized is not None:
+                found.add(normalized[0][:350])
         if failures or malformed:
             notes = []
             if failures:
@@ -825,11 +824,19 @@ def run_endpoint_mapping(target: str, *, cancel_event=None) -> ScannerOutput:
         # and especially not older URLs as new scan targets.
         try:
             saved = load_inventory(origin)
+            dropped = 0
             for url, row in current.entries.items():
+                accepted = False
                 for source in row["sources"]:
                     for method in row["methods"]:
                         if saved.add(url, source, method=method):
+                            accepted = True
                             saved.entries[url]["parameters"].update(row["parameters"])
+                if not accepted:
+                    dropped += 1
+            if dropped:
+                partial = True
+                notes.append(f"[!] Inventory capacity reached: {dropped} new endpoint(s) could not be saved.")
             location = save_inventory(saved)
             notes.append(f"[*] Endpoint inventory stored: {location.name}")
         except (OSError, ValueError) as exc:
