@@ -19,7 +19,7 @@ from penx_app.domain.scan_models import ScanRequest, ScannerOutput
 from penx_app.scanners import tools
 from penx_app.scanners.endpoint_inventory import EndpointInventory
 from penx_app.scanners.native_web_scanners import ffuf_words
-from penx_app.scanners.process_runner import run_tool
+from penx_app.scanners.process_runner import run_tool, _terminal_safe_text
 
 
 ORIGIN = "https://example.test"
@@ -110,7 +110,10 @@ class ScannerAuditFixTests(unittest.TestCase):
         self.assertNotIn("\x1b", terminal.getvalue())
         self.assertNotIn("\r", terminal.getvalue())
         self.assertIn(r"\x1b", terminal.getvalue())
-        self.assertIn(r"\x0d", terminal.getvalue())
+        # Text-mode subprocess pipes perform universal-newline conversion.
+        # Independently test raw carriage-return neutralization here.
+        self.assertEqual(_terminal_safe_text("A\rB\x1b"), r"A\x0dB\x1b")
+        self.assertIn("INJECTED", terminal.getvalue())
 
     def test_inventory_limit_is_reported_as_partial_in_mapping(self):
         old = EndpointInventory(ORIGIN)
