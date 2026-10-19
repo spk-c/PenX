@@ -52,7 +52,7 @@ def run_selected(request: ScanRequest, *, menu: dict, emit=lambda *_: None,
         # probe is made solely to decide whether the target is resource-limited.
         overloaded = any(
             ("508 resource limit is reached" in str(output).casefold() or
-             str(output).lstrip().startswith("HTTP 508 "))
+             re.search(r"(?im)^HTTP\s+508(?:\s|$)", str(output)))
             for label, output in results.items()
             if label.lower() in {"http headers", "web fingerprint", "nmap"}
         )
