@@ -314,6 +314,31 @@ def _urls(target: str) -> list[str]:
 
 
 
+def _safe_http_evidence_url(value: str) -> str:
+    """Omit credentials, query values and fragments from stored HTTP URLs."""
+    try:
+        parsed = urlsplit(str(value))
+        if parsed.username is not None or parsed.password is not None:
+            return "[URL CREDENTIALS REDACTED]"
+        return parsed._replace(query="", fragment="").geturl()[:350]
+    except (ValueError, UnicodeError):
+        return "[INVALID URL REDACTED]"
+
+
+def _safe_header_value(name: str, value: str) -> str:
+    """Bound untrusted header text and avoid storing auth or redirect secrets."""
+    header = name.casefold()
+    raw = str(value)
+    if re.search(r"(?:^|[-_])(?:authorization|auth|api[-_]?key|token|secret|session|csrf|jwt|credential)(?:$|[-_])", header):
+        return "[REDACTED]"
+    if header in {"location", "content-location", "refresh", "link"} and any(
+        marker in raw for marker in ("?", "#", "@")
+    ):
+        return "[URL PARAMETERS REDACTED]"
+    # Prevent forged output lines/terminal escapes in AI prompts and reports.
+    return re.sub(r"[\\x00-\\x1f\\x7f-\\x9f\\u2028\\u2029]+", " ", raw)[:1200]
+
+
 def run_curl_headers(target: str, *, cancel_event=None) -> str:
     """Native Python HTTP-header requests; no curl or shell required."""
     cancelled = _cancelled_before_start(cancel_event)
@@ -330,7 +355,7 @@ def run_curl_headers(target: str, *, cancel_event=None) -> str:
         cancelled = _cancelled_after_io(cancel_event)
         if cancelled is not None:
             return cancelled
-        lines.append(f'[{url} headers — Python requests]')
+        lines.append(f'[{_safe_http_evidence_url(url)} headers — Python requests]')
         try:
             response = requests.head(url, timeout=(5, 10), allow_redirects=False,
                                      headers={'User-Agent': 'PenX/Windows'})
@@ -342,7 +367,7 @@ def run_curl_headers(target: str, *, cancel_event=None) -> str:
                 response = requests.get(url, timeout=(5, 10), allow_redirects=False,
                                         stream=True, headers={'User-Agent': 'PenX/Windows'})
             try:
-                lines.append(f'HTTP {response.status_code} -> {response.url}')
+                lines.append(f'HTTP {response.status_code} -> {_safe_http_evidence_url(response.url)}')
                 for k, v in response.headers.items():
                     # Never persist live session tokens in raw evidence, AI prompts,
                     # debug files or machine-readable report attachments.
@@ -354,14 +379,15 @@ def run_curl_headers(target: str, *, cancel_event=None) -> str:
                         safe_value = "[REDACTED]" + ("; observed flags: " + ", ".join(observed_flags) if observed_flags else "")
                         lines.append(f"{k}: {safe_value}")
                     else:
-                        lines.append(f"{k}: {v}")
+                        lines.append(f"{k}: {_safe_header_value(str(k), str(v))}")
                 observed += 1
             finally:
                 response.close()
         except requests.exceptions.SSLError as exc:
-            lines.append(f'[!] TLS certificate validation failed: {exc}')
+            # Exception strings may contain full token-bearing request URLs.
+            lines.append(f'[!] TLS certificate validation failed: {type(exc).__name__}')
         except requests.RequestException as exc:
-            lines.append(f'[!] Request failed: {exc}')
+            lines.append(f'[!] Request failed: {type(exc).__name__}')
         cancelled = _cancelled_after_io(cancel_event)
         if cancelled is not None:
             return cancelled
