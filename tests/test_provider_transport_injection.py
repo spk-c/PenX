@@ -104,7 +104,7 @@ class WordpressTransportContracts(unittest.TestCase):
         self.assertEqual(seen[0][0], wordpress.GH_API)
         self.assertEqual(seen[0][1]["params"]["affects"], "wpackagist-plugin/elementor")
         self.assertIs(seen[0][1]["allow_redirects"], False)
-        self.assertEqual(seen[0][1]["timeout"], (3, 8))
+        self.assertEqual(seen[0][1]["timeout"], (5, 15))
         self.assertNotIn("target.invalid", repr(seen))
         self.assertNotIn("target.invalid", json.dumps(result))
         self.assertNotIn("LOCAL-DUMMY", json.dumps(result))

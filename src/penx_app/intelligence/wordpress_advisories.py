@@ -68,7 +68,7 @@ def research_plugins(raw_scan: str, *, token: str = "", enabled: bool = True,
         response = None
         try:
             response = fetch(GH_API, params=params, headers=headers,
-                             timeout=(3, 8), allow_redirects=False)
+                             timeout=(5, 15), allow_redirects=False)
             response.raise_for_status()
             advisories = response.json()
             if not isinstance(advisories, list):
@@ -89,6 +89,12 @@ def research_plugins(raw_scan: str, *, token: str = "", enabled: bool = True,
                                    "product": plugin["slug"], "version": plugin["version"] or "unknown",
                                    "url": url, "evidence": plugin["evidence"],
                                    "vendor_advisories": []})
+        except requests.HTTPError as exc:
+            status = getattr(exc.response, "status_code", None)
+            checks.append({"service": "GitHub Advisory", "package": plugin["slug"],
+                           "status": "unavailable",
+                           "reason": ("HTTP " + str(status)) if status is not None
+                           else "Request failed"})
         except (requests.RequestException, ValueError, TypeError):
             checks.append({"service": "GitHub Advisory", "package": plugin["slug"],
                            "status": "unavailable", "reason": "Request failed or response invalid"})

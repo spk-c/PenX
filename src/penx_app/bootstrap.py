@@ -8,7 +8,19 @@ USAGE = ('Usage: PenX.exe [--version | --check | --setup-status | --setup | '
          '--export-session SL --format json|sarif [--redact]]')
 
 
+def _force_utf8_text_streams(streams) -> None:
+    """Redirected output on a non-UTF-8 locale (German Windows: cp1252) crashes
+    on non-Latin characters in scanner or model output, so every dispatch path
+    needs the same protection the interactive app applies to its console."""
+    for stream in streams:
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, OSError, ValueError):
+            pass
+
+
 def main() -> int:
+    _force_utf8_text_streams((sys.stdout, sys.stderr))
     args = sys.argv[1:]
     if args:
         command = args[0]

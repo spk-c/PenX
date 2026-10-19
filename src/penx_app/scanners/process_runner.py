@@ -82,6 +82,18 @@ def _drain_pipe(pipe, sink: _BoundedBytes) -> None:
         return
 
 
+def _emit_line(text: str) -> None:
+    """Live progress line for untrusted scanner output; a non-UTF-8 caller
+    stream must never abort the scan run over a cosmetic print."""
+    try:
+        print(text, flush=True)
+    except (OSError, ValueError):
+        try:
+            print(text.encode("ascii", "replace").decode("ascii"), flush=True)
+        except (OSError, ValueError):
+            pass
+
+
 def _cancelled_result(command: list[str], exit_code: int | None = None) -> ScannerOutput:
     """Cancellation is a partial, untrusted outcome, never scanner evidence."""
     return ScannerOutput(
@@ -178,7 +190,7 @@ def _run_tool_live(command: list[str], timeout: int, cwd: str | None,
                    env: dict[str, str] | None,
                    cancel_event: threading.Event | None = None) -> ScannerOutput:
     """Stream bounded line chunks without an unbounded producer queue."""
-    print(f"  [LIVE] {Path(command[0]).name} started...", flush=True)
+    _emit_line(f"  [LIVE] {Path(command[0]).name} started...")
     proc = subprocess.Popen(
         command, shell=False, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
         text=True, encoding="utf-8", errors="replace", bufsize=1, cwd=cwd, env=env,
@@ -253,7 +265,7 @@ def _run_tool_live(command: list[str], timeout: int, cwd: str | None,
                 retained = encoded[:room]
                 output.append(retained)
                 used += len(retained)
-                print("  [SCAN] " + retained.decode("utf-8", errors="replace").rstrip("\r\n"), flush=True)
+                _emit_line("  [SCAN] " + retained.decode("utf-8", errors="replace").rstrip("\r\n"))
         proc.wait(timeout=5 if (timed_out or cancelled)
                   else max(0.1, deadline - time.monotonic()))
     except BaseException:
