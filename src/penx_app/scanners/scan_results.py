@@ -105,6 +105,18 @@ def recon_has_evidence(raw_scan: str, *, passive_only: bool = False) -> bool:
                     values = re.findall(r"(?im)^(?:A|AAAA|MX|NS|TXT):([^\r\n]*)", body)
                     if any(usable(value) for value in values):
                         return True
+                elif marker == "[WHOIS REGISTRY]":
+                    # The Python WHOIS banner is not a registration record.
+                    # A provider can complete without returning any fields.
+                    detail = body.removeprefix("[Python WHOIS]").strip()
+                    if (detail and not detail.lower().startswith("no registration details")
+                            and usable(detail)):
+                        return True
+                elif marker == "[RDAP]":
+                    # An HTTP 200 with an empty RDAP object is not metadata.
+                    if body.strip() not in ("{}", "[]", "null") and usable(body) \
+                            and not body.lower().startswith("no structured response"):
+                        return True
                 elif usable(body) and not body.lower().startswith("no structured response"):
                     return True
         return False
