@@ -42,8 +42,11 @@ def _mask(value: str, target: str, enabled: bool) -> str:
         try:
             ipaddress.ip_address(target.strip("[]"))
         except ValueError:
-            parsed = urlsplit(target if "://" in target else "//" + target)
-            host = parsed.hostname
+            try:
+                parsed = urlsplit(target if "://" in target else "//" + target)
+                host = parsed.hostname
+            except ValueError:
+                host = None  # Historical malformed targets must not crash exports.
             if host:
                 try:
                     ipaddress.ip_address(host)
