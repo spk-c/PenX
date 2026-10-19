@@ -668,6 +668,9 @@ def run_katana(target: str, *, cancel_event=None) -> ScannerOutput:
                 if not parsed.hostname or parsed.scheme not in ("http", "https"):
                     malformed += 1
                     continue
+                # Validate explicit ports independently: an invalid authority
+                # must be reported as malformed, not a valid out-of-scope URL.
+                _ = parsed.port
                 # Normalize scheme, hostname and *effective* port. Never
                 # retain URLs with query values (tokens, secrets, session IDs).
                 normalized = normalize_discovery(candidate, origin)
