@@ -15,6 +15,7 @@ import subprocess
 from urllib.parse import urlsplit
 
 from penx_app.app_paths import APP_ROOT
+from penx_app.scanners.endpoint_inventory import _safe_probe_path
 
 DEFAULT_FFUF_PATHS = (
     "robots.txt", "sitemap.xml", ".well-known/security.txt", "admin",
@@ -174,7 +175,8 @@ def ffuf_words() -> list[str]:
         word = line.strip()
         if not word or word.startswith("#"):
             continue
-        if not _ALLOWED_PATH.fullmatch(word) or word in (".", "..") or ".." in word:
+        if (not _ALLOWED_PATH.fullmatch(word) or word in (".", "..")
+                or ".." in word or not _safe_probe_path("/" + word)):
             raise ValueError("Unsafe ffuf wordlist entry; use single relative path names")
         if word in seen:
             continue  # Only distinct entries increase the number of requests.
@@ -190,8 +192,32 @@ def ffuf_words() -> list[str]:
 def _single_line(value, limit: int = 200) -> str:
     """Prevent response-controlled newlines/ANSI from forging scanner records."""
     text = str(value or "")
-    text = re.sub(r"[\x00-\x1f\x7f\u2028\u2029]+", " ", text)
+    text = re.sub(r"[\x00-\x1f\x7f-\x9f\u2028\u2029\u202a-\u202e\u2066-\u2069]+", " ", text)
     return text[:limit]
+
+
+def _summary_url(value: object, limit: int = 200) -> str:
+    """Retain an endpoint path, never provider-returned credentials or query values.
+
+    Native scanner JSONL is untrusted and can contain signed URLs or session
+    tokens. Its output is persisted and passed to the local assessment model.
+    """
+    if not isinstance(value, str) or not value.strip():
+        return ""
+    raw = value.strip()
+    if "@" in raw or raw.startswith("//"):
+        return "[URL CREDENTIALS REDACTED]"
+    try:
+        if "://" in raw:
+            parsed = urlsplit(raw)
+            if parsed.scheme not in ("http", "https") or not parsed.hostname:
+                return "[INVALID URL]"
+            return _single_line(parsed._replace(query="", fragment="").geturl(), limit)
+        # ProjectDiscovery's input field may contain a bare host:port.
+        # Never render a query or fragment even when no scheme is supplied.
+        return _single_line(raw.split("?", 1)[0].split("#", 1)[0], limit)
+    except (ValueError, UnicodeError):
+        return "[INVALID URL]"
 
 
 def summarize_output(scanner: str, raw: str, *, max_items: int = 60) -> tuple[str, bool]:
@@ -216,10 +242,10 @@ def summarize_output(scanner: str, raw: str, *, max_items: int = 60) -> tuple[st
                 continue
             severity = _single_line(info.get("severity") or "unknown", 20)
             name = _single_line(info.get("name"), 150)
-            matched = _single_line(item.get("matched-at") or item.get("host"), 200)
+            matched = _summary_url(item.get("matched-at") or item.get("host"), 200)
             output.append(f"TEMPLATE {template} | {severity} | {name} | {matched}")
         elif scanner == "httpx":
-            url = _single_line(item.get("url") or item.get("input"), 200)
+            url = _summary_url(item.get("url") or item.get("input"), 200)
             if not url:
                 continue
             code = _single_line(item.get("status_code"), 8)
@@ -230,7 +256,7 @@ def summarize_output(scanner: str, raw: str, *, max_items: int = 60) -> tuple[st
                 tech = []
             output.append(f"HTTP {code} | {url} | {server} | {title} | technologies: {', '.join(_single_line(t, 60) for t in tech[:12])[:250]}")
         elif scanner == "ffuf":
-            url = _single_line(item.get("url"), 220)
+            url = _summary_url(item.get("url"), 220)
             if not url:
                 continue
             code = _single_line(item.get("status"), 8)

@@ -31,7 +31,7 @@ from penx_app.config import NMAP_PATH, NIKTO_PATH, WHATWEB_PATH
 from penx_app.scanners.scanner_targets import normalize_host, normalize_web_target, target_urls, MAX_CIDR_ADDRESSES
 from penx_app.scanners.scanner_runtime import find_runtime, executable_env, find_nmap, npcap_present
 from penx_app.scanners.native_web_scanners import find_native, web_endpoint, nuclei_args, httpx_args, ffuf_args, ffuf_words, nuclei_templates, subfinder_args, katana_args, summarize_output
-from penx_app.scanners.endpoint_inventory import EndpointInventory, load_inventory, save_inventory
+from penx_app.scanners.endpoint_inventory import EndpointInventory, load_inventory, save_inventory, normalize_discovery
 
 
 from penx_app.domain.scan_models import ScannerOutput
@@ -295,14 +295,15 @@ def run_whatweb(target: str, *, cancel_event=None) -> str:
                                      ('Next.js', '/_next/')]:
                     if marker in content:
                         tech.append(word + ' (heuristic)')
-                lines.append(f'{url} -> HTTP {response.status_code} ({response.url})')
+                lines.append(f'{_safe_http_evidence_url(url)} -> HTTP {response.status_code} ({_safe_http_evidence_url(response.url)})')
                 lines.append('Indicators: ' + (
                     ', '.join(tech) or 'No conclusive technology indicators'))
                 observed += 1
             finally:
                 response.close()
         except requests.RequestException as exc:
-            lines.append(f'{url}: {exc}')
+            # Request errors can embed URL query strings with credentials.
+            lines.append(f'{_safe_http_evidence_url(url)}: {type(exc).__name__}')
     text = '\n'.join(lines) + ('\n' + timed_out if timed_out else '')
     # This is usable *partial* fingerprint evidence, not a full WhatWeb run.
     return ScannerOutput(text, status="PARTIAL" if observed else "FAILED",
@@ -312,6 +313,31 @@ def _urls(target: str) -> list[str]:
     """Legacy scanner API; no network requests are performed here."""
     return target_urls(target, web_target=_web_target)
 
+
+
+def _safe_http_evidence_url(value: str) -> str:
+    """Omit credentials, query values and fragments from stored HTTP URLs."""
+    try:
+        parsed = urlsplit(str(value))
+        if parsed.username is not None or parsed.password is not None:
+            return "[URL CREDENTIALS REDACTED]"
+        return parsed._replace(query="", fragment="").geturl()[:350]
+    except (ValueError, UnicodeError):
+        return "[INVALID URL REDACTED]"
+
+
+def _safe_header_value(name: str, value: str) -> str:
+    """Bound untrusted header text and avoid storing auth or redirect secrets."""
+    header = name.casefold()
+    raw = str(value)
+    if re.search(r"(?:^|[-_])(?:authorization|auth|api[-_]?key|token|secret|session|csrf|jwt|credential)(?:$|[-_])", header):
+        return "[REDACTED]"
+    if header in {"location", "content-location", "refresh", "link"} and any(
+        marker in raw for marker in ("?", "#", "@")
+    ):
+        return "[URL PARAMETERS REDACTED]"
+    # Prevent forged output lines/terminal escapes in AI prompts and reports.
+    return re.sub(r"[\x00-\x1f\x7f-\x9f\u2028\u2029]+", " ", raw)[:1200]
 
 
 def run_curl_headers(target: str, *, cancel_event=None) -> str:
@@ -330,7 +356,7 @@ def run_curl_headers(target: str, *, cancel_event=None) -> str:
         cancelled = _cancelled_after_io(cancel_event)
         if cancelled is not None:
             return cancelled
-        lines.append(f'[{url} headers — Python requests]')
+        lines.append(f'[{_safe_http_evidence_url(url)} headers — Python requests]')
         try:
             response = requests.head(url, timeout=(5, 10), allow_redirects=False,
                                      headers={'User-Agent': 'PenX/Windows'})
@@ -342,7 +368,7 @@ def run_curl_headers(target: str, *, cancel_event=None) -> str:
                 response = requests.get(url, timeout=(5, 10), allow_redirects=False,
                                         stream=True, headers={'User-Agent': 'PenX/Windows'})
             try:
-                lines.append(f'HTTP {response.status_code} -> {response.url}')
+                lines.append(f'HTTP {response.status_code} -> {_safe_http_evidence_url(response.url)}')
                 for k, v in response.headers.items():
                     # Never persist live session tokens in raw evidence, AI prompts,
                     # debug files or machine-readable report attachments.
@@ -354,14 +380,15 @@ def run_curl_headers(target: str, *, cancel_event=None) -> str:
                         safe_value = "[REDACTED]" + ("; observed flags: " + ", ".join(observed_flags) if observed_flags else "")
                         lines.append(f"{k}: {safe_value}")
                     else:
-                        lines.append(f"{k}: {v}")
+                        lines.append(f"{k}: {_safe_header_value(str(k), str(v))}")
                 observed += 1
             finally:
                 response.close()
         except requests.exceptions.SSLError as exc:
-            lines.append(f'[!] TLS certificate validation failed: {exc}')
+            # Exception strings may contain full token-bearing request URLs.
+            lines.append(f'[!] TLS certificate validation failed: {type(exc).__name__}')
         except requests.RequestException as exc:
-            lines.append(f'[!] Request failed: {exc}')
+            lines.append(f'[!] Request failed: {type(exc).__name__}')
         cancelled = _cancelled_after_io(cancel_event)
         if cancelled is not None:
             return cancelled
@@ -455,7 +482,11 @@ def run_nikto(target: str, *, cancel_event=None) -> str:
         return ScannerOutput(str(result), status="FAILED", evidence=False)
     # Nikto can exit normally despite terminating early after TLS errors.
     if re.search(r"(?i)(?:error limit\s*\(\d+\)\s*reached|scan terminated:\s*\d+\s+errors|ssl connect failed)", str(result)):
-        return ScannerOutput(str(result), status="PARTIAL", evidence=True)
+        # Error/timeout banners are not vulnerability evidence. In particular,
+        # never upgrade an already FAILED scanner execution to PARTIAL.
+        return ScannerOutput(str(result),
+                             status="PARTIAL" if result.status == "COMPLETE" else result.status,
+                             evidence=False)
     return result
 
 
@@ -526,12 +557,21 @@ def _summarize_native_run(scanner: str, result: str) -> ScannerOutput:
         return ScannerOutput(summary, status="FAILED" if scanner == "httpx" else "COMPLETE",
                              evidence=False)
     if outcome.status != "COMPLETE":
-        return ScannerOutput(str(outcome)[:8000], status=outcome.status,
-                             evidence=False)
+        # External tools sometimes include signed URLs and authentication
+        # values in crash dumps or their command-line diagnostics. The raw
+        # error is not suitable for the persisted assessment or LLM prompt.
+        return ScannerOutput(
+            f"[!] {scanner} did not complete ({outcome.status}); "
+            "raw scanner diagnostics omitted because they may contain secrets.",
+            status=outcome.status, evidence=False,
+        )
     summary, evidence = summarize_output(scanner, str(outcome))
     if not evidence:
-        return ScannerOutput("[!] " + scanner + " emitted no parseable JSONL result. " +
-                             str(outcome)[:600], status="FAILED", evidence=False)
+        return ScannerOutput(
+            "[!] " + scanner + " emitted no parseable JSONL result; "
+            "unstructured tool output omitted (may include confidential URLs).",
+            status="FAILED", evidence=False,
+        )
     return ScannerOutput(summary, status="COMPLETE", evidence=True)
 
 
@@ -628,7 +668,6 @@ def run_katana(target: str, *, cancel_event=None) -> ScannerOutput:
         import json
         from urllib.parse import urlsplit
         origin = web_endpoint(target, _web_target)
-        allowed = urlsplit(origin)
         executable = find_native("katana")
         if not executable:
             raise ValueError("Katana not installed; set PENX_KATANA_PATH")
@@ -665,19 +704,19 @@ def run_katana(target: str, *, cancel_event=None) -> ScannerOutput:
                 if not parsed.hostname or parsed.scheme not in ("http", "https"):
                     malformed += 1
                     continue
-                same_origin = (
-                    parsed.scheme == allowed.scheme
-                    and parsed.hostname == allowed.hostname
-                    and parsed.port == allowed.port
-                    and not parsed.username and not parsed.password
-                )
+                # Validate explicit ports independently: an invalid authority
+                # must be reported as malformed, not a valid out-of-scope URL.
+                _ = parsed.port
+                # Normalize scheme, hostname and *effective* port. Never
+                # retain URLs with query values (tokens, secrets, session IDs).
+                normalized = normalize_discovery(candidate, origin)
             except ValueError:
                 # Keep valid crawl data but do not silently discard bad rows.
                 malformed += 1
                 continue
             valid_rows += 1
-            if same_origin:
-                found.add(parsed._replace(fragment="").geturl()[:350])
+            if normalized is not None:
+                found.add(normalized[0][:350])
         if failures or malformed:
             notes = []
             if failures:
@@ -825,11 +864,19 @@ def run_endpoint_mapping(target: str, *, cancel_event=None) -> ScannerOutput:
         # and especially not older URLs as new scan targets.
         try:
             saved = load_inventory(origin)
+            dropped = 0
             for url, row in current.entries.items():
+                accepted = False
                 for source in row["sources"]:
                     for method in row["methods"]:
                         if saved.add(url, source, method=method):
+                            accepted = True
                             saved.entries[url]["parameters"].update(row["parameters"])
+                if not accepted:
+                    dropped += 1
+            if dropped:
+                partial = True
+                notes.append(f"[!] Inventory capacity reached: {dropped} new endpoint(s) could not be saved.")
             location = save_inventory(saved)
             notes.append(f"[*] Endpoint inventory stored: {location.name}")
         except (OSError, ValueError) as exc:

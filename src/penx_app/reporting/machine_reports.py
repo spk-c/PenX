@@ -12,6 +12,7 @@ import ipaddress
 import json
 from pathlib import Path
 import re
+from urllib.parse import urlsplit
 
 from penx_app.file_output import publish_unique
 from penx_app.intelligence.source_verification import evidence_in_scan
@@ -36,6 +37,25 @@ def _mask(value: str, target: str, enabled: bool) -> str:
         return text
     if target:
         text = re.sub(re.escape(target), "[TARGET REDACTED]", text, flags=re.IGNORECASE)
+        # A session target may be a full URL. Its host also appears in scanner
+        # findings independently (without scheme, port or path).
+        try:
+            ipaddress.ip_address(target.strip("[]"))
+        except ValueError:
+            try:
+                parsed = urlsplit(target if "://" in target else "//" + target)
+                host = parsed.hostname
+            except ValueError:
+                host = None  # Historical malformed targets must not crash exports.
+            if host:
+                try:
+                    ipaddress.ip_address(host)
+                except ValueError:
+                    text = re.sub(
+                        r"(?<![A-Za-z0-9_.-])" + re.escape(host)
+                        + r"(?![A-Za-z0-9_.-])",
+                        "[TARGET REDACTED]", text, flags=re.IGNORECASE,
+                    )
     def mask_address(match):
         try:
             ipaddress.IPv4Address(match.group())
