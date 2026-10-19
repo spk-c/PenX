@@ -82,6 +82,22 @@ def _drain_pipe(pipe, sink: _BoundedBytes) -> None:
         return
 
 
+def _terminal_safe_text(value: str) -> str:
+    """Render untrusted scanner output without terminal escapes or line rewrites.
+
+    Keep the original captured data unchanged for parsing/reporting. Replacing
+    controls with visible escape text prevents ANSI/OSC and carriage-return
+    sequences from altering the terminal, even when split across pipe reads.
+    """
+    return "".join(
+        f"\\x{ord(ch):02x}" if (ord(ch) < 32 or 0x7f <= ord(ch) <= 0x9f)
+        else f"\\u{ord(ch):04x}" if (0x202a <= ord(ch) <= 0x202e
+                                     or 0x2066 <= ord(ch) <= 0x2069)
+        else ch
+        for ch in value
+    )
+
+
 def _cancelled_result(command: list[str], exit_code: int | None = None) -> ScannerOutput:
     """Cancellation is a partial, untrusted outcome, never scanner evidence."""
     return ScannerOutput(
@@ -253,7 +269,9 @@ def _run_tool_live(command: list[str], timeout: int, cwd: str | None,
                 retained = encoded[:room]
                 output.append(retained)
                 used += len(retained)
-                print("  [SCAN] " + retained.decode("utf-8", errors="replace").rstrip("\r\n"), flush=True)
+                print("  [SCAN] " + _terminal_safe_text(
+                    retained.decode("utf-8", errors="replace").rstrip("\r\n")
+                ), flush=True)
         proc.wait(timeout=5 if (timed_out or cancelled)
                   else max(0.1, deadline - time.monotonic()))
     except BaseException:

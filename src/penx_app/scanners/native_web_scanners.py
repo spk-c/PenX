@@ -15,6 +15,7 @@ import subprocess
 from urllib.parse import urlsplit
 
 from penx_app.app_paths import APP_ROOT
+from penx_app.scanners.endpoint_inventory import _safe_probe_path
 
 DEFAULT_FFUF_PATHS = (
     "robots.txt", "sitemap.xml", ".well-known/security.txt", "admin",
@@ -174,7 +175,8 @@ def ffuf_words() -> list[str]:
         word = line.strip()
         if not word or word.startswith("#"):
             continue
-        if not _ALLOWED_PATH.fullmatch(word) or word in (".", "..") or ".." in word:
+        if (not _ALLOWED_PATH.fullmatch(word) or word in (".", "..")
+                or ".." in word or not _safe_probe_path("/" + word)):
             raise ValueError("Unsafe ffuf wordlist entry; use single relative path names")
         if word in seen:
             continue  # Only distinct entries increase the number of requests.

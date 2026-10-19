@@ -209,9 +209,9 @@ class EndpointInventory:
                 directory = "/" + "/".join(segments[:-1]) + "/"
             else:
                 continue
-            if any(part.casefold() in ("logout", "signout", "delete", "remove",
-                                       "purchase", "checkout", "reset", "transfer")
-                   for part in directory.split("/")):
+            # Directory probing must obey the same state-change filter as
+            # directly discovered GET paths (including delete-user, logout.php).
+            if not _safe_probe_path(directory):
                 continue
             if len(directory) < 150:
                 dirs.add(self.origin + directory)
