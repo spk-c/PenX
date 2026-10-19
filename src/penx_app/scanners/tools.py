@@ -557,12 +557,21 @@ def _summarize_native_run(scanner: str, result: str) -> ScannerOutput:
         return ScannerOutput(summary, status="FAILED" if scanner == "httpx" else "COMPLETE",
                              evidence=False)
     if outcome.status != "COMPLETE":
-        return ScannerOutput(str(outcome)[:8000], status=outcome.status,
-                             evidence=False)
+        # External tools sometimes include signed URLs and authentication
+        # values in crash dumps or their command-line diagnostics. The raw
+        # error is not suitable for the persisted assessment or LLM prompt.
+        return ScannerOutput(
+            f"[!] {scanner} did not complete ({outcome.status}); "
+            "raw scanner diagnostics omitted because they may contain secrets.",
+            status=outcome.status, evidence=False,
+        )
     summary, evidence = summarize_output(scanner, str(outcome))
     if not evidence:
-        return ScannerOutput("[!] " + scanner + " emitted no parseable JSONL result. " +
-                             str(outcome)[:600], status="FAILED", evidence=False)
+        return ScannerOutput(
+            "[!] " + scanner + " emitted no parseable JSONL result; "
+            "unstructured tool output omitted (may include confidential URLs).",
+            status="FAILED", evidence=False,
+        )
     return ScannerOutput(summary, status="COMPLETE", evidence=True)
 
 
