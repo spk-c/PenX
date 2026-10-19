@@ -295,14 +295,15 @@ def run_whatweb(target: str, *, cancel_event=None) -> str:
                                      ('Next.js', '/_next/')]:
                     if marker in content:
                         tech.append(word + ' (heuristic)')
-                lines.append(f'{url} -> HTTP {response.status_code} ({response.url})')
+                lines.append(f'{_safe_http_evidence_url(url)} -> HTTP {response.status_code} ({_safe_http_evidence_url(response.url)})')
                 lines.append('Indicators: ' + (
                     ', '.join(tech) or 'No conclusive technology indicators'))
                 observed += 1
             finally:
                 response.close()
         except requests.RequestException as exc:
-            lines.append(f'{url}: {exc}')
+            # Request errors can embed URL query strings with credentials.
+            lines.append(f'{_safe_http_evidence_url(url)}: {type(exc).__name__}')
     text = '\n'.join(lines) + ('\n' + timed_out if timed_out else '')
     # This is usable *partial* fingerprint evidence, not a full WhatWeb run.
     return ScannerOutput(text, status="PARTIAL" if observed else "FAILED",
