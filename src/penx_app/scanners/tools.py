@@ -336,7 +336,7 @@ def _safe_header_value(name: str, value: str) -> str:
     ):
         return "[URL PARAMETERS REDACTED]"
     # Prevent forged output lines/terminal escapes in AI prompts and reports.
-    return re.sub(r"[\\x00-\\x1f\\x7f-\\x9f\\u2028\\u2029]+", " ", raw)[:1200]
+    return re.sub(r"[\x00-\x1f\x7f-\x9f\u2028\u2029]+", " ", raw)[:1200]
 
 
 def run_curl_headers(target: str, *, cancel_event=None) -> str:
