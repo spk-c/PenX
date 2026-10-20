@@ -1,49 +1,94 @@
 <p align="center">
-  <img src="assets/penx-banner.png" alt="PenX — Windows-first AI security reconnaissance assistant" width="100%">
+  <img src="assets/penx-banner.png" alt="PenX — Windows security reconnaissance and local AI assessment" width="100%">
 </p>
 
 <h1 align="center">PenX</h1>
 
-<p align="center"><strong>Windows-first security reconnaissance with local AI and human-reviewed findings.</strong></p>
-
-<p align="center">One terminal for authorized scans, evidence-based reviews, and locally saved HTML, PDF, JSON, and SARIF reports.</p>
+<p align="center"><strong>Windows-first security reconnaissance. Local AI. Evidence you can review.</strong></p>
 
 <p align="center">
-  <a href="https://github.com/spk-c/PenX/actions/workflows/ci.yml"><img alt="Offline tests" src="https://github.com/spk-c/PenX/actions/workflows/ci.yml/badge.svg"></a>
-  <a href="https://github.com/spk-c/PenX/releases"><img alt="GitHub releases" src="https://img.shields.io/badge/Releases-GitHub-181717?logo=github"></a>
-  <a href="https://github.com/spk-c/PenX/stargazers"><img alt="GitHub stars" src="https://img.shields.io/github/stars/spk-c/PenX?style=social"></a>
-  <img alt="Windows 10 and 11" src="https://img.shields.io/badge/Windows-10%20%2F%2011-0078D6?logo=windows">
-  <img alt="Python 3.10–3.13" src="https://img.shields.io/badge/Python-3.10--3.13-3776AB?logo=python">
-  <a href="LICENSE"><img alt="MIT license" src="https://img.shields.io/badge/license-MIT-22A699"></a>
+  PenX is an open-source terminal application that brings <strong>Nmap, Nuclei, httpx, ffuf, Subfinder, Katana</strong> and more into one security assessment workflow—with local LLM assistance and shareable reports.
 </p>
 
-> [!NOTE]
-> **Latest stable release:** [PenX v0.4.9](https://github.com/spk-c/PenX/releases/tag/v0.4.9) is published with the Windows installer, portable ZIP and SHA-256 checksums, including the security and reliability fixes since v0.4.8. Download the full package, not GitHub's automatic source archive. See the [release notes](docs/RELEASE_0.4.9_NOTES.md) and [maintenance status](docs/MAINTENANCE_STATUS.md). Physical Windows/database field acceptance remains **not signed off**.
+<p align="center">
+  <a href="https://github.com/spk-c/PenX/actions/workflows/ci.yml"><img src="https://github.com/spk-c/PenX/actions/workflows/ci.yml/badge.svg" alt="Offline CI"></a>
+  <a href="https://github.com/spk-c/PenX/releases/latest"><img src="https://img.shields.io/github/v/release/spk-c/PenX?label=release" alt="Latest release"></a>
+  <a href="https://github.com/spk-c/PenX/stargazers"><img src="https://img.shields.io/github/stars/spk-c/PenX?style=flat" alt="GitHub stars"></a>
+  <img src="https://img.shields.io/badge/Windows-10%20%7C%2011-0078D6?logo=windows" alt="Windows 10 and 11">
+  <img src="https://img.shields.io/badge/Python-3.10--3.13-3776AB?logo=python" alt="Python 3.10 to 3.13 for source installation">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-22A699" alt="MIT license"></a>
+</p>
 
 <p align="center">
-  <a href="#quick-start"><strong>Install from source</strong></a> ·
-  <a href="https://github.com/spk-c/PenX/releases"><strong>GitHub Releases (Windows downloads)</strong></a> ·
+  <a href="#download"><strong>Download for Windows</strong></a> ·
+  <a href="#quick-start"><strong>Quick start</strong></a> ·
   <a href="docs/DEMO.md"><strong>View demo</strong></a> ·
-  <a href="WINDOWS.md"><strong>Installation help</strong></a>
+  <a href="#documentation"><strong>Documentation</strong></a>
 </p>
 
 <p align="center">
-  <a href="#quick-start">Quick start</a> ·
-  <a href="#scanner-coverage">Scanners</a> ·
-  <a href="#scan-presets">Scan presets</a> ·
-  <a href="#local-ai-and-privacy">Local AI &amp; privacy</a> ·
+  <a href="#why-penx">Features</a> ·
+  <a href="#supported-scanners">Scanners</a> ·
+  <a href="#local-ai-and-privacy">Local AI</a> ·
   <a href="#reports-and-exports">Reports</a> ·
-  <a href="#documentation">Documentation</a>
+  <a href="#safety-and-limitations">Safety</a>
 </p>
 
 > [!IMPORTANT]
-> **Authorized targets only.** PenX makes real network requests. Use it only on systems you own or are explicitly permitted to assess. AI-generated vulnerability findings are **not verified proof**; review scanner evidence independently.
+> **Authorized targets only.** PenX makes real network requests. Use it only on systems you own or are explicitly permitted to assess. AI-generated findings and CVE matches are **not proof of a vulnerability**—always review the underlying evidence.
+>
+> **Release status:** [v0.4.9](https://github.com/spk-c/PenX/releases/tag/v0.4.9) has published Windows assets and automated release checks. Independent Windows/scanner and historical-database [field acceptance](docs/MAINTENANCE_STATUS.md) remains **not signed off**.
+
+## Download
+
+**The easiest way to get started is the Windows installer.** PenX v0.4.9 is available from [official GitHub Releases](https://github.com/spk-c/PenX/releases/tag/v0.4.9):
+
+| Edition | Recommended for | Get it |
+| --- | --- | --- |
+| **Windows installer** (`PenX-Setup-x64.exe`) | Most Windows 10/11 users; Start menu and uninstall entry | **[Download installer](https://github.com/spk-c/PenX/releases/download/v0.4.9/PenX-Setup-x64.exe)** |
+| **Portable ZIP** (`PenX-Windows-x64.zip`) | Running PenX from an extracted directory | **[Download portable ZIP](https://github.com/spk-c/PenX/releases/download/v0.4.9/PenX-Windows-x64.zip)** |
+| **Source code** | Developers and Python-based installations | [Install from source](#from-source) |
+
+**Verify your download:** Compare the file against [SHA256SUMS.txt](https://github.com/spk-c/PenX/releases/download/v0.4.9/SHA256SUMS.txt) from the same release. Extract the **complete portable ZIP**, including `_internal`; GitHub's auto-generated *Source code (ZIP)* is **not** the packaged Windows app.
+
+> [!NOTE]
+> The installer is **not Authenticode-signed** and may trigger Windows SmartScreen. Third-party scanner binaries and local AI models are **not bundled**. Read the [Windows installation guide](WINDOWS.md) before installing extra dependencies.
+
+## Why PenX?
+
+| Capability | What you get |
+| --- | --- |
+| **12 scanner adapters** | Port, service, web, DNS, subdomain and TLS reconnaissance in one terminal menu |
+| **Local AI assistance** | Use your own OpenAI-compatible local LLM endpoint (LM Studio, Ollama or llama.cpp) |
+| **Evidence-based review** | Scanner context, human corrections, version-aware CVE candidates and source checks |
+| **Scope-aware scanning** | Passive-Only Recon, bounded active tools with consent, and separate opt-in endpoint mapping |
+| **History and comparison** | Locally saved assessments, corrections and scan differences over time |
+| **Report generation** | HTML/PDF reports plus saved-session JSON and SARIF 2.1.0 exports |
+
+**PenX is a terminal/CLI application**, not a graphical dashboard or an exploitation framework. It is an independent Windows-first adaptation of the MIT-licensed [METATRON project](https://github.com/sooryathejas/METATRON).
 
 ## Quick start
 
-### Windows source installation (available now)
+### Installer or portable ZIP
 
-Clone the maintained GitHub repository and run the consent-based Windows setup:
+1. [Download PenX](#download) and verify its checksum.
+2. Run `PenX-Setup-x64.exe`, or extract the whole portable ZIP and run `PenX.exe`.
+3. Follow the optional scanner setup. Some dependencies require internet access, `winget` or administrator approval (such as Npcap).
+4. For AI-assisted assessments, configure a compatible local model API. No model is included; local inference is optional.
+5. Choose **[1] New Scan**, enter an **authorized** IP/domain, select scan tools and review the findings.
+
+Useful diagnostics from a portable executable folder:
+
+~~~powershell
+.\PenX.exe --setup-status  # Check setup; does not scan or download
+.\PenX.exe --setup         # Interactive scanner setup
+.\PenX.exe --llm-setup     # Optional local model setup
+.\PenX.exe --check         # Local diagnostics
+~~~
+
+### From source
+
+Windows source installation supports Python **3.10–3.13** (3.13 recommended):
 
 ~~~powershell
 git clone https://github.com/spk-c/PenX.git
@@ -52,154 +97,131 @@ cd PenX
 .\start-windows.bat
 ~~~
 
-Python **3.13 is recommended** (source support: 3.10–3.13). The setup configures a virtual environment and Python dependencies, and may offer third-party scanner installation **with your consent**. Internet access, `winget`, and administrator approval may be needed. Run `check-windows.bat` for diagnostics or `install-scanners.bat` to retry missing scanners. Preserve private `.env`, `data/`, and `reports/` files when updating.
+Setup prepares the Python environment and handles supported scanner setup with consent. Use `check-windows.bat` for diagnostics and `install-scanners.bat` to retry missing scanners. **Back up** existing `.env`, `data/` and `reports/` before updating. [Windows troubleshooting →](WINDOWS.md)
 
-### Windows installer and portable ZIP
+## How PenX works
 
-The published [v0.4.9 release](https://github.com/spk-c/PenX/releases/tag/v0.4.9) contains **`PenX-Setup-x64.exe`** (Windows installer), **`PenX-Windows-x64.zip`** (portable folder) and **`SHA256SUMS.txt`** (integrity file). Check the release tag and SHA-256 hashes and read the [Windows instructions](WINDOWS.md). Do not confuse GitHub's auto-generated source archives with a packaged EXE.
-
-For the portable ZIP, extract the **entire folder** (including `_internal`) and run `PenX.exe`. Scanner binaries and local AI models are not bundled. The in-app updater now checks **stable, verified GitHub releases**. It only offers a Windows installer when both the official release asset and its checksum exist, and never installs without explicit consent.
-
-**Useful commands for the published Windows binary:**
-
-~~~powershell
-.\PenX.exe --setup-status   # Checks only, no downloads or scans
-.\PenX.exe --setup          # Consent-based scanner setup
-.\PenX.exe --llm-setup      # Optional local LLM setup
-.\PenX.exe --check          # Local diagnostics
+~~~text
+Authorized target
+     │
+     ▼
+Choose scope and scanners
+     │
+     ▼
+Collect scanner evidence
+     │
+     ├──► Optional local AI and CVE research
+     │
+     ▼
+Human review / corrections
+     │
+     ▼
+Saved history ──► HTML · PDF · JSON · SARIF
 ~~~
 
-**WinGet and Scoop manifests are historical drafts**, not evidence that PenX is available in a public package registry; see [distribution documentation](docs/PACKAGING.md).
+[![Illustrated PenX workflow](assets/penx-demo-flow.svg)](docs/DEMO.md)
 
-## What is PenX?
+*Illustration, not a live scan recording. The [demo guide](docs/DEMO.md) also shows how to generate sample reports from synthetic data without scanning a host.*
 
-**PenX** is an open-source, Windows-first security assessment assistant built on the MIT-licensed [METATRON](https://github.com/sooryathejas/METATRON) project. It unifies scanner output, evidence-aware local-AI assistance, history, review corrections, and reporting in one terminal application.
+## Supported scanners
 
-- **One CLI workflow:** select tools, review results, compare assessments, and manage reports.
-- **Local-first AI:** connect an OpenAI-compatible local LLM API; no paid cloud AI service is required for local inference.
-- **Evidence-based decisions:** structured findings, reviewer corrections, CPE/CVE candidate lookups, NVD/CISA checks, and scan comparisons.
-- **Local storage:** SQLite by default, optional MariaDB integration.
-- **Ready-to-share output:** automatic HTML/PDF for successfully saved assessments, plus saved-session JSON and SARIF exports.
-- **Windows delivery:** batch setup, folder-based PyInstaller releases, and offline CI tests.
+PenX provides **12 scanner adapters** and one separate **[e] endpoint-mapping workflow**. Tools with missing dependencies or failures are reported as unavailable—not silently marked successful.
 
-**Limits:** A CVE catalogue match does not prove host exploitability. PenX is not an exploitation framework, a complete vulnerability guarantee, or a substitute for manual assessment.
-
-## Scanner coverage
-
-There are **12 original scanner tools**, plus a separately selected **[e] endpoint-mapping workflow** that coordinates Katana and ffuf. Missing runtimes, permission errors, or unavailable endpoints are reported rather than silently treated as successful scans.
-
-| Key | Scanner | Purpose | Implementation |
-|:---:|---|---|---|
-| <code>1</code> | **Nmap** | Ports, services and CPE evidence | Native Nmap; some modes require Npcap |
-| <code>2</code> | **WHOIS** | Domain registration | Python integration |
-| <code>3</code> | **WhatWeb** | Web technology fingerprinting | Ruby tool; clearly labeled limited fallback |
-| <code>4</code> | **HTTP headers** | Response/security headers | Python requests |
-| <code>5</code> | **DNS** | DNS record lookup | Python dnspython |
-| <code>6</code> | **Nikto** | Web-server checks | Perl/Nikto, optional |
-| <code>7</code> | **Nuclei** | Bounded HTTP/TLS template checks | Explicit active-scan consent |
-| <code>8</code> | **ProjectDiscovery httpx** | HTTP probing/technology information | Native Go-based scanner |
-| <code>9</code> | **ffuf** | Bounded path discovery | Limited wordlist/rate/time |
-| <code>e</code> | **Katana → ffuf endpoint mapping** | Same-origin paths and parameter-name inventory; directory-targeted GET checks | Explicit consent; sequential, limited crawl/requests |
-| <code>s</code> | **Subfinder** | Passive subdomain inventory | No automatic follow-up scanning |
-| <code>c</code> | **Katana** | Bounded same-host crawling | Explicit active-scan consent |
-| <code>d</code> | **TLS check** | Verified handshake, certificate expiry | Python standard library; not a full cipher audit |
-
-Scanner setup on Windows x64 can install **Nuclei, httpx, ffuf, Subfinder and Katana** from official, SHA-256-verified releases with consent. Other tools have their own upstream dependencies and licenses. PenX does **not** scan newly discovered subdomains automatically.
+| Key | Scanner | Purpose |
+| :---: | --- | --- |
+| `1` | **Nmap** | Ports, services, product and CPE evidence; some modes need Npcap |
+| `2` | **WHOIS** | Domain registration data |
+| `3` | **WhatWeb** | Web technology detection; labeled limited fallback |
+| `4` | **HTTP headers** | Response and security header inspection |
+| `5` | **DNS** | DNS record lookups |
+| `6` | **Nikto** | Optional web-server checks |
+| `7` | **Nuclei** | Bounded HTTP/TLS template checks with consent |
+| `8` | **ProjectDiscovery httpx** | HTTP probing and technology information |
+| `9` | **ffuf** | Bounded path discovery |
+| `s` | **Subfinder** | Passive subdomain inventory; no automatic follow-up scans |
+| `c` | **Katana** | Bounded same-host crawling with consent |
+| `d` | **TLS check** | Certificate and TLS handshake checks, not a full cipher audit |
+| `e` | **Endpoint mapping** *(separate)* | Opt-in Katana → ffuf same-origin workflow |
 
 ### Scan presets
 
 ~~~text
-[0] Passive-Only Recon                 (external source lookups; no active probes)
-[a] Standard Scan                      (tools 1–5)
-[n] Standard Scan + Nikto              (tools 1–6)
-[x] Full Scan                          (all 12; active checks require consent)
-[1–9, s, c, d, e] Individual choices
-[Esc] Back
+[0] Passive-Only Recon             External source lookups; no active probes
+[a] Standard Scan                  Tools 1–5
+[n] Standard Scan + Nikto          Tools 1–6
+[x] Full Scan                      All 12; active checks require consent
+[1–9, s, c, d, e]                  Individual selections
+[Esc]                              Back
 ~~~
 
-For example, enter <code>1 4 8 s d</code> to select five tools. <code>b</code> and <code>back</code> remain navigation aliases; **Subfinder is <code>s</code>**. Nuclei, ffuf and Katana require consent before **any selected tool** begins. Full Scan runs the original 12 adapters sequentially; **[e] is never included automatically**. It is not a scheduled background scan or evidence of successful completion by every tool.
+For example, enter `1 4 8 s d` to select five tools. The separate **[e] workflow is never included in Full Scan**. Passive-Only Recon may still contact external lookup services. Active tools such as Nuclei, ffuf and Katana require explicit consent before starting. Full Scan does not imply every third-party tool completed successfully.
 
-Read [Scanning and reports](docs/SCANNING_AND_REPORTS.md) for scope rules, timeouts, active versus passive scanning, and interpretation of findings.
+[Scanner coverage, scope and timeout details →](docs/SCANNING_AND_REPORTS.md)
 
 ## Local AI and privacy
 
-PenX can pass scanner evidence to a **locally hosted, OpenAI-compatible model API**. Supply your own endpoint, model name and optional authentication key in the local setup wizard or private <code>.env</code>. A compatible running model is needed for AI-assisted assessments.
+PenX passes collected scanner evidence to an **OpenAI-compatible model endpoint you control**. Compatible local servers may include **LM Studio, Ollama or llama.cpp**. Local inference needs no paid cloud AI service, but you must provide and run your own model.
 
-- **Local-first is not fully offline.** Installation downloads dependencies; scanners contact authorized targets; optional WHOIS, RDAP, certificate transparency, Shodan, NVD, CVE and web-search providers contact external services.
-- **Human review matters.** AI can produce unsupported findings, false positives, or incorrect remediation. PenX records evidence and corrections to support review, not replace it.
-- **Keep results private.** History and reports can contain addresses, endpoints, and potentially sensitive evidence. Never commit real <code>.env</code> files, model API keys, or target scan logs.
-- **Redaction is limited.** Export redaction does not remove every identifier or personal datum.
+- **Human review is essential.** AI conclusions and remediation suggestions can be wrong; compare them with scanner evidence and authoritative sources.
+- **CVE research is candidate discovery.** NVD/CPE lookups, package advisories and version applicability can guide investigation, but are not verified host vulnerabilities.
+- **Local AI is not the same as offline scanning.** Setup downloads dependencies, scanners contact authorized targets, and optional WHOIS, RDAP, NVD, certificate-transparency and web-search providers use external services.
+- **Protect sensitive data.** Local SQLite history, optional MariaDB storage and generated reports can include identifiers, endpoints and secrets. Never commit real `.env` files, API keys or scan logs.
+- **Export redaction is limited.** Review any output before publication.
 
-See [Local AI and CVE research](docs/LOCAL_AI_AND_CVE.md) for model setup, authenticated endpoints, source validation and optional local NVD caching.
+[Configure local AI and CVE research →](docs/LOCAL_AI_AND_CVE.md)
 
 ## Reports and exports
 
-After a successfully committed assessment, PenX generates HTML and PDF reports in <code>reports/</code>. Use **[2] View History** to inspect or edit findings, regenerate reports, delete exported files without deleting history, or remove a session with confirmation.
+After a **successfully committed assessment**, PenX generates HTML and PDF reports in `reports/`. Use **[2] View History** to inspect/correct findings, regenerate reports, compare assessments and manage sessions.
 
-Saved sessions can also be exported to **JSON** or **SARIF 2.1.0** without re-running scanners or sending another LLM prompt:
+Export a saved session to JSON or **SARIF 2.1.0** without rescanning or re-prompting the LLM (source installation):
 
 ~~~powershell
 .\.venv\Scripts\python.exe penx.py --export-session 32 --format json --redact
 .\.venv\Scripts\python.exe penx.py --export-session 32 --format sarif --redact
 ~~~
 
-Replace <code>32</code> with an existing session ID. <code>--redact</code> masks selected addresses and target fields, **not all sensitive data**. Review exports before publishing.
+Replace `32` with an actual session ID. `--redact` only masks selected fields, **not all sensitive data**.
 
-## Demo
-
-[![Illustrated PenX workflow](assets/penx-demo-flow.svg)](docs/DEMO.md)
-
-*Illustration, not a live scan recording.* Generate synthetic HTML/PDF sample reports using PenX exporters **without scanning hosts or calling an LLM**:
+To generate example HTML/PDF reports with **synthetic data only**, without scanning a target or contacting an LLM:
 
 ~~~powershell
 python scripts/generate_demo_report.py
 ~~~
 
-See the [offline demo walkthrough](docs/DEMO.md). For an up-to-date feature overview, use the README and the [GitHub Releases page](https://github.com/spk-c/PenX/releases) , not an illustration as proof of a live scan.
+[Demo and sample reports →](docs/DEMO.md)
 
-## Repository layout
+## Safety and limitations
 
-~~~text
-PenX/
-├── penx.py                 # Terminal entry point
-├── src/                    # Scanners, local AI, storage, reporting
-├── tests/                  # Offline regression suites
-├── docs/                   # Detailed user/developer guides
-├── assets/                 # Branding and illustrations
-├── install-windows.bat     # Windows setup
-├── install-scanners.bat    # Retry missing scanners
-├── start-windows.bat       # CLI launcher
-├── run-tests.bat           # Offline tests
-├── build-exe.bat           # Folder-based EXE build
-├── .env.example            # Configuration template (no secrets)
-├── .gitlab-ci.yml          # Optional GitLab mirror pipeline
-└── .github/workflows/      # Active GitHub tests, releases and issue triage
-~~~
+> [!CAUTION]
+> PenX is intended for **authorized defensive research**. It is not an exploitation framework, a vulnerability guarantee or a substitute for manual assessment. Validate all findings independently.
 
-Tagged GitHub Windows releases should publish **PenX-Setup-x64.exe** (installer), **PenX-Windows-x64.zip** (portable), and **SHA256SUMS.txt** after Windows build/test verification. The v0.4.9 Windows assets are now published; every future version still requires its own successful release workflow. The ZIP contains the Python application and first-run setup assistant, **not** the proprietary model or third-party scanner EXEs.
+Third-party runtimes, privileges and networks affect scanner availability. Automated tests and release packaging do **not** establish complete real-world Windows/Npcap/database acceptance; see the [maintenance status](docs/MAINTENANCE_STATUS.md). WinGet and Scoop manifests in this repository are **unpublished drafts**, not proof of public package-registry availability; see [packaging](docs/PACKAGING.md).
 
 ## Documentation
 
-| Guide | Covers |
-|---|---|
-| [Windows setup](WINDOWS.md) | Source and EXE installation, repair, diagnostics |
-| [Scanning and reports](docs/SCANNING_AND_REPORTS.md) | Scanner behavior, scope, evidence, history and exports |
-| [Local AI and CVEs](docs/LOCAL_AI_AND_CVE.md) | Local endpoints, keys, NVD/CVE verification |
-| [Demo](docs/DEMO.md) | Illustrated flow and synthetic reports |
-| [Community launch kit](docs/COMMUNITY_LAUNCH.md) | Sharing guidance, repository metadata and social-preview setup |
-| [Development](docs/DEVELOPMENT.md) | Architecture, offline tests, CI and Windows builds |
-| [Maintenance status](docs/MAINTENANCE_STATUS.md) | Current release, tracked next steps and field acceptance |
-| [GitHub workflow](docs/GITHUB.md) | GitHub Actions, releases and issue triage |
-| [GitLab mirror](docs/GITLAB.md) | Optional GitLab workflow and mirror setup |
-| [Contributing](CONTRIBUTING.md) | Pull requests and development guidelines |
-| [Security policy](SECURITY.md) | Responsible vulnerability disclosure |
+| Guide | Contents |
+| --- | --- |
+| [Windows setup](WINDOWS.md) | Installer, portable edition, dependencies, updates and troubleshooting |
+| [Scanning and reports](docs/SCANNING_AND_REPORTS.md) | Scanner behavior, scope rules, evidence, history and exports |
+| [Local AI and CVE research](docs/LOCAL_AI_AND_CVE.md) | Endpoint configuration, keys and candidate verification |
+| [Demo](docs/DEMO.md) | Illustrated workflow and synthetic reports |
+| [Development](docs/DEVELOPMENT.md) | Architecture, tests, CI and Windows builds |
+| [Maintenance status](docs/MAINTENANCE_STATUS.md) | Published release and pending field acceptance |
+| [Packaging](docs/PACKAGING.md) | GitHub assets and draft distribution manifests |
+| [Contributing](CONTRIBUTING.md) | Code contributions and offline test guidance |
+| [Security policy](SECURITY.md) | Authorized use and responsible disclosure |
 
 ## Contributing
 
-Issues and pull requests are welcome for Windows support, scanner integration, testing, docs, and reproducible bugs. Run <code>python offline_tests.py</code> before submitting a pull request. Remove secrets, private-target details, and personally identifying content from logs and screenshots. Read [CONTRIBUTING.md](CONTRIBUTING.md) and use the [issue tracker](https://github.com/spk-c/PenX/issues).
-
-To report a security issue in PenX itself, follow [SECURITY.md](SECURITY.md) instead of public disclosure. If you find the project useful, consider [starring it](https://github.com/spk-c/PenX/stargazers). See the [community launch kit](docs/COMMUNITY_LAUNCH.md) for accurate sharing examples.
+Issues and pull requests are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) and run `python offline_tests.py` before submitting changes. Remove keys, private target details and personal data from logs or screenshots. Report sensitive PenX vulnerabilities through [SECURITY.md](SECURITY.md), not in a public issue.
 
 ## License and attribution
 
-PenX is released under the **MIT License** ([LICENSE](LICENSE)) and builds on [METATRON by Soorya Thejas](https://github.com/sooryathejas/METATRON). It is an **independent Windows adaptation**, not an official upstream METATRON release. Nmap, Npcap, WhatWeb, Nikto, Nuclei, httpx, ffuf, Subfinder, Katana and other dependencies retain their own licenses.
+PenX uses the [MIT License](LICENSE) and is an **independent Windows-first adaptation** of [METATRON by Soorya Thejas](https://github.com/sooryathejas/METATRON), not an official upstream release. Third-party scanners retain their own licenses.
+
+<p align="center">
+  <strong>Find PenX useful?</strong> <a href="https://github.com/spk-c/PenX/stargazers">Star it</a> ·
+  <a href="https://github.com/spk-c/PenX/releases">Releases</a> ·
+  <a href="https://github.com/spk-c/PenX/issues">Report an issue</a>
+</p>
