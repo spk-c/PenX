@@ -172,7 +172,7 @@ PenX passes collected scanner evidence to an **OpenAI-compatible model endpoint 
 
 ## Reports and exports
 
-After a **successfully committed assessment**, PenX generates HTML and PDF reports in `reports/`. Use **[2] View History** to inspect/correct findings, regenerate reports, compare assessments and manage sessions.
+After a **successfully committed assessment**, PenX generates HTML and PDF reports in `reports/`. Use **[2] View History** to inspect/correct findings, regenerate reports and manage sessions; **[9] Scan Diff & Trends** compares assessments.
 
 Export a saved session to JSON or **SARIF 2.1.0** without rescanning or re-prompting the LLM (source installation):
 
