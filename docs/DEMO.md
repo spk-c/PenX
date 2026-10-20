@@ -6,7 +6,7 @@
 
 ## Five steps
 
-1. [Install from source](../README.md#quick-start). After verified Windows binaries are published, they will be linked from [GitHub Releases](https://github.com/spk-c/PenX/releases).
+1. [Download the official Windows installer or portable ZIP](../README.md#download), or [install from source](../README.md#from-source). The [v0.4.9 release](https://github.com/spk-c/PenX/releases/tag/v0.4.9) includes both Windows packages and SHA-256 checksums.
 2. Keep the **entire extracted portable folder** intact and start **PenX.exe**. At first launch the scanner wizard asks before installing missing third-party components. Scanner binaries and an LLM are not bundled.
 3. If using AI analysis, start your own local Ollama, LM Studio or llama.cpp server and complete the guided LLM setup.
 4. Choose **[1] New Scan**, supply an IP/domain you own or are expressly authorized to assess, then select the scanners. **0** in the tool picker means Passive-Only Recon, **a** selects tools 1–5, **n** adds Nikto, and **x** selects all 12 tools (with active-scan confirmation). Passive providers receive lookup queries.
