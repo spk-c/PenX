@@ -18,7 +18,7 @@ The artwork at [assets/penx-social-preview.svg](../assets/penx-social-preview.sv
 
 ## Download guidance
 
-Until tested Windows assets are released, point users to the [source installation](../README.md#quick-start). After release, verify **PenX-Setup-x64.exe**, **PenX-Windows-x64.zip**, and **SHA256SUMS.txt** are attached to the same official release. Source archives are not executable Windows builds.
+The [published v0.4.9 Windows release](https://github.com/spk-c/PenX/releases/tag/v0.4.9) offers both installer and portable ZIP downloads. Before sharing links, verify **PenX-Setup-x64.exe**, **PenX-Windows-x64.zip**, and **SHA256SUMS.txt** are attached to the same official release. GitHub's automatic source archives are not executable Windows builds.
 
 - Preserve the complete portable application folder; it is not a single EXE.
 - External scanners and optional local AI models are not bundled.
