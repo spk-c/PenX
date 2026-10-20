@@ -152,7 +152,7 @@ def discover_local_backends(*, list_models=None) -> list[tuple[str, str, list[st
     found = []
     for hint, base in _DISCOVERY_ENDPOINTS:
         try:
-            models = lookup(base + "/v1/models", timeout=1.5)
+            models = lookup(base + "/v1/models", timeout=2)
         except (requests.exceptions.RequestException, ValueError):
             continue
         if models:
