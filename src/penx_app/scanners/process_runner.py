@@ -281,7 +281,7 @@ def _run_tool_live(command: list[str], timeout: int, cwd: str | None,
                 retained = encoded[:room]
                 output.append(retained)
                 used += len(retained)
-_emit_line("  [SCAN] " + _terminal_safe_text(
+                _emit_line("  [SCAN] " + _terminal_safe_text(
                     retained.decode("utf-8", errors="replace").rstrip("\r\n")
                 ))
         proc.wait(timeout=5 if (timed_out or cancelled)

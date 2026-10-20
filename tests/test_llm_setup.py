@@ -71,7 +71,8 @@ class LlmSetupTests(unittest.TestCase):
         self.assertEqual(data["PENX_DB_ENGINE"], "sqlite")
         self.assertIn("# A retained comment", (self.root / ".env").read_text(encoding="utf-8"))
         self.assertIn("[OK] AI responded", output.getvalue())
-        self.assertEqual(complete.call_args.kwargs["max_tokens"], 24)
+        self.assertTrue(any(call.kwargs["max_tokens"] == 24
+                            for call in complete.call_args_list))
 
     def test_api_key_getpass_hidden_preserves_special_characters(self):
         replies = iter(["3", "", "y", "1", "n", "y", "y"])

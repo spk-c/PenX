@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from urllib.parse import urlsplit, urlunsplit
 from collections.abc import Callable
+from typing import TypedDict
 import json
 import requests
 
@@ -210,6 +211,109 @@ def _validated_chat_payload(data: object) -> dict:
     return data
 
 
+
+def _unsupported_top_k(exc: requests.exceptions.HTTPError) -> bool:
+    """Recognize an explicit unsupported-parameter error, never a generic failure.
+
+    Do not print provider error bodies: they can contain private scan prompts.
+    Only a known 400/422 top_k rejection qualifies for a single safe retry.
+    """
+    response = getattr(exc, "response", None)
+    if response is None or response.status_code not in (400, 422):
+        return False
+    try:
+        detail = json.dumps(response.json(), ensure_ascii=True)[:4096].lower()
+    except (TypeError, ValueError, requests.exceptions.RequestException):
+        return False
+    return ("top_k" in detail and any(phrase in detail for phrase in (
+        "unknown", "unrecognized", "unexpected", "unsupported", "not supported",
+        "not permitted", "extra inputs", "additional properties", "extra_forbidden",
+    )))
+
+
+def _post_compatible(post: Callable, url: str, payload: dict, *,
+                     api_key: str, timeout: int, stream: bool = False):
+    """Retry exactly once without nonstandard top_k when rejected explicitly.
+
+    Authentication, network errors, timeouts, and other 4xx/5xx are never retried.
+    No response or provider capability state is shared across requests.
+    """
+    options = {"json": payload, "headers": api_headers(api_key), "timeout": timeout}
+    if stream:
+        options["stream"] = True
+    response = post(url, **options)
+    try:
+        response.raise_for_status()
+    except requests.exceptions.HTTPError as exc:
+        compatible = "top_k" in payload and _unsupported_top_k(exc)
+        response.close()
+        if not compatible:
+            raise
+        reduced = {key: value for key, value in payload.items() if key != "top_k"}
+        response = post(url, **{**options, "json": reduced})
+        try:
+            response.raise_for_status()
+        except BaseException:
+            response.close()
+            raise
+    return response
+
+
+class _ProbeArguments(TypedDict):
+    url: str
+    models_url: str
+    model_name: str
+    api_key: str
+    timeout: int
+    max_tokens: int
+    top_k: int
+    temperature: float
+
+
+def probe_model_capabilities(*, url: str, models_url: str, model_name: str,
+                             api_key: str = "", timeout: int = 25,
+                             chat: Callable | None = None) -> dict[str, bool]:
+    """Opt-in setup probes against the selected endpoint, never a scan target.
+
+    Distinguish a working chat API, streaming, and enforced JSON formats.
+    A failed probe is reported as unavailable, not proof a server lacks support.
+    """
+    ask = complete_chat if chat is None else chat
+    common: _ProbeArguments = {"url": url, "models_url": models_url, "model_name": model_name,
+              "api_key": api_key, "timeout": timeout, "max_tokens": 128,
+              "top_k": 10, "temperature": 0.0}
+    results = {"chat": False, "streaming": False, "json_schema": False,
+               "json_object": False}
+    try:
+        _, answer = ask([{"role": "user", "content": "Reply OK."}], **common)
+        results["chat"] = bool(answer.strip())
+    except (requests.exceptions.RequestException, ValueError):
+        return results
+
+    try:
+        chunks: list[str] = []
+        _, answer = ask([{"role": "user", "content": "Reply OK."}],
+                        **common, stream_callback=chunks.append)
+        results["streaming"] = bool(answer.strip())
+    except (requests.exceptions.RequestException, ValueError):
+        pass
+
+    schema = {"type": "object", "properties": {"ok": {"type": "boolean"}},
+              "required": ["ok"], "additionalProperties": False}
+    json_prompt = [{"role": "user", "content": 'Return only JSON: {"ok": true}'}]
+    for name, fmt in (
+        ("json_schema", {"type": "json_schema", "json_schema": {
+            "name": "penx_probe", "strict": True, "schema": schema}}),
+        ("json_object", {"type": "json_object"}),
+    ):
+        try:
+            _, answer = ask(json_prompt, **common, response_format=fmt)
+            result = json.loads(answer)
+            results[name] = isinstance(result, dict) and result.get("ok") is True
+        except (requests.exceptions.RequestException, ValueError, TypeError):
+            pass
+    return results
+
 def complete_chat(messages: list, *, url: str, models_url: str, model_name: str,
                   api_key: str = "", max_tokens: int = 8192, timeout: int = 600,
                   temperature: float = 0.7, top_k: int = 10,
@@ -241,7 +345,7 @@ def complete_chat(messages: list, *, url: str, models_url: str, model_name: str,
     if response_format is not None:
         payload["response_format"] = response_format
     if not stream:
-        response = post(url, json=payload, headers=api_headers(api_key), timeout=timeout)
+        response = _post_compatible(post, url, payload, api_key=api_key, timeout=timeout)
         try:
             response.raise_for_status()
             data = _validated_chat_payload(response.json())
@@ -263,9 +367,8 @@ def complete_chat(messages: list, *, url: str, models_url: str, model_name: str,
             # release its connection, even for malformed or truncated JSON.
             response.close()
 
-    with post(url, json=payload, headers=api_headers(api_key),
-              timeout=timeout, stream=True) as response:
-        response.raise_for_status()
+    with _post_compatible(post, url, payload, api_key=api_key,
+                          timeout=timeout, stream=True) as response:
         if "text/event-stream" not in response.headers.get("content-type", "").lower():
             data = _validated_chat_payload(response.json())
             body = extract_chat_text(data)

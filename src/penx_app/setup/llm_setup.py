@@ -17,13 +17,26 @@ from dotenv import dotenv_values
 import requests
 
 from penx_app.app_paths import APP_ROOT
-from penx_app.analysis.llm_client import complete_chat, explain_http_error, fetch_models, normalize_base_url
+from penx_app.analysis.llm_client import (complete_chat, explain_http_error,
+    fetch_models, normalize_base_url, probe_model_capabilities)
 
 _BACKENDS = (
     ("LM Studio", "http://127.0.0.1:1234"),
     ("Ollama", "http://127.0.0.1:11434"),
     ("llama.cpp / llama-server", "http://127.0.0.1:8080"),
     ("Other OpenAI-compatible API", "http://127.0.0.1:1234"),
+    ("Discover running local API", ""),
+)
+
+# Fixed loopback endpoints only. Ports are hints, not provider fingerprints.
+_DISCOVERY_ENDPOINTS = (
+    ("LM Studio (typical port)", "http://127.0.0.1:1234"),
+    ("llama.cpp / NInfer / LocalAI (typical port)", "http://127.0.0.1:8080"),
+    ("Ollama (typical port)", "http://127.0.0.1:11434"),
+    ("vLLM (typical port)", "http://127.0.0.1:8000"),
+    ("SGLang (typical port)", "http://127.0.0.1:30000"),
+    ("TabbyAPI (typical port)", "http://127.0.0.1:5000"),
+    ("KoboldCpp (typical port)", "http://127.0.0.1:5001"),
 )
 _KEYS = ("PENX_LLM_URL", "PENX_MODEL", "PENX_LLM_API_KEY")
 
@@ -128,6 +141,25 @@ def save_settings(root: Path, *, url: str, model: str, api_key: str) -> Path:
     return target
 
 
+
+def discover_local_backends(*, list_models=None) -> list[tuple[str, str, list[str]]]:
+    """Find model APIs on known localhost ports without scanning the LAN.
+
+    This is endpoint discovery, not authoritative provider identification. An
+    authenticated server may need manual configuration (menu option 4).
+    """
+    lookup = fetch_models if list_models is None else list_models
+    found = []
+    for hint, base in _DISCOVERY_ENDPOINTS:
+        try:
+            models = lookup(base + "/v1/models", timeout=2)
+        except (requests.exceptions.RequestException, ValueError):
+            continue
+        if models:
+            found.append((hint, base, models))
+    return found
+
+
 def setup_wizard(root: Path = APP_ROOT) -> bool:
     """Run the whole wizard; caller handles cancellation and noninteractive cases."""
     existing = effective_settings(root)
@@ -147,11 +179,25 @@ def setup_wizard(root: Path = APP_ROOT) -> bool:
         print("\nSelect local LLM backend:")
         for n, (label, default_url) in enumerate(_BACKENDS, 1):
             print(f"  [{n}] {label}  ({default_url})")
-        choice = _ask("Backend 1-4", "1")
-        if choice not in ("1", "2", "3", "4"):
-            print("[WARN] Select 1, 2, 3 or 4.")
+        choice = _ask("Backend 1-5", "1")
+        if choice not in ("1", "2", "3", "4", "5"):
+            print("[WARN] Select 1, 2, 3, 4 or 5.")
             continue
-        default = _BACKENDS[int(choice) - 1][1]
+        if choice == "5":
+            print("[*] Checking known localhost model API ports (no network scan)...")
+            detected = discover_local_backends()
+            if not detected:
+                print("[WARN] No unauthenticated local models found. Try option 4.")
+                continue
+            for index, (hint, base, models) in enumerate(detected, 1):
+                print(f"  [{index}] {base} — {hint} ({len(models)} model(s))")
+            selected = _ask("Choose detected endpoint", "1")
+            if not selected.isdigit() or not 1 <= int(selected) <= len(detected):
+                print("[WARN] Invalid detected endpoint.")
+                continue
+            default = detected[int(selected) - 1][1]
+        else:
+            default = _BACKENDS[int(choice) - 1][1]
         entered_url = (existing["PENX_LLM_URL"] if choice == "4" and existing["PENX_LLM_URL"]
                        else default)
         while True:
@@ -228,6 +274,16 @@ def setup_wizard(root: Path = APP_ROOT) -> bool:
                 else:
                     tested = True
                     print("[OK] AI responded via " + resolved)
+                    print("[*] Checking streaming and structured output...")
+                    capabilities = probe_model_capabilities(
+                        url=base + "/v1/chat/completions",
+                        models_url=base + "/v1/models", model_name=model,
+                        api_key=key, chat=complete_chat)
+                    for name in ("streaming", "json_schema", "json_object"):
+                        state = "OK" if capabilities[name] else "unverified/unavailable"
+                        print(f"  {name}: {state}")
+                    if not (capabilities["json_schema"] or capabilities["json_object"]):
+                        print("[INFO] PENX_STRUCTURED_OUTPUT=auto can use legacy text fallback.")
             except requests.exceptions.HTTPError as exc:
                 print("[WARN] " + explain_http_error(exc))
             except (requests.exceptions.RequestException, ValueError) as exc:
