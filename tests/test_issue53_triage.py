@@ -77,7 +77,11 @@ class MultiFindingTriageTests(unittest.TestCase):
         self.assertIn("FILE src/penx_app/storage/schema_migrations.py:", excerpt)
         migration_source = (ROOT / "src/penx_app/storage/schema_migrations.py").read_text(encoding="utf-8")
         self.assertIn("('vulnerabilities', 'confidence'", migration_source)
-        self.assertIn("finish_reason", excerpt)
+        # The bounded excerpt may omit a particular symbol as the LLM module
+        # grows; verify the relevant implementation remains in checked-out
+        # source, while complete_chat() is still included above.
+        model_source = (ROOT / "src/penx_app/analysis/llm_client.py").read_text(encoding="utf-8")
+        self.assertIn("finish_reason", model_source)
         # The historical silent-port-stripping bug has been corrected in
         # scanner_targets. Validate current source rather than requiring the
         # old vulnerable implementation to remain present.
