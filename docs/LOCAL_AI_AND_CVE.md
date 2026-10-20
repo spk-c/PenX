@@ -6,6 +6,50 @@ Configuration, authentication, source verification and CVE interpretation. Comma
 
 PenX works with a compatible local AI endpoint. You supply the model; PenX does **not** ship or automatically train a proprietary security model.
 
+### Generic OpenAI-compatible local servers
+
+PenX uses `/v1/chat/completions` and optionally `/v1/models`. The existing
+`--llm-setup` wizard supports **[4] Other OpenAI-compatible API** for any
+reachable HTTP(S) model server (for example NInfer, vLLM, SGLang, TabbyAPI or
+LocalAI), and **[5] Discover running local API** to list models exposed on a
+small, fixed set of **127.0.0.1** ports (1234, 8080, 11434, 8000, 30000,
+5000, 5001). Port hints are not authenticated server fingerprints; model
+servers on custom ports or requiring a key should be configured manually.
+No subnet, remote host or scan target is probed during discovery.
+
+For example, with NInfer or llama.cpp listening on port 8080:
+
+```dotenv
+PENX_LLM_URL=http://127.0.0.1:8080/v1
+PENX_MODEL=auto
+PENX_LLM_API_KEY=
+PENX_STRUCTURED_OUTPUT=auto
+```
+
+`PENX_MODEL=auto` works only when `GET /v1/models` lists exactly one
+model; otherwise select its exact ID. Enter the API key if enabled.
+URLs may be a server root, `/v1` base, or full chat-completions URL;
+PenX normalizes these without appending `/v1` twice.
+
+The setup wizard offers a short chat test. When accepted, PenX also checks
+streaming and JSON Schema/JSON-object output using small synthetic messages,
+without any scanner evidence. An `unverified/unavailable` result is not
+proof the backend never supports that feature. Compatibility depends on the
+**server version, model and options**, not only the server name.
+
+**Sampler compatibility:** `top_k` is a nonstandard OpenAI extension.
+When a backend explicitly rejects it with HTTP 400/422, PenX retries that
+chat request **once without `top_k`**. It does not retry authentication errors,
+generic malformed requests, server errors or network failures. JSON Schema
+is tried before JSON-object mode; `PENX_STRUCTURED_OUTPUT=auto` can fall
+back to the legacy text parser if structured results cannot be obtained.
+For NInfer, constrained formats generally require the server's
+`--structured-output` flag.
+
+If using a remote endpoint, restrict access and use HTTPS / a secure tunnel:
+prompts can contain sensitive scanner evidence, and loopback-only discovery
+does **not** automatically configure remote servers.
+
 ### Option A — LM Studio
 
 1. Install [LM Studio](https://lmstudio.ai/), download a compatible model, and start its local API server.
