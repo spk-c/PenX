@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from urllib.parse import urlsplit, urlunsplit
 from collections.abc import Callable
+from typing import TypedDict
 import json
 import requests
 
@@ -258,6 +259,17 @@ def _post_compatible(post: Callable, url: str, payload: dict, *,
     return response
 
 
+class _ProbeArguments(TypedDict):
+    url: str
+    models_url: str
+    model_name: str
+    api_key: str
+    timeout: int
+    max_tokens: int
+    top_k: int
+    temperature: float
+
+
 def probe_model_capabilities(*, url: str, models_url: str, model_name: str,
                              api_key: str = "", timeout: int = 25,
                              chat: Callable | None = None) -> dict[str, bool]:
@@ -267,7 +279,7 @@ def probe_model_capabilities(*, url: str, models_url: str, model_name: str,
     A failed probe is reported as unavailable, not proof a server lacks support.
     """
     ask = complete_chat if chat is None else chat
-    common = {"url": url, "models_url": models_url, "model_name": model_name,
+    common: _ProbeArguments = {"url": url, "models_url": models_url, "model_name": model_name,
               "api_key": api_key, "timeout": timeout, "max_tokens": 128,
               "top_k": 10, "temperature": 0.0}
     results = {"chat": False, "streaming": False, "json_schema": False,
