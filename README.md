@@ -160,8 +160,9 @@ For example, enter `1 4 8 s d` to select five tools. The separate **[e] workflow
 
 ## Local AI and privacy
 
-PenX passes collected scanner evidence to an **OpenAI-compatible model endpoint you control**. Compatible local servers may include **LM Studio, Ollama or llama.cpp**. Local inference needs no paid cloud AI service, but you must provide and run your own model.
+PenX passes collected scanner evidence to an **OpenAI-compatible model endpoint you control**. Compatible local servers may include **LM Studio, Ollama, llama.cpp, NInfer, vLLM, SGLang, TabbyAPI or LocalAI** (depending on API support). Local inference needs no paid cloud AI service, but you must provide and run your own model.
 
+- **Backend discovery and compatibility:** `PenX.exe --llm-setup` offers an option to discover local model APIs on common loopback ports, select a model and check streaming/JSON formats. A nonstandard `top_k` argument is removed on one explicit unsupported-parameter retry. See [Local AI setup](docs/LOCAL_AI_AND_CVE.md).
 - **Human review is essential.** AI conclusions and remediation suggestions can be wrong; compare them with scanner evidence and authoritative sources.
 - **CVE research is candidate discovery.** NVD/CPE lookups, package advisories and version applicability can guide investigation, but are not verified host vulnerabilities.
 - **Local AI is not the same as offline scanning.** Setup downloads dependencies, scanners contact authorized targets, and optional WHOIS, RDAP, NVD, certificate-transparency and web-search providers use external services.
