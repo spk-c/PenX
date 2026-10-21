@@ -409,7 +409,8 @@ def compare_sessions(older: dict, newer: dict) -> dict:
         ] if oldcomplete and newcomplete else [],
         "port_comparison_reliable": bool(oldcomplete and newcomplete),
         "shodan_internetdb": _shodan_diff(older, newer),
-        "note": ("No finding is automatically marked resolved. A negative recheck "
+        "note": ("Not observed is not confirmed fixed. No finding is automatically "
+                 "marked resolved. A negative recheck "
                  "with completed, comparable scanner coverage is still only "
                  "not_observed; missing tools, partial scans and unknown "
                  "provenance are kept separate as scan_failed/not_checked. "
