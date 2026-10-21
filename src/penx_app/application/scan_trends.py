@@ -316,6 +316,13 @@ def compare_sessions(older: dict, newer: dict) -> dict:
     host_scoped = _needs_host_identity(older) or _needs_host_identity(newer)
     oldports, oldcomplete = _ports(older, host_scoped=host_scoped)
     newports, newcomplete = _ports(newer, host_scoped=host_scoped)
+    # A text completion footer is not authoritative when saved adapter
+    # metadata explicitly says Nmap was skipped, partial or failed.
+    previous_coverage, latest_coverage = scanner_coverage(older), scanner_coverage(newer)
+    if previous_coverage:
+        oldcomplete = oldcomplete and previous_coverage.get("NMAP") == "COMPLETE"
+    if latest_coverage:
+        newcomplete = newcomplete and latest_coverage.get("NMAP") == "COMPLETE"
     oldfindings, newfindings = _findings(older), _findings(newer)
     fresh, missing, changed, still = [], [], [], []
     # Match identical severities first, independent of insertion order.
