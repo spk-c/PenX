@@ -298,6 +298,19 @@ def render_terminal_pdf(r, destination, paragraph, severity, counts, summary, se
             "small"
         ))
 
+    if r.get("php2shell"):
+        p2s = r["php2shell"]
+        section("+", "PHP2Shell security advisory")
+        version_labels = ", ".join(
+            item["php_version"] + " (" + item["source"] + ")"
+            for item in p2s["observations"]
+        ) or "None"
+        story.append(safe("CVEs: " + ", ".join(p2s["cve_ids"]), "small"))
+        story.append(safe("Release posture: " + p2s["status"], "small"))
+        story.append(safe("Observed version banners: " + version_labels, "small"))
+        story.append(safe(p2s["recommended_action"], "small"))
+        story.append(safe(p2s["limitations"], "small"))
+
     section("01", "Findings", len(r["findings"]))
     if r.get("cve_warning"):
         story.append(safe("CVE IDENTITY ADVISORY: " + r["cve_warning"], "small"))

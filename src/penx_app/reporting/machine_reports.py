@@ -119,6 +119,8 @@ def report_payload(data: dict, *, redact: bool = False) -> dict:
         raise ValueError("Cannot export a missing or incomplete saved assessment")
     target = str(history[1] or "")
     raw = str(summary[2] or "")
+    from penx_app.intelligence.php2shell_audit import assess_php2shell
+    php2shell = assess_php2shell(raw)
     findings = [_finding(row, raw, target, redact, session=data)
                 for row in ReportView.from_session(data).active_findings]
     return {
@@ -128,6 +130,7 @@ def report_payload(data: dict, *, redact: bool = False) -> dict:
         "scan_date": str(history[2]),
         "risk": str(summary[4] or "UNKNOWN").upper(),
         "findings": findings,
+        "php2shell": php2shell,
         "limitations": [
             "AI conclusions are hypotheses until independently verified.",
             "Scanner-quote-matched means an exact quote exists; not proof of exploitability.",
@@ -178,7 +181,10 @@ def sarif_payload(data: dict, *, redact: bool = False) -> dict:
                 "rules": list(rules.values()),
             }},
             "results": results,
-            "properties": {"limitations": report["limitations"]},
+            "properties": {
+                "php2shell": report["php2shell"],
+                "limitations": report["limitations"],
+            },
         }],
     }
 
