@@ -42,7 +42,7 @@ class GitHubRepositoryConfigurationTests(unittest.TestCase):
         # package hashes MUST remain pinned to a real earlier release until
         # the next build's checksums are verified; never invent a new digest.
         published_version = manifest["version"]
-        self.assertRegex(published_version, r"^\\d+\\.\\d+\\.\\d+$")
+        self.assertRegex(published_version, r"^\d+\.\d+\.\d+$")
         self.assertGreaterEqual(
             tuple(map(int, VERSION.split("."))),
             tuple(map(int, published_version.split("."))),
