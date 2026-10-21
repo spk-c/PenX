@@ -29,7 +29,7 @@ def audit_cli(args: list[str]) -> int:
         description="Offline-only PHP2Shell log/configuration triage, never an exploit."
     )
     parser.add_argument("--scan-file", help="Previously saved PenX scanner output")
-    parser.add_argument("--php-ini", help="Local php.ini; not proof of effective settings")
+    parser.add_argument("--php-ini", help="Local php.ini or PHP-FPM pool config; not proof of effective settings")
     parser.add_argument("--access-log", help="Local HTTP access log")
     parser.add_argument("--error-log", help="Local PHP/Apache error log")
     parsed = parser.parse_args(args)
