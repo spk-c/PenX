@@ -4,6 +4,29 @@ from penx_app.application.scanner_selection import resolve_scanner_selection
 from penx_app.cli.scanner_cancellation import scanner_cancellation
 from penx_app.domain.scan_models import ReconChoice, ScannerOutput
 
+
+def _preflight_summary(target: str, keys: tuple[str, ...]) -> None:
+    """Informational availability summary right before the scan starts.
+
+    Never blocks the scan and never changes its outcome; any failure is
+    swallowed so the picker keeps its historical behavior.
+    """
+    try:
+        from penx_app.application.preflight import build_preflight
+        from penx_app.application.scan_profiles import build_custom_plan
+        plan = build_custom_plan(target, keys, active_consent=True)
+        report = build_preflight(plan)
+        missing = [item for item in report.availability if not item.available]
+        if missing:
+            details = '; '.join(
+                item.display_name + ': ' + ', '.join(item.missing)
+                for item in missing)
+            print('[*] Preflight (dry run): missing — ' + details)
+        else:
+            print('[*] Preflight (dry run): all scheduled scanners available.')
+    except Exception:
+        pass
+
 def interactive_tool_run(target: str, *, menu: dict, formatter) -> str | ReconChoice | None:
     """Choose bounded scanner presets; obtain consent before active discovery."""
     from penx_app.cli.cli_navigation import is_back, show_back, navigation_input
@@ -39,6 +62,7 @@ def interactive_tool_run(target: str, *, menu: dict, formatter) -> str | ReconCh
         if consent not in ('y', 'yes', 'j', 'ja'):
             print('[*] Active web checks cancelled; no scanner was started.')
             return None
+    _preflight_summary(target, tuple(dict.fromkeys(selected_keys)))
     from penx_app.application.scanner_execution import run_selected_structured
     from penx_app.domain.scan_models import ScanRequest
     request = ScanRequest(target, tuple(dict.fromkeys(selected_keys)), active_consent=True)

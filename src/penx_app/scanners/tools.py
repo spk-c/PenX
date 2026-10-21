@@ -84,6 +84,17 @@ def _executable(tool: str, override: str = '') -> str | None:
     return None
 
 
+def tool_path(tool: str) -> str | None:
+    """Shared binary resolution: PENX_<TOOL>_PATH override, then PATH lookup.
+
+    Preflight and live adapters share this single resolution path so an
+    availability check and the actual dispatch always agree on which binary a
+    scanner would use.
+    """
+    override = os.environ.get(f'PENX_{tool.upper()}_PATH', '').strip().strip('"')
+    return _executable(tool, override)
+
+
 def tool_status() -> dict[str, str]:
     ruby = find_runtime('ruby')
     perl = find_runtime('perl')
