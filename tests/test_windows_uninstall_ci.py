@@ -8,7 +8,7 @@ CI = Path(__file__).resolve().parents[1] / ".github" / "workflows" / "ci.yml"
 class WindowsUninstallCIContractTests(unittest.TestCase):
     def test_per_user_installer_smoke_includes_actual_uninstaller(self):
         workflow = CI.read_text(encoding="utf-8")
-        self.assertIn("Windows installer build and installed EXE smoke test (PR)", workflow)
+        self.assertIn("Windows installer build and installed EXE smoke test (manual)", workflow)
         self.assertIn("Join-Path $smoke \"unins000.exe\"", workflow)
         self.assertIn("Start-Process -FilePath $uninstaller", workflow)
         self.assertIn("/VERYSILENT", workflow)

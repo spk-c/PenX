@@ -1,10 +1,7 @@
 name: AI issue triage
 
 on:
-  # Retry one open deferred/unverified issue daily (UTC); new issues
-  # are still reviewed immediately by the issues: opened trigger.
-  schedule:
-    - cron: '17 6 * * *'
+  # Event-driven only: new issues and maintainer rechecks; no daily run.
   issues:
     types: [opened]
   # Maintainer-only re-review command on an existing issue.

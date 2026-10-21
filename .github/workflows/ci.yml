@@ -1,19 +1,13 @@
 name: Offline tests
 
 on:
-  push:
-    branches: [main]
-    paths-ignore:
-      - '**/*.md'
-      - 'assets/**'
-  # Always test pull requests, including documentation-only changes, so
-  # required branch-protection checks are never silently skipped.
+  # Automatic Linux validation on PRs; no duplicated post-merge main runs.
+  # No PR paths filter so required checks are always reported.
   pull_request:
   workflow_dispatch:
 
-# Automatic feature-branch validation happens on PRs rather than on every
-# feature-branch push, avoiding duplicate runs and PR runner queue contention.
-# Manual branch test runs remain available via workflow_dispatch.
+# Expensive Windows jobs run by manual dispatch, or in the tagged release
+# workflow. PRs still run the complete Linux offline/test/lint gate.
 concurrency:
   group: offline-tests-${{ github.workflow }}-${{ github.event.pull_request.head.repo.full_name || github.repository }}-${{ github.head_ref || github.ref_name }}
   cancel-in-progress: true
@@ -26,12 +20,9 @@ permissions:
 
 jobs:
   tests:
-    runs-on: ${{ matrix.os }}
+    name: tests (ubuntu-latest)
+    runs-on: ubuntu-latest
     timeout-minutes: 25
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [windows-latest, ubuntu-latest]
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-python@v7
@@ -55,61 +46,88 @@ jobs:
         run: |
           python -m pip install --disable-pip-version-check "ruff>=0.13,<1"
           python -m ruff check --select E9,F63,F7,F82 penx.py src scripts tests
-          # Gradually enforce unused-import hygiene in the extracted modules
-          # without mixing a repository-wide formatting change into refactoring.
-          python -m ruff check --select F401 src/penx_app/application/scan_outcome.py src/penx_app/reporting/report_batch.py src/penx_app/application/scanner_execution.py src/penx_app/scanners/scan_results.py src/penx_app/analysis/llm_client.py src/penx_app/analysis/analysis_pipeline.py src/penx_app/analysis/structured_scan_evidence.py src/penx_app/analysis/scan_input_budget.py src/penx_app/application/risk_assessment.py src/penx_app/application/scan_recovery.py src/penx_app/application/scan_trends.py src/penx_app/storage/schema_migrations.py src/penx_app/storage/correction_repository.py src/penx_app/reporting/export.py src/penx_app/reporting/report_design.py src/penx_app/intelligence/search.py src/penx_app/storage/db_backend.py src/penx_app/storage/evaluation_repository.py src/penx_app/cli/scanner_menu.py src/penx_app/cli/db_display.py src/penx_app/intelligence/source_verification.py src/penx_app/intelligence/vendor_status.py src/penx_app/intelligence/wordpress_advisories.py src/penx_app/intelligence/shodan_enrichment.py src/penx_app/intelligence/cve_priority.py src/penx_app/scanners/process_runner.py src/penx_app/application/scanner_selection.py src/penx_app/cli/scanner_cancellation.py src/penx_app/cli/cli_navigation.py src/penx_app/scanners/registry.py src/penx_app/cli/cli_views.py src/penx_app/analysis/parsers.py src/penx_app/intelligence/cve_observations.py
-      - name: Type check critical Windows installer modules
-        if: runner.os == 'Linux'
-        run: |
-          python -m pip install --disable-pip-version-check "mypy>=1.15,<2"
-          python -m mypy --follow-imports=skip --ignore-missing-imports --no-incremental src/penx_app/setup/windows_python_setup.py src/penx_app/setup/native_scanner_setup.py src/penx_app/scanners/native_web_scanners.py src/penx_app/domain src/penx_app/application/assessment_service.py src/penx_app/settings.py src/penx_app/storage/session_repository.py src/penx_app/application/scan_outcome.py src/penx_app/application/scanner_execution.py src/penx_app/reporting/report_batch.py src/penx_app/scanners/scan_results.py src/penx_app/analysis/llm_client.py src/penx_app/analysis/scan_input_budget.py src/penx_app/application/scan_recovery.py src/penx_app/storage/schema_migrations.py src/penx_app/storage/correction_repository.py src/penx_app/reporting/export.py src/penx_app/reporting/report_design.py src/penx_app/intelligence/search.py src/penx_app/storage/db_backend.py src/penx_app/storage/evaluation_repository.py src/penx_app/cli/scanner_menu.py src/penx_app/cli/db_display.py src/penx_app/intelligence/source_verification.py src/penx_app/application/scan_trends.py src/penx_app/application/risk_assessment.py src/penx_app/analysis/structured_scan_evidence.py src/penx_app/analysis/analysis_pipeline.py src/penx_app/application/scanner_selection.py src/penx_app/cli/scanner_cancellation.py src/penx_app/cli/cli_navigation.py src/penx_app/scanners/registry.py src/penx_app/cli/cli_views.py src/penx_app/analysis/parsers.py src/penx_app/intelligence/cve_observations.py
-      # Distinct from the incremental quality gates above: audit the entire
-      # maintained application package, so newly added modules are included.
+      # One full-tree Ruff and one mypy pass replace duplicated subset checks.
       - name: Full-tree Ruff unused-import gate
         if: runner.os == 'Linux'
         run: python -m ruff check --select F401 src/penx_app
       - name: Full-tree mypy gate
         if: runner.os == 'Linux'
-        run: python -m mypy --follow-imports=skip --ignore-missing-imports --no-incremental src/penx_app
+        run: |
+          python -m pip install --disable-pip-version-check "mypy>=1.15,<2"
+          python -m mypy --follow-imports=skip --ignore-missing-imports --no-incremental src/penx_app
       - name: All offline regression tests
         run: python offline_tests.py
-      - name: Windows scanner subprocess and descendant smoke (synthetic)
-        if: runner.os == 'Windows'
-        # A real hosted Windows process-tree test, NOT Npcap/UAC field acceptance.
-        env:
-          PYTHONPATH: src
-        run: python -m unittest discover -s tests -p test_windows_scanner_integration.py -v
       - name: Measure synthetic refactor baseline
         run: >
           python scripts/refactor_benchmarks.py --runs 3
           --check-thresholds scripts/benchmark_thresholds.json
           --output refactor-benchmark.json
       - name: Upload synthetic baseline
-        if: github.ref == 'refs/heads/main' || github.event_name == 'pull_request'
+        if: github.event_name == 'workflow_dispatch'
         uses: actions/upload-artifact@v7
         with:
-          name: refactor-baseline-${{ matrix.os }}
+          name: refactor-baseline-ubuntu-latest
           path: refactor-benchmark.json
           if-no-files-found: error
           retention-days: 7
       - name: Generate CVE fixture quality report
         run: python cve_quality.py --json > cve-quality-report.json
       - name: Upload CVE quality report
-        if: github.ref == 'refs/heads/main' || github.event_name == 'pull_request'
+        if: github.event_name == 'workflow_dispatch'
         uses: actions/upload-artifact@v7
         with:
-          name: cve-quality-${{ matrix.os }}
+          name: cve-quality-ubuntu-latest
           path: cve-quality-report.json
           if-no-files-found: error
           retention-days: 3
 
-  # Building PyInstaller and the Inno Setup installer used to run in the
-  # Windows regression-test matrix job, delaying the Windows test check.
-  # Run independent packaging verification in parallel instead. Keep the
-  # same EXE and installed-mode smoke checks on PRs and main.
+  tests-windows:
+    name: tests (windows-latest)
+    # This required check reports skipped for ordinary PRs, consuming no
+    # Windows runner minutes. Run manually before sensitive releases.
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: windows-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.13'
+          cache: pip
+          cache-dependency-path: requirements.lock.txt
+      - name: Install hash-locked runtime dependencies
+        run: |
+          python -m pip install --disable-pip-version-check --prefer-binary --require-hashes -r requirements.lock.txt
+          python -m pip check
+      - name: Verify Python syntax on Windows
+        run: python -m compileall -q penx.py src scripts tests
+      - name: All offline regression tests (Windows)
+        run: python offline_tests.py
+      - name: Windows scanner subprocess and descendant smoke (synthetic)
+        # A real hosted Windows process-tree test, NOT Npcap/UAC field acceptance.
+        env:
+          PYTHONPATH: src
+        run: python -m unittest discover -s tests -p test_windows_scanner_integration.py -v
+      - name: Measure synthetic refactor baseline (Windows)
+        run: >
+          python scripts/refactor_benchmarks.py --runs 3
+          --check-thresholds scripts/benchmark_thresholds.json
+          --output refactor-benchmark.json
+      - name: Upload synthetic Windows baseline
+        uses: actions/upload-artifact@v7
+        with:
+          name: refactor-baseline-windows-latest
+          path: refactor-benchmark.json
+          if-no-files-found: error
+          retention-days: 3
+      - name: Generate CVE fixture quality report (Windows)
+        run: python cve_quality.py --json > cve-quality-report.json
+
+  # Windows package/installer smoke is manual here, and mandatory on tagged
+  # releases. The job name remains available as a required PR check.
   windows-package-smoke:
     name: Windows packaged app & installer
-    if: github.ref == 'refs/heads/main' || github.event_name == 'pull_request'
+    if: github.event_name == 'workflow_dispatch'
     runs-on: windows-latest
     timeout-minutes: 20
     steps:
@@ -137,8 +155,8 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "Packaged EXE import/version smoke failed" }
           & .\dist\PenX\PenX.exe --setup-status
           if ($LASTEXITCODE -ne 0) { throw "Packaged EXE setup-status smoke failed" }
-      - name: Windows installer build and installed EXE smoke test (PR)
-        if: github.event_name == 'pull_request'
+      - name: Windows installer build and installed EXE smoke test (manual)
+        if: github.event_name == 'workflow_dispatch'
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'

@@ -1,18 +1,6 @@
 name: MariaDB integration
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'src/penx_app/storage/**'
-      - 'src/penx_app/domain/**'
-      - 'src/db.py'
-      - 'src/db_backend.py'
-      - 'src/db_evals.py'
-      - 'src/db_training.py'
-      - 'migrations/**'
-      - 'tests/mariadb_integration.py'
-      - '.github/workflows/mariadb-integration.yml'
   pull_request:
     paths:
       - 'src/penx_app/storage/**'
@@ -24,6 +12,7 @@ on:
       - 'migrations/**'
       - 'tests/mariadb_integration.py'
       - '.github/workflows/mariadb-integration.yml'
+  workflow_dispatch:
 
 permissions:
   contents: read

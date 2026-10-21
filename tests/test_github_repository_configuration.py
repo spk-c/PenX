@@ -27,10 +27,12 @@ class GitHubRepositoryConfigurationTests(unittest.TestCase):
         block = workflow.split("  pull_request:", 1)[1].split("  workflow_dispatch:", 1)[0]
         self.assertNotIn("paths-ignore:", block)
 
-    def test_issue_triage_daily_and_on_new_issue(self):
+    def test_issue_triage_event_driven_and_on_demand(self):
         workflow = (ROOT / ".github/workflows/issue-triage.yml").read_text(encoding="utf-8")
-        self.assertRegex(workflow, r"cron:\s*'17 6 \* \* \*'")
+        self.assertNotIn("  schedule:", workflow)
         self.assertIn("types: [opened]", workflow)
+        self.assertIn("workflow_dispatch:", workflow)
+        self.assertIn("/penx-triage", workflow)
 
     def test_current_draft_manifest_uses_published_release_and_digest(self):
         manifest = json.loads((ROOT / "packaging/scoop/penx.json").read_text())

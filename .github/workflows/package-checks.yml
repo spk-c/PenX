@@ -6,7 +6,10 @@ on:
       - 'packaging/**'
       - 'pyproject.toml'
       - 'requirements.txt'
-      - 'src/penx_app/**'
+      # General source changes are already covered by the Linux CI gate.
+      - 'src/penx_app/__main__.py'
+      - 'src/penx_app/bootstrap.py'
+      - 'src/penx_app/version.py'
       - 'scripts/validate_distributions.py'
       - '.github/workflows/package-checks.yml'
   workflow_dispatch:
