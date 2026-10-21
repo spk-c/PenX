@@ -188,6 +188,18 @@ The advisory distinguishes a pre-fix version banner, a version at or after an up
 
 [Technical scope and limitations →](docs/SCANNING_AND_REPORTS.md#php2shell-release-posture-offline-advisory)
 
+### Offline PHP2Shell log and configuration check
+
+PenX can also assess **local, already-collected server evidence** without probing the target or running the uploaded exploit scripts:
+
+~~~powershell
+.\PenX.exe --php2shell-audit --scan-file scan.txt --php-ini php.ini --access-log access.log --error-log error.log
+~~~
+
+At least one file is required; each is limited to 2 MB. The command produces JSON with **aggregate event counts**, observed configuration switches and the existing PHP version advisory. Raw log lines, addresses and session identifiers are not copied into the output. `session.upload_progress.enabled=Off` reduces exposure to some known paths but is **not proof of full remediation**; vendor PHP patches are required. Log symptoms are **review indicators**, not verified attacks or remote code execution.
+
+[Detection limits and example →](docs/SCANNING_AND_REPORTS.md#php2shell-local-log-and-configuration-triage)
+
 ## Reports and exports
 
 After a **successfully committed assessment**, PenX generates HTML and PDF reports in `reports/`. Use **[2] View History** to inspect/correct findings, regenerate reports and manage sessions; **[9] Scan Diff & Trends** compares assessments.
