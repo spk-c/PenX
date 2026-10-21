@@ -35,6 +35,7 @@ from penx_app.scanners.endpoint_inventory import EndpointInventory, load_invento
 
 
 from penx_app.domain.scan_models import ScannerOutput
+from penx_app.intelligence.php2shell_audit import classify_live_php2shell_headers
 
 
 def _process_outcome(value: str) -> ScannerOutput:
@@ -363,6 +364,7 @@ def run_curl_headers(target: str, *, cancel_event=None) -> str:
                              status="FAILED", evidence=False)
     lines = []
     observed = 0
+    php_header_values: list[str] = []
     for url in urls:
         cancelled = _cancelled_after_io(cancel_event)
         if cancelled is not None:
@@ -380,6 +382,11 @@ def run_curl_headers(target: str, *, cancel_event=None) -> str:
                                         stream=True, headers={'User-Agent': 'PenX/Windows'})
             try:
                 lines.append(f'HTTP {response.status_code} -> {_safe_http_evidence_url(response.url)}')
+                # Reuse the already-authorized HEAD or GET response. Do not
+                # create extra requests, upload forms or execute exploit code.
+                raw_php_header = response.headers.get("X-Powered-By")
+                if raw_php_header is not None:
+                    php_header_values.append(str(raw_php_header)[:150])
                 for k, v in response.headers.items():
                     # Never persist live session tokens in raw evidence, AI prompts,
                     # debug files or machine-readable report attachments.
@@ -404,6 +411,10 @@ def run_curl_headers(target: str, *, cancel_event=None) -> str:
         if cancelled is not None:
             return cancelled
         lines.append('')
+    # Live check of headers already collected; never claim confirmed RCE.
+    live = classify_live_php2shell_headers(php_header_values)
+    lines.append("[PENX PHP2SHELL LIVE] " + str(live["status"]))
+    lines.append("PHP2Shell: header-only advisory; no RCE or patch verification.")
     status = ("COMPLETE" if observed == len(urls) else
               "PARTIAL" if observed else "FAILED")
     return ScannerOutput('\n'.join(lines), status=status, evidence=bool(observed))

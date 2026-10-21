@@ -67,6 +67,69 @@ def _classify_version(version: str) -> str:
     return "unknown"
 
 
+_LIVE_POWERED = re.compile(r"^\s*PHP\s*/\s*" + _PHP_VERSION + r"\s*$", re.I)
+
+
+def classify_live_php2shell_headers(values: list[str]) -> dict[str, object]:
+    """Classify headers observed by a live HTTP scan, never as confirmed RCE.
+
+    Upstream patched-looking or vendor-backported versions are not verified
+    patches by a public response header alone.
+    """
+    versions: set[str] = set()
+    invalid = False
+    for value in values[:8]:
+        match = _LIVE_POWERED.fullmatch(value) if isinstance(value, str) else None
+        if match:
+            versions.add(match.group(1))
+        else:
+            invalid = True
+    if len(values) > 8 or len(versions) > 1 or invalid:
+        status = "UNVERIFIED"
+        reason = "Multiple, malformed or conflicting PHP headers."
+    elif not versions:
+        status = "UNVERIFIED"
+        reason = "No reliable PHP version in live response headers."
+    else:
+        release = _classify_version(next(iter(versions)))
+        status = ("POTENTIALLY_VULNERABLE"
+                  if release in ("pre_fix_release_observed",
+                                 "unsupported_branch_observed")
+                  else "UNVERIFIED")
+        reason = ("Reported pre-fix PHP release; upstream patches and vendor "
+                  "backports still require verification."
+                  if status == "POTENTIALLY_VULNERABLE"
+                  else "Public headers do not attest installed PHP patches.")
+    return {
+        "status": status,
+        "observed_php_versions": sorted(versions),
+        "reason": reason,
+        "patch_verified": False,
+        "rce_confirmed": False,
+        "exploit_tested": False,
+    }
+
+
+def _live_marker_present(raw_scan: str) -> bool:
+    """Locate the marker only in a successful HTTP HEADERS scanner section."""
+    if not isinstance(raw_scan, str) or len(raw_scan) > _MAX_SCAN_CHARS:
+        return False
+    markers = list(HEAD.finditer(raw_scan))
+    for i, marker in enumerate(markers):
+        if marker.group(1).strip().upper() != "HTTP HEADERS":
+            continue
+        end = markers[i + 1].start() if i + 1 < len(markers) else len(raw_scan)
+        section = raw_scan[marker.end():end][:_MAX_SECTION_CHARS]
+        section = re.sub(r"^\s*={20,}\r?\n", "", section).lstrip()
+        adapter = ADAPTER_STATUS.match(section)
+        if adapter and (adapter.group(1) == "FAILED" or adapter.group(2) == "NO"):
+            continue
+        if re.search(r"(?m)^\[PENX PHP2SHELL LIVE\] (?:POTENTIALLY_VULNERABLE|UNVERIFIED)$",
+                     section):
+            return True
+    return False
+
+
 def assess_php2shell(raw_scan: str) -> dict:
     """Deterministic, *non-exploiting* advisory; version != confirmed RCE."""
     banners = _observed_banners(raw_scan)
@@ -79,8 +142,16 @@ def assess_php2shell(raw_scan: str) -> dict:
         status = "conflicting_or_multiple_versions"
     else:
         status = next(iter(statuses))
+    verification_status = ("POTENTIALLY_VULNERABLE"
+                           if status in ("pre_fix_release_observed",
+                                         "unsupported_branch_observed")
+                           else "UNVERIFIED")
     return {
         "name": "PHP2Shell release posture",
+        "verification_status": verification_status,
+        "live_header_check_observed": _live_marker_present(raw_scan),
+        "patch_verified": False,
+        "rce_confirmed": False,
         "cve_ids": list(CVE_IDS),
         "status": status,
         "exploit_tested": False,
