@@ -1,4 +1,4 @@
-> **GitHub main repository (October 2026):** GitHub Actions under `.github/workflows/` are the active CI, release and issue-triage workflows for `spk-c/PenX`. The GitLab pipeline remains only for optional mirror use. No release binaries have been published in the new GitHub repository yet.
+> **Canonical repository:** `spk-c/PenX` on GitHub. GitHub Actions handles CI, Windows releases and issue triage. The GitLab pipeline is retained for optional mirroring only. The verified [v0.4.9 Windows release](https://github.com/spk-c/PenX/releases/tag/v0.4.9) includes an installer and portable ZIP; changes on `main` after its tag are not part of those binaries.
 
 # Build and development reference
 
@@ -24,7 +24,7 @@ PyInstaller creates a **folder-based** application:
 dist\PenX\PenX.exe
 ~~~
 
-Keep the **entire `dist\\PenX` folder** when moving the build. This is not a single-file executable. Nmap/Npcap, Ruby, Perl, WhatWeb and Nikto are **installed separately after approval at first EXE launch**, not bundled into the EXE. Prebuilt GitHub Windows ZIPs are **not yet published**; see [GitLab Releases](https://github.com/spk-c/PenX/releases). The GitHub release workflow is active on GitHub; the source tree itself does not contain a prebuilt EXE.
+Keep the **entire `dist\\PenX` folder** when moving the build. This is not a single-file executable. Nmap/Npcap, Ruby, Perl, WhatWeb and Nikto are **installed separately after approval at first EXE launch**, not bundled into the EXE. Official Windows installers and portable ZIPs are available under [GitHub Releases](https://github.com/spk-c/PenX/releases). The source tree itself does not contain a prebuilt EXE.
 
 The executable needs to be built and checked on Windows; Linux CI does not establish that the packaged EXE works on every Windows installation.
 
@@ -41,12 +41,14 @@ PenX/
 ├── offline_tests.py           # Run all suites from tests/
 ├── cve_quality.py             # Offline CVE quality report command
 ├── install_scanners_windows.py # Scanner installer command
-├── src/                       # Internal application modules
+├── src/penx_app/              # Application package
 │   ├── app_paths.py           # Source / EXE runtime paths
-│   ├── llm.py                 # Local model analysis
-│   ├── tools.py               # Recon tool integration
-│   ├── db.py                  # Session management
-│   └── ...                    # Other internal components
+│   ├── analysis/               # Local model analysis
+│   ├── application/            # Scan and assessment orchestration
+│   ├── scanners/               # Recon integrations
+│   ├── storage/                # Session and assessment persistence
+│   ├── reporting/              # Report and export generation
+│   └── cli/                    # Command-line interface
 ├── tests/                     # Regression tests and fixtures
 │   ├── test_windows.py
 │   ├── test_llm_setup.py

@@ -1,6 +1,6 @@
 # PenX — maintenance and release status
 
-Checked: **17 October 2026**. This is a living maintenance index, not certification that PenX is defect-free or field-tested.
+Published release rechecked: **21 October 2026**. Field-acceptance status below is not independently revalidated here; this index is not certification that PenX is defect-free or field-tested.
 
 ## Release status
 
@@ -22,7 +22,7 @@ Checked: **17 October 2026**. This is a living maintenance index, not certificat
 
 ## Repository hygiene
 
-- **Documentation:** `docs/REFACTOR_ACCEPTANCE.md` was intentionally deleted in [#79](https://github.com/spk-c/PenX/pull/79); [FIELD_ACCEPTANCE.md](FIELD_ACCEPTANCE.md) is now the single operator field acceptance checklist. Historical refactor/audit notes remain for traceability.
+- **Documentation:** `docs/REFACTOR_ACCEPTANCE.md` was intentionally deleted in [#79](https://github.com/spk-c/PenX/pull/79); [FIELD_ACCEPTANCE.md](FIELD_ACCEPTANCE.md) is now the single operator field acceptance checklist. Historical refactor, audit and release notes are available through Git history, merged pull requests and tagged [GitHub Releases](https://github.com/spk-c/PenX/releases), rather than duplicated in current public documentation.
 - **Branches:** On 17 October a pre-cleanup comparison found 62 topic branches with a corresponding merged PR at the *exact* branch-head SHA, and one leftover release branch without that proof. The [safe branch-prune helper](../scripts/prune_merged_github_branches.ps1) keeps a dry-run default, rechecks PR state and SHA, and refuses paginated results. The [maintenance workflow](../.github/workflows/prune-merged-branches.yml) runs only on the initial merge of its own workflow file into `main`. If GitHub denies deletion, review its logs and run the helper via an authorized GitHub CLI; **never force-delete the unverified release branch**.
 - **Mirrors and packaging:** Optional `.gitlab-ci.yml`, `.gitlab/` and historical WinGet manifests are intentionally retained pending a separate decision about GitLab mirroring and registry submissions. Do not mistake manifests for public registry availability.
 
