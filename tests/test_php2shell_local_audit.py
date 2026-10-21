@@ -39,6 +39,33 @@ class LocalTriageTests(unittest.TestCase):
         self.assertEqual(report["triage"], "not_checked")
         self.assertFalse(report["exploit_confirmed"])
 
+    def test_php_fpm_pool_directives_are_recognized_without_claiming_runtime_state(self):
+        pool = (
+            "[site-php]\n"
+            "; php_admin_flag[session.upload_progress.enabled] = on\n"
+            "php_admin_flag[session.upload_progress.enabled] = off\n"
+            "php_flag[session.use_strict_mode] = On\n"
+            "php_admin_value[fatal_error_backtraces] = 0\n"
+        )
+        observed = analyze_php2shell_local_artifacts(php_ini=pool)
+        settings = observed["configuration"]["settings"]
+        self.assertEqual(settings["session.upload_progress.enabled"], "disabled")
+        self.assertEqual(settings["session.use_strict_mode"], "enabled")
+        self.assertEqual(settings["fatal_error_backtraces"], "disabled")
+        self.assertEqual(observed["triage"], "not_checked")
+        self.assertFalse(observed["exploit_confirmed"])
+
+    def test_php_ini_and_fpm_pool_disagreement_is_conservative(self):
+        combined = (
+            "session.upload_progress.enabled = Off\n"
+            "php_admin_flag[session.upload_progress.enabled] = On\n"
+        )
+        observed = analyze_php2shell_local_artifacts(php_ini=combined)
+        self.assertEqual(
+            observed["configuration"]["settings"]["session.upload_progress.enabled"],
+            "conflicting",
+        )
+
     def test_conflicting_config_not_trusted(self):
         config = ("session.upload_progress.enabled = 0\n"
                   "session.upload_progress.enabled = 1\n")
