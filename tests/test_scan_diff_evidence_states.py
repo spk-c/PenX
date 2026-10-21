@@ -32,10 +32,10 @@ def session(number, *, finding=True, scanner_status="COMPLETE", selected=True,
 
 
 CLEAN_NMAP = (
-    "[ NMAP OUTPUT ]\\n"
-    "[PENX ADAPTER STATUS: COMPLETE; EVIDENCE: YES]\\n"
-    "Nmap 7.94 scan initiated\\n"
-    "Nmap done: 1 IP address scanned\\n"
+    "[ NMAP OUTPUT ]\n"
+    "[PENX ADAPTER STATUS: COMPLETE; EVIDENCE: YES]\n"
+    "Nmap 7.94 scan initiated\n"
+    "Nmap done: 1 IP address scanned\n"
 )
 
 
