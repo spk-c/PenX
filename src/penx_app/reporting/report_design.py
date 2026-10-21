@@ -139,11 +139,14 @@ def _report(data):
     findings = [v for v in data.get("vulns", ()) if str(v[4] or "").lower() != "recommendation"]
     recommendations = _display_recommendations([v for v in data.get("vulns", ()) if str(v[4] or "").lower() == "recommendation"])
     risk = _s(summary[4] or "UNKNOWN").upper()
+    from penx_app.intelligence.php2shell_audit import assess_php2shell
+    php2shell = assess_php2shell(str(summary[2] or ""))
     return {
         "id": h[0], "target": _s(h[1]), "date": _s(h[2]),
         "risk": risk, "analysis": _s(summary[3]),
         "coverage": coverage(data.get('scan_result') or _s(summary[2])),
         "availability": _availability_status(summary[2]),
+        "php2shell": php2shell,
         "model": _s(summary[5] if len(summary) > 5 else "Not recorded"),
         "intelligence": _scan_intelligence(summary[2] if len(summary) > 2 else ""),
         "raw_scan": _s(summary[2] if len(summary) > 2 else ""),
@@ -269,6 +272,19 @@ def export_html(data: dict, output_dir: str, *, mode: str = "technical") -> str:
     )
     warning_html = ('<p class="coverage-note">' + _h(_legacy_cve_warning(r)) + '</p>'
                     if _legacy_cve_warning(r) else "")
+    p2s = r["php2shell"]
+    observed = ", ".join(item["php_version"] + " (" + item["source"] + ")"
+                         for item in p2s["observations"]) or "None"
+    php2shell_html = (
+        '<section id="php2shell"><div class="section-head"><span class="section-no">[+]</span>'
+        '<h2>PHP2Shell security advisory</h2><small>NON-EXPLOIT CHECK</small></div>'
+        + '<p>CVEs: ' + _h(", ".join(p2s["cve_ids"])) + '</p>'
+        + '<p>Release posture: <strong>' + _h(p2s["status"]) + '</strong></p>'
+        + '<p>Observed version banners: ' + _h(observed) + '</p>'
+        + '<p>' + _h(p2s["recommended_action"]) + '</p>'
+        + '<p class="coverage-note">' + _h(p2s["limitations"]) + '</p></section>'
+    )
+
     limitations = ("PARTIAL SCAN: " + ", ".join(r["coverage"].get("failed", [])) +
                    " unavailable; security assessment is incomplete.") if r["coverage"].get("failed") else (
                    "Coverage reflects saved scan evidence only; no reported finding does not imply safety.")
@@ -353,6 +369,7 @@ def export_html(data: dict, output_dir: str, *, mode: str = "technical") -> str:
 <section class="coverage-panel" id="coverage"><div class="section-head"><span class="section-no">[+]</span><h2>Scanner coverage</h2><small>{_h(r["coverage"]["status"])}</small></div>
 <p class="coverage-intro">These statuses describe collected evidence, not proof of security. Unselected scanners are not included.</p>
 <div class="scanner-grid">{scanner_cards}</div></section>
+{php2shell_html}
 <nav aria-label="Report sections"><a href="#overview">Overview</a><a href="#coverage">Scanner coverage</a><a href="#findings">01 / Findings</a><a href="#recommendations">02 / Recommendations</a>
 <a href="#mitigations">03 / Mitigations</a>{comparison_nav}{technical_nav}</nav>
 <section id="findings"><div class="section-head"><span class="section-no">[01]</span><h2>Confirmed &amp; potential findings</h2><small>{len(r['findings'])} entries</small></div>
