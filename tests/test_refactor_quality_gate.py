@@ -18,17 +18,22 @@ class RefactorQualityGateTests(unittest.TestCase):
         workflow = CI.read_text(encoding="utf-8")
         ruff = workflow.split("python -m ruff check --select F401", 1)[1].split("\n", 1)[0]
         mypy = workflow.split("python -m mypy --follow-imports=skip", 1)[1].split("\n", 1)[0]
+        # Full-package gates are stronger than explicit per-file allowlists.
+        self.assertIn("src/penx_app", ruff)
+        self.assertIn("src/penx_app", mypy)
         for filename in MODULES:
             with self.subTest(filename=filename):
-                self.assertIn(filename, ruff)
-                self.assertIn(filename, mypy)
+                self.assertTrue((ROOT / filename).is_file())
+                self.assertTrue(filename.startswith("src/penx_app/"))
 
     def test_existing_critical_boundaries_are_still_enforced(self):
         workflow = CI.read_text(encoding="utf-8")
         for filename in ("src/penx_app/application/scanner_execution.py",
                          "src/penx_app/storage/db_backend.py",
                          "src/penx_app/analysis/analysis_pipeline.py"):
-            self.assertIn(filename, workflow)
+            self.assertTrue((ROOT / filename).is_file())
+            self.assertIn("python -m ruff check --select F401 src/penx_app", workflow)
+            self.assertIn("python -m mypy --follow-imports=skip", workflow)
 
 
 if __name__ == "__main__":

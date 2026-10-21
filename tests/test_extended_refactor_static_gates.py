@@ -17,10 +17,13 @@ class QualityCoverageRegressionTests(unittest.TestCase):
                     if "python -m ruff check --select F401" in line)
         mypy = next(line for line in ci.splitlines()
                     if "python -m mypy --follow-imports=skip" in line)
+        # Enforcing src/penx_app recursively covers every maintained module.
+        self.assertIn("src/penx_app", ruff)
+        self.assertIn("src/penx_app", mypy)
         for source in MODULES:
             with self.subTest(module=source):
-                self.assertIn(source, ruff)
-                self.assertIn(source, mypy)
+                self.assertTrue((ROOT / source).is_file())
+                self.assertTrue(source.startswith("src/penx_app/"))
 
 
 if __name__ == "__main__":
