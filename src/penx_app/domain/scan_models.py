@@ -5,6 +5,7 @@ from enum import Enum
 import json
 import math
 from typing import TYPE_CHECKING
+from penx_app.domain.raw_artifact import RawArtifact
 
 from penx_app.domain.scan_diagnostics import (
     MAX_EVENTS_PER_ADAPTER,
@@ -36,8 +37,13 @@ class ScannerResult:
     diagnostics: str = ''
     evidence_records: tuple['EvidenceRecord', ...] = ()
     run_events: tuple[ScannerRunEvent, ...] = ()
+    raw_artifact: RawArtifact | None = None
 
     def __post_init__(self):
+        if self.raw_artifact is not None and (
+                not isinstance(self.raw_artifact, RawArtifact)
+                or not self.evidence or self.status == 'FAILED'):
+            raise ValueError('Invalid raw artifact reference for scanner outcome')
         if self.status not in ('COMPLETE', 'PARTIAL', 'FAILED'):
             raise ValueError('Invalid scanner outcome status')
         if self.status == 'FAILED' and self.evidence:
@@ -78,7 +84,8 @@ class ScanResult:
         Version 1 stays available for historical scans without provenance.
         Version 2 carries the same adapter outcomes plus source anchors.
         Version 3 (additive) adds bounded lifecycle events per adapter and a
-        top-level plan summary; event-free results stay byte-identical v1/v2.
+        top-level plan summary, plus optional separately retained raw artifact
+        references. Results without these additions stay byte-identical v1/v2.
         """
         if len(self.results) > 100:
             raise ValueError('Too many scanner metadata records')
@@ -95,13 +102,15 @@ class ScanResult:
                 row['records'] = [asdict(record) for record in result.evidence_records]
                 version = 2
             rows.append(row)
-        if any(result.run_events for result in self.results) \
+        if any(result.run_events or result.raw_artifact for result in self.results) \
                 or self.plan_summary is not None:
             version = 3
         if version == 3:
             for row, result in zip(rows, self.results):
                 row['events'] = [event.to_dict()
                                  for event in result.run_events]
+                if result.raw_artifact is not None:
+                    row['raw_artifact'] = asdict(result.raw_artifact)
         payload = {'version': version, 'adapters': rows}
         if version == 3 and self.plan_summary is not None:
             payload['plan'] = asdict(self.plan_summary)
@@ -145,6 +154,15 @@ class ScanResult:
             # this parser does not independently reverify their raw offsets.
             evidence_records: tuple['EvidenceRecord', ...] = ()
             run_events: tuple[ScannerRunEvent, ...] = ()
+            raw_artifact = None
+            if 'raw_artifact' in row:
+                if version != 3 or not isinstance(row['raw_artifact'], dict) or set(row['raw_artifact']) != {
+                        'sha256', 'size_bytes', 'filename', 'validator'}:
+                    raise ValueError('Invalid raw artifact metadata')
+                try:
+                    raw_artifact = RawArtifact(**row['raw_artifact'])
+                except (TypeError, ValueError) as exc:
+                    raise ValueError('Invalid raw artifact metadata') from exc
             if version == 1:
                 if 'records' in row or 'events' in row:
                     raise ValueError(
@@ -190,7 +208,8 @@ class ScanResult:
             results.append(ScannerResult(row['id'], '', row['status'],
                                          row['evidence'], row['name'],
                                          evidence_records=evidence_records,
-                                         run_events=run_events))
+                                         run_events=run_events,
+                                         raw_artifact=raw_artifact))
         return cls(tuple(results), plan_summary=plan_summary)
 
     def evidence_records(self) -> tuple['EvidenceRecord', ...]:

@@ -2,6 +2,7 @@
 from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Callable
+import os
 from penx_app.domain.scan_models import ReconText
 
 
@@ -65,7 +66,15 @@ def run_assessment(target: str, raw_scan: str, coverage: dict, *,
         result['raw_scan'] = str(raw_scan)
         # Never accept a model-supplied status record; only the adapter boundary
         # can produce metadata. Legacy callers explicitly have no metadata.
-        result['scan_metadata'] = raw_scan.result.metadata() if isinstance(raw_scan, ReconText) else ''
+        if isinstance(raw_scan, ReconText):
+            scan_result = raw_scan.result
+            artifact_directory = os.environ.get('PENX_RAW_ARTIFACT_DIR', '').strip()
+            if artifact_directory:
+                from penx_app.storage.raw_artifacts import retain_artifacts
+                scan_result = retain_artifacts(scan_result, artifact_directory)
+            result['scan_metadata'] = scan_result.metadata()
+        else:
+            result['scan_metadata'] = ''
         result['full_response'] = str(result.get('full_response') or '') + (
             '\n\n[SCAN COVERAGE]\n' + coverage['status'] + '\n' + coverage['note']
             + '\nFailed: ' + ', '.join(coverage['failed']))

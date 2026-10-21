@@ -15,6 +15,7 @@ import re
 from urllib.parse import urlsplit
 
 from penx_app.file_output import publish_unique
+from penx_app.domain.finding_identity import finding_fingerprint
 from penx_app.intelligence.source_verification import evidence_in_scan
 
 
@@ -92,6 +93,9 @@ def _finding(row, raw_scan: str, target: str, redact: bool, *, session: dict | N
     from penx_app.reporting.finding_trace import finding_trace
     trace = finding_trace(row, session) if session is not None else {}
     return {
+        "fingerprint": finding_fingerprint(name, row[5], row[6], target=target.strip().lower().rstrip('/')),
+        "raw_artifact": trace.get("raw_artifact"),
+        "artifact_status": trace.get("artifact_status", "not-retained"),
         "raw_evidence": _mask(trace.get("raw_evidence") or "", target, redact),
         "scanner": trace.get("scanner"),
         "scanner_version": trace.get("scanner_version"),
@@ -159,6 +163,9 @@ def sarif_payload(data: dict, *, redact: bool = False) -> dict:
             "message": {"text": (finding["name"] + ": " + finding["description"])[:8000]},
             "properties": {
                 "penxFindingId": finding["id"],
+                "findingFingerprint": finding["fingerprint"],
+                "rawArtifact": finding["raw_artifact"],
+                "artifactStatus": finding["artifact_status"],
                 "confidence": finding["confidence"],
                 "evidenceStatus": finding["status"],
                 "evidenceRef": finding["evidence_ref"],

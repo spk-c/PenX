@@ -8,6 +8,7 @@ from __future__ import annotations
 import ipaddress
 import json
 import re
+from dataclasses import asdict
 from difflib import SequenceMatcher
 from pathlib import Path
 from penx_app.file_output import publish_unique
@@ -16,6 +17,7 @@ from defusedxml.common import DefusedXmlException
 
 from penx_app.storage.db import get_all_history, get_session
 from penx_app.domain.finding_policy import active_vulnerabilities
+from penx_app.domain.finding_identity import finding_fingerprint
 from penx_app.reporting.finding_trace import finding_trace, missing_finding_status, scanner_coverage
 
 
@@ -137,13 +139,13 @@ def _ports(data: dict, *, host_scoped: bool = False) -> tuple[dict, bool]:
 
 
 def _findings(data: dict) -> dict:
-    rows: dict[tuple[str, str, str], list[dict]] = {}
+    rows: dict[str, list[dict]] = {}
     for item in active_vulnerabilities(data):
         # Row shape: id, session, name, severity, confidence, port, service, description.
-        key = (str(item[2] or "").strip().casefold(),
-               str(item[5] or "").strip().casefold(),
-               str(item[6] or "").strip().casefold())
+        key = finding_fingerprint(item[2], item[5], item[6],
+                                  target=canonical_target(data['history'][1]))
         rows.setdefault(key, []).append({
+            "fingerprint": key,
             "name": str(item[2] or ""),
             "severity": str(item[3] or "unknown").lower(),
             "confidence": str(item[4] or "possible").lower(),
@@ -374,7 +376,20 @@ def compare_sessions(older: dict, newer: dict) -> dict:
               for name in ("new", "still_present", "severity_changed",
                            "not_observed", "not_checked", "scan_failed", "resolved")}
 
+    previous_context, latest_context = comparison_context(older), comparison_context(newer)
+    comparability_notes = []
+    if previous_context['scanner_ids'] is None or latest_context['scanner_ids'] is None:
+        comparability_notes.append('Scanner selection is not recorded for one or both sessions; comparability is unknown.')
+    elif previous_context['scanner_ids'] != latest_context['scanner_ids']:
+        comparability_notes.append('Scanner selections differ; findings absent from the follow-up may not have been checked.')
+    if previous_context['plan'] is None or latest_context['plan'] is None:
+        comparability_notes.append('Profile/configuration metadata is not recorded for one or both sessions.')
+    elif previous_context['plan'] != latest_context['plan']:
+        comparability_notes.append('Scan profiles or execution configuration differ; interpret the comparison with caution.')
+
     return {
+        "scan_context": {"previous": previous_context, "latest": latest_context},
+        "comparability_notes": comparability_notes,
         "target": a[1], "from_session": a[0], "to_session": b[0],
         "from_date": str(a[2]), "to_date": str(b[2]),
         "new_findings": fresh,
@@ -425,6 +440,17 @@ def compare_sessions(older: dict, newer: dict) -> dict:
     }
 
 
+def comparison_context(data: dict) -> dict:
+    """Describe only persisted selection/configuration; legacy values stay unknown."""
+    result = data.get('scan_result')
+    return {
+        'scanner_ids': sorted(row.scanner_id for row in result.results) if result is not None else None,
+        'coverage': scanner_coverage(data),
+        'plan': asdict(result.plan_summary) if result is not None and result.plan_summary else None,
+        'configuration_status': 'recorded-plan-summary' if result is not None and result.plan_summary else 'not-recorded',
+    }
+
+
 def report_text(diff: dict) -> str:
     lines = [
         f"SCAN DIFF | {diff['target']}",
@@ -435,6 +461,9 @@ def report_text(diff: dict) -> str:
         f"Severity changed: {len(diff['severity_changes'])} | "
         f"Still present in model report: {len(diff['persistent_findings'])}",
     ]
+    for label, context in diff.get('scan_context', {}).items():
+        lines.append(f"{label.title()} scan configuration: " + json.dumps(context, sort_keys=True))
+    lines.extend(diff.get('comparability_notes', []))
     statuses = diff.get("finding_states")
     if statuses is not None:
         counts = diff.get("finding_state_counts", {})
@@ -454,6 +483,8 @@ def report_text(diff: dict) -> str:
             row = entry["finding"]
             label = entry["status"].upper().replace("_", " ")
             lines.append(f"  [{label}] {row['name']} | {row['severity']} | {row['port']}")
+            if row.get('fingerprint'):
+                lines.append('    Fingerprint: ' + row['fingerprint'])
             if entry.get("reason"):
                 lines.append("    Coverage: " + entry["reason"])
             trace = row.get("source") or {}
@@ -464,6 +495,9 @@ def report_text(diff: dict) -> str:
                          f"Evidence: {trace.get('evidence_status') or 'review-required'}")
             if trace.get("evidence_ref"):
                 lines.append("    Reference: " + trace["evidence_ref"])
+            if trace.get('raw_artifact'):
+                lines.append('    Raw artifact (stored reference, not revalidated): ' +
+                             json.dumps(trace['raw_artifact'], sort_keys=True))
             if trace.get("raw_evidence"):
                 lines.append("    Original scanner excerpt: " +
                              str(trace["raw_evidence"])[:500].replace(chr(10), " "))

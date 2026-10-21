@@ -1,5 +1,27 @@
 # PenX Roadmap Progress
 
+## Phase 2 completion — 2026-10-22
+
+- Phase 1 was merged in PR #100 (`43d0918`); its historical review entries
+  below are retained as run records. The roadmap overview now reflects this.
+- Stable versioned finding fingerprints now drive exact comparison matching
+  and appear in JSON/SARIF exports, independently of storage IDs and severity.
+- Optional `PENX_RAW_ARTIFACT_DIR` retention writes bounded exact UTF-8 adapter
+  captures. Additive metadata v3 references carry full SHA-256, size and a
+  validator ID. Separate validation checks file integrity and evidence anchors;
+  reports explicitly distinguish a saved reference from revalidation.
+- Diff JSON/text/HTML/PDF include both sessions' coverage and recorded plan
+  configuration, with explicit differing-selection/profile and legacy warnings.
+- Added `tests/test_phase2_traceability.py`: 10 offline acceptance tests.
+- Verification: `.venv/Scripts/python.exe offline_tests.py` outside the Windows
+  sandbox: **all 208 suites passed**, exit 0. In the sandbox, four existing
+  process-tree suites cannot terminate descendants; the unrestricted run passes.
+- Ruff fatal full-tree and F401 application gates: passed. Full-tree mypy with
+  CI import flags and `--platform linux`: passed, 109 source files.
+- Usage, retention bounds and integrity limitations: `EVIDENCE_TRACEABILITY.md`.
+- Next: Phase 3 headless scanning, exit-code policy, standalone schemas and
+  optional CI SARIF upload.
+
 Continuous tracker for the phase program defined in `roadmap.md` (brief) and
 `docs/ROADMAP.md` (phase plan). Each entry records: phase, affected files,
 implemented change, tests with actual results, open risks, commit/PR link,

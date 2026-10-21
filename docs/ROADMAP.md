@@ -11,8 +11,8 @@ Status values: `NOT STARTED`, `IN PROGRESS`, `IMPLEMENTED`, `TESTED`, `READY FOR
 | Phase | Scope | Priority | Status (2026-10-21) |
 | --- | --- | --- | --- |
 | 0 | Repository audit and development baseline | prerequisite | COMPLETE |
-| 1 | Scanner orchestration and flexible scan profiles | very high | NOT STARTED |
-| 2 | Evidence traceability and trustworthy scan comparison | very high | IN PROGRESS |
+| 1 | Scanner orchestration and flexible scan profiles | very high | COMPLETE |
+| 2 | Evidence traceability and trustworthy scan comparison | very high | COMPLETE |
 | 3 | JSON/SARIF reporting and CI/CD integration | high | IN PROGRESS |
 | 4 | Typed per-scanner configuration | high | NOT STARTED |
 | 5 | Guided mode for beginners | medium | NOT STARTED |
@@ -32,7 +32,7 @@ baseline tests. All satisfied — see `docs/ARCHITECTURE_PLAN.md` (audit) and
 
 ## Phase 1 — Scanner orchestration and flexible scan profiles
 
-**Priority: very high. Status: NOT STARTED.**
+**Priority: very high. Status: COMPLETE (PR #100 merged).**
 
 Scope (brief §1):
 
@@ -71,7 +71,7 @@ Implementation packages P1-1 … P1-5: `docs/ARCHITECTURE_PLAN.md` §7.
 
 ## Phase 2 — Evidence traceability and trustworthy scan comparison
 
-**Priority: very high. Status: IN PROGRESS.**
+**Priority: very high. Status: COMPLETE (2026-10-22).**
 
 Implemented (PR #94 and follow-ups, base `ad21266`):
 
@@ -87,17 +87,15 @@ Implemented (PR #94 and follow-ups, base `ad21266`):
 - Machine reports with scanner provenance, exact raw excerpts, redaction, and
   atomic publication (`reporting/machine_reports.py`).
 
-Open items (brief §2 vs. implementation):
+Phase 2 additions (2026-10-22; see `EVIDENCE_TRACEABILITY.md`):
 
-- Content-stable finding fingerprints across sessions (current matching is
-  name/port/service key + severity bucket + recommendation topics).
-- Optional SHA-256 artifact hashes for stored raw artifacts plus validator
-  references (today: bounded quote + offset anchors, 12-hex in-memory
-  checksum only).
-- Explicit "differing scan profile / selection" note in comparisons
-  (today: implicit through coverage states).
-- Scanner coverage of both sessions and profile/configuration metadata in
-  diff JSON/HTML/PDF reports.
+- Versioned SHA-256 finding identities across sessions, independent of row IDs
+  and severity, used for exact comparison matching and JSON/SARIF exports.
+- Optional bounded raw captures with full SHA-256 hashes and explicit validator
+  references in additive metadata v3; integrity and quote-anchor revalidation.
+- Explicit differing-profile/selection warnings and unknown historical context.
+- Both sessions' scanner coverage and recorded plan/configuration metadata in
+  diff JSON, text, HTML and PDF reports.
 
 ## Phase 3 — JSON/SARIF reporting and CI/CD integration
 

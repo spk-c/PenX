@@ -6,6 +6,7 @@ vulnerability. Unattributed evidence and missing scanner metadata remain unknown
 from __future__ import annotations
 
 import re
+from dataclasses import asdict
 
 from penx_app.intelligence.source_verification import evidence_in_scan
 from penx_app.reporting.scan_coverage import HEAD
@@ -125,6 +126,13 @@ def finding_trace(row, data: dict) -> dict:
     trace["raw_evidence"] = _raw_excerpt(quote, body)
     trace["scanner_version"] = _observed_version(name, body)
     trace["scanner_status"] = scanner_coverage(data).get(name, "UNKNOWN")
+    result = data.get('scan_result')
+    if result is not None:
+        adapters = [adapter for adapter in result.results
+                    if (adapter.display_name or adapter.scanner_id).strip().upper() == name]
+        if len(adapters) == 1 and adapters[0].raw_artifact is not None:
+            trace['raw_artifact'] = asdict(adapters[0].raw_artifact)
+            trace['artifact_status'] = 'stored-reference-not-revalidated'
     return trace
 
 

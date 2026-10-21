@@ -5,13 +5,13 @@ import tempfile
 from pathlib import Path
 
 
-def _stage(root: Path, text: str) -> Path:
+def _stage(root: Path, text: str, *, newline: str | None = None) -> Path:
     root.mkdir(parents=True, exist_ok=True)
     pending = None
     try:
         with tempfile.NamedTemporaryFile(
             "w", dir=root, prefix=".penx-stage-", suffix=".tmp",
-            encoding="utf-8", delete=False,
+            encoding="utf-8", delete=False, newline=newline,
         ) as handle:
             pending = Path(handle.name)
             handle.write(text)
@@ -24,10 +24,11 @@ def _stage(root: Path, text: str) -> Path:
         raise
 
 
-def publish_unique(directory: str | Path, stem: str, suffix: str, text: str) -> Path:
+def publish_unique(directory: str | Path, stem: str, suffix: str, text: str,
+                   *, newline: str | None = None) -> Path:
     """Atomic exclusive publication: existing files and links are never overwritten."""
     root = Path(directory)
-    staged = _stage(root, text)
+    staged = _stage(root, text, newline=newline)
     try:
         for index in range(101):
             path = root / f"{stem}{('_' + str(index)) if index else ''}{suffix}"
