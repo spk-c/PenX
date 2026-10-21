@@ -21,6 +21,11 @@ from penx_app.application.scanner_execution import (
     run_selected_structured,
 )
 from penx_app.domain.evidence import capture_evidence
+from penx_app.domain.scan_diagnostics import (
+    MAX_EVENTS_PER_ADAPTER,
+    PlanSummary,
+    ScannerRunEvent,
+)
 from penx_app.domain.scan_models import ScannerOutput, ScannerResult, ScanResult
 from penx_app.domain.scan_plan import (
     TIMEOUT_MAX_SECONDS,
@@ -120,6 +125,20 @@ def run_plan(plan: ScanPlan, *, menu: dict, emit=lambda *_: None,
                                cancel_event=cancel_event)
 
 
+def _terminal_event(output: ScannerOutput) -> str:
+    """Map a finalized adapter row to its bounded run-event name."""
+    if output.status == 'FAILED':
+        return 'failed'
+    diagnostics = output.diagnostics
+    if 'cancel' in diagnostics.lower():
+        return 'cancelled'
+    if 'Timed out' in diagnostics:
+        return 'failed'
+    if diagnostics.startswith('Not started:') or '508' in diagnostics:
+        return 'skipped'
+    return 'completed'
+
+
 def _run_plan_scheduled(plan: ScanPlan, *, menu: dict, emit,
                         cancel_event: threading.Event | None) -> ScanResult:
     schedule = build_schedule(plan)
@@ -145,10 +164,18 @@ def _run_plan_scheduled(plan: ScanPlan, *, menu: dict, emit,
 
     rows: dict[str, ScannerOutput] = {}
     completed: dict[str, ScannerOutput] = {}
+    events: dict[str, list[ScannerRunEvent]] = {}
 
     def record(key: str, output: ScannerOutput) -> None:
         rows[key] = output
         completed[names[key]] = output
+        duration = (time.monotonic() - started_at[key]
+                   if key in started_at else None)
+        events.setdefault(key, []).append(ScannerRunEvent(
+            ids[key], _terminal_event(output), duration,
+            output.exit_code, output.diagnostics[:200]))
+        # Bounded per adapter (metadata v3 cap), newest events kept.
+        del events[key][MAX_EVENTS_PER_ADAPTER:]
 
     pending = list(schedule)
     in_flight: dict[str, concurrent.futures.Future] = {}
@@ -246,6 +273,10 @@ def _run_plan_scheduled(plan: ScanPlan, *, menu: dict, emit,
                         time.sleep(wait)
                 last_start = time.monotonic()
                 started_at[key] = last_start
+                events.setdefault(key, []).append(ScannerRunEvent(
+                    ids[key], 'started', None, None,
+                    f"dispatched as node {schedule.index(key) + 1}/"
+                    f"{len(schedule)}"[:200]))
                 in_flight[key] = pool.submit(
                     _run_adapter, name, menu[key][1], plan.target,
                     safe_emit, effective_cancel, ids[key])
@@ -263,6 +294,7 @@ def _run_plan_scheduled(plan: ScanPlan, *, menu: dict, emit,
             duration_seconds=output.duration_seconds,
             exit_code=output.exit_code,
             diagnostics=output.diagnostics,
+            run_events=tuple(events.get(key, ())),
         )
         if row.evidence and row.text.strip():
             anchored = capture_evidence(
@@ -271,4 +303,7 @@ def _run_plan_scheduled(plan: ScanPlan, *, menu: dict, emit,
             )
             row = replace(row, evidence_records=(anchored,))
         ordered.append(row)
-    return ScanResult(tuple(ordered))
+    plan_summary = PlanSummary(
+        plan.profile_id, plan.profile_version, plan.max_parallelism,
+        plan.global_budget_seconds)
+    return ScanResult(tuple(ordered), plan_summary=plan_summary)
