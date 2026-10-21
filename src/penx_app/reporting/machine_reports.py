@@ -181,8 +181,10 @@ def sarif_payload(data: dict, *, redact: bool = False) -> dict:
                 "rules": list(rules.values()),
             }},
             "results": results,
-            "properties": {"php2shell": report["php2shell"]},
-            "properties": {"limitations": report["limitations"]},
+            "properties": {
+                "php2shell": report["php2shell"],
+                "limitations": report["limitations"],
+            },
         }],
     }
 
