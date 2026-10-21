@@ -43,9 +43,10 @@ class GitHubRepositoryConfigurationTests(unittest.TestCase):
         )
         archive_hash = manifest["architecture"]["64bit"]["hash"]
         self.assertRegex(archive_hash, r"^[0-9a-f]{64}$")
-        published_notes = (ROOT / f"docs/RELEASE_{VERSION}_NOTES.md").read_text(encoding="utf-8")
-        self.assertIn(archive_hash, published_notes)
         doc = (ROOT / "docs/PACKAGING.md").read_text(encoding="utf-8")
+        self.assertIn(archive_hash, doc)
+        release_status = (ROOT / "docs/MAINTENANCE_STATUS.md").read_text(encoding="utf-8")
+        self.assertIn(f"/releases/tag/v{VERSION}", release_status)
         self.assertIn("historical", doc.lower())
         self.assertIn("not", doc.lower())
 
