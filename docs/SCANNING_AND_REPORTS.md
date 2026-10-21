@@ -457,9 +457,12 @@ request paths, session IDs or php.ini contents.
 
 - A previous PenX scan transcript is checked using the **existing passive**
   PHP release-banner logic.
-- Supplied php.ini text is reviewed for `session.upload_progress.enabled`,
-  `session.use_strict_mode` and `fatal_error_backtraces`; its contents
-  are not proof of the effective PHP worker/pool settings.
+- Supplied php.ini or PHP-FPM pool configuration text is reviewed for
+  `session.upload_progress.enabled`, `session.use_strict_mode` and
+  `fatal_error_backtraces`. Plain `name=value` and `php_flag[...]`,
+  `php_admin_flag[...]`, `php_value[...]`, `php_admin_value[...]` settings
+  are recognized. Conflicting observations remain `conflicting`; these
+  file values do **not** establish the effective PHP worker/pool settings.
 - Access logs are summarized by 500/502/503 POST responses and explicit
   mentions of the upload-progress form field *if present*. Default web
   server access logs often lack request body field names.
