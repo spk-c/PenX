@@ -1,0 +1,73 @@
+name: Optional authorized headless scan
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Exact target you own or have permission to assess
+        required: true
+        type: string
+      authorized:
+        description: I have explicit authorization for this target
+        required: true
+        default: false
+        type: boolean
+      scanners:
+        description: Explicit scanner keys (default needs no external binaries)
+        default: '4,5,d'
+        type: string
+      consent:
+        description: Authorize consent-gated active web checks
+        default: false
+        type: boolean
+      fail_on:
+        description: Fail on Nuclei matches at or above this severity
+        default: high
+        type: choice
+        options: [info, low, medium, high, critical]
+
+permissions:
+  contents: read
+
+jobs:
+  scan:
+    if: inputs.authorized
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.13'
+      - run: python -m pip install -r requirements.lock.txt
+      - name: Collect authorized scanner observations
+        id: scan
+        shell: bash
+        env:
+          SCAN_TARGET: ${{ inputs.target }}
+          SCAN_KEYS: ${{ inputs.scanners }}
+          SCAN_CONSENT: ${{ inputs.consent }}
+          SCAN_THRESHOLD: ${{ inputs.fail_on }}
+        run: |
+          options=()
+          if [ "$SCAN_CONSENT" = true ]; then options+=(--consent); fi
+          set +e
+          python penx.py scan --target "$SCAN_TARGET" --authorized --scanners "$SCAN_KEYS" \
+            --format both --redact --output scan-reports --budget 600 --fail-on "$SCAN_THRESHOLD" "${options[@]}"
+          code=$?
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+          exit 0
+      - name: Upload SARIF when a report exists
+        if: always() && hashFiles('scan-reports/*.sarif') != ''
+        uses: github/codeql-action/upload-sarif@24c54180a607b1449ed407dd24f251e4e9147c8d # v4
+        with:
+          sarif_file: scan-reports
+          category: penx-authorized-scan
+      - name: Enforce collection and severity policy
+        if: always()
+        env:
+          SCAN_EXIT: ${{ steps.scan.outputs.code }}
+        run: exit "${SCAN_EXIT:-1}"

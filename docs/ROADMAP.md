@@ -13,7 +13,7 @@ Status values: `NOT STARTED`, `IN PROGRESS`, `IMPLEMENTED`, `TESTED`, `READY FOR
 | 0 | Repository audit and development baseline | prerequisite | COMPLETE |
 | 1 | Scanner orchestration and flexible scan profiles | very high | COMPLETE |
 | 2 | Evidence traceability and trustworthy scan comparison | very high | COMPLETE |
-| 3 | JSON/SARIF reporting and CI/CD integration | high | IN PROGRESS |
+| 3 | JSON/SARIF reporting and CI/CD integration | high | COMPLETE |
 | 4 | Typed per-scanner configuration | high | NOT STARTED |
 | 5 | Guided mode for beginners | medium | NOT STARTED |
 | 6 | Extended local AI automation | later | NOT STARTED |
@@ -99,7 +99,7 @@ Phase 2 additions (2026-10-22; see `EVIDENCE_TRACEABILITY.md`):
 
 ## Phase 3 — JSON/SARIF reporting and CI/CD integration
 
-**Priority: high. Status: IN PROGRESS (partially implemented).**
+**Priority: high. Status: COMPLETE (2026-10-22).**
 
 Implemented:
 
@@ -109,15 +109,15 @@ Implemented:
 - Redaction (IPv4/IPv6/target masking) and atomic report publication
   (`publish_unique`).
 
-Open items (brief §3):
+Phase 3 additions (2026-10-22; see `HEADLESS_SCANS.md`):
 
-- Headless scan command (e.g. `penx scan --target ... --profile standard
-  --output ./reports --format json`) — depends on Phase 1 profiles.
-- Documented exit-code contract distinguishing policy violation, scanner
-  error, and incomplete coverage.
-- Optional GitHub Actions SARIF upload and configurable policy/severity
-  thresholds.
-- Standalone JSON schema document for `penx-assessment-v1`.
+- Authorized headless `penx scan` using Phase 1 profiles/planner, bounded
+  JSON/SARIF output, dry-run and optional raw artifacts, without AI or a DB.
+- Explicit exit codes distinguish usage, policy, scanner failure and partial
+  coverage; configurable Nuclei-match severity threshold.
+- Optional manual-only GitHub Actions workflow with authorization, quoted
+  target inputs, SARIF upload and preserved policy exit codes.
+- Standalone `penx-assessment-v1` and distinct `penx-scan-v1` JSON schemas.
 
 ## Phase 4 — Typed per-scanner configuration
 

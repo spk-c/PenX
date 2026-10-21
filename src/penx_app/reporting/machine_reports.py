@@ -146,6 +146,11 @@ def report_payload(data: dict, *, redact: bool = False) -> dict:
 
 def sarif_payload(data: dict, *, redact: bool = False) -> dict:
     report = report_payload(data, redact=redact)
+    return sarif_from_report(report)
+
+
+def sarif_from_report(report: dict) -> dict:
+    """Shared SARIF formatting for saved assessments and headless captures."""
     rules: dict[str, dict] = {}
     results = []
     for finding in report["findings"]:
@@ -158,6 +163,7 @@ def sarif_payload(data: dict, *, redact: bool = False) -> dict:
             "properties": {"tags": ["security", "penx", "requires-human-review"]},
         })
         results.append({
+            "partialFingerprints": {"penxFinding/v1": finding["fingerprint"]},
             "ruleId": rule_id,
             "level": _SARIF_LEVEL.get(finding["severity"], "note"),
             "message": {"text": (finding["name"] + ": " + finding["description"])[:8000]},

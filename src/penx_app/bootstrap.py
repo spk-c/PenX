@@ -9,7 +9,8 @@ USAGE = ('Usage: PenX.exe [--version | --check | --setup-status | --setup | '
          '--php2shell-audit [--scan-file FILE] [--php-ini FILE] '
          '[--access-log FILE] [--error-log FILE] | '
          'preflight --target HOST [--profile ID] [--scanners KEYS] '
-         '[--consent]]')
+         '[--consent] | scan --target HOST --authorized [--profile ID] '
+         '[--output DIR] [--format json|sarif|both]]')
 
 
 def _force_utf8_text_streams(streams) -> None:
@@ -63,6 +64,9 @@ def main() -> int:
         if command == 'preflight':
             from penx_app.application.preflight import main as preflight_main
             return preflight_main(args[1:])
+        if command == 'scan':
+            from penx_app.application.headless_scan import main as scan_main
+            return scan_main(args[1:])
         print(USAGE)
         return 2
 

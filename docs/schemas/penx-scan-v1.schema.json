@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/spk-c/PenX/schemas/penx-scan-v1",
+  "title": "PenX headless collection v1",
+  "type": "object",
+  "required": ["schema", "session", "target", "scan_date", "profile", "coverage", "adapters", "findings", "exit_code", "policy", "limitations"],
+  "properties": {
+    "schema": {"const": "penx-scan-v1"},
+    "session": {"type": "null"},
+    "target": {"type": "string"},
+    "scan_date": {"type": "string"},
+    "profile": {"type": "object", "required": ["profile_id", "profile_version", "max_parallelism", "global_budget_seconds"]},
+    "coverage": {"type": "object", "required": ["status", "completed", "failed", "note"]},
+    "adapters": {"type": "array", "maxItems": 100, "items": {
+      "type": "object", "required": ["id", "status", "evidence", "diagnostics"],
+      "properties": {"id": {"type": "string"}, "status": {"enum": ["COMPLETE", "PARTIAL", "FAILED"]}, "evidence": {"type": "boolean"}, "diagnostics": {"type": "string"}}
+    }},
+    "findings": {"type": "array", "maxItems": 1000, "items": {
+      "type": "object", "required": ["fingerprint", "severity", "scanner", "evidence", "status"],
+      "properties": {"fingerprint": {"type": "string", "pattern": "^penx-finding-v1:[a-f0-9]{64}$"}, "severity": {"enum": ["info", "low", "medium", "high", "critical"]}, "scanner": {"const": "nuclei"}, "evidence": {"type": "string"}, "status": {"const": "scanner-quote-matched"}}
+    }},
+    "exit_code": {"enum": [0, 3, 4, 5]},
+    "policy": {"type": "object", "required": ["fail_on"], "properties": {"fail_on": {"enum": [null, "info", "low", "medium", "high", "critical"]}}},
+    "limitations": {"type": "array", "items": {"type": "string"}}
+  }
+}

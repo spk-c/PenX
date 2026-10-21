@@ -1,5 +1,24 @@
 # PenX Roadmap Progress
 
+## Phase 3 completion — 2026-10-22
+
+- Added authorized headless `penx scan`, using existing profiles/planner and
+  explicit consent. No model, DB session or interactive prompt is required.
+- Added distinct collection JSON, shared SARIF formatting with stable partial
+  fingerprints, severity policy and documented exit codes 0 through 5.
+- Added standalone saved-assessment/collection schemas, validated against real
+  export fixtures. Headless findings currently rate explicit Nuclei matches;
+  remaining adapters provide coverage, never invented vulnerability verdicts.
+- Added optional manual-only authorized-scan workflow, quoted input handling,
+  optional SARIF upload and preserved policy outcome. It was not dispatched.
+- Added 12 offline acceptance tests in `test_headless_scan.py`.
+- Verification: `.venv/Scripts/python.exe offline_tests.py`: **all 209 suites
+  passed**, exit 0. Full-tree fatal Ruff, application F401 and Linux-platform
+  mypy gates passed (110 source files). No live target was scanned.
+- Usage and limitations: `HEADLESS_SCANS.md`. Passive provider completeness
+  remains partial; unsupported planner overrides are rejected before collection.
+- Next: Phase 4 typed per-scanner configuration and safe custom profiles.
+
 ## Phase 2 completion — 2026-10-22
 
 - Phase 1 was merged in PR #100 (`43d0918`); its historical review entries
