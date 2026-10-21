@@ -129,7 +129,14 @@ Additional main-menu options support external evaluation packages, importing rev
 From the main menu choose **[9] Scan Diff & Trends**, enter an existing target,
 then compare any two saved sessions of that exact target. PenX reports:
 
-- New/persistent/not-observed vulnerabilities and severity changes.
+- New/persistent findings and severity changes, plus per-finding states:
+  **not_observed**, **not_checked**, and **scan_failed**. The JSON diff also
+  reserves **resolved**, but does not assign it automatically; an absent
+  model finding is not independently verified remediation.
+- A bounded, source-backed evidence quote, saved scan date, source scanner
+  (only if uniquely attributable), and scanner version (only if its real
+  banner was recorded) alongside each finding in diff JSON, HTML, and PDF.
+  Findings without a verified quote are clearly marked for human review.
 - Newly opened or no-longer-observed ports, and service/version changes, **only**
   when both Nmap scans have completion evidence.
 - A chronological summary of saved risk levels and finding counts.
@@ -146,6 +153,21 @@ Each newly saved scan of a previously assessed target also prints a regression
 comparison against the previous session. This is an **on-scan check**, not a
 scheduler. PenX does not initiate periodic scans. **Not observed** does not mean
 **fixed**: filters, errors and missing scanner coverage can explain differences.
+The legacy `not_observed_findings` JSON field remains a compatibility list of
+all absent finding records. For correct semantics use the **`finding_states`**
+array and **`finding_state_counts`** instead. A previous finding without an
+attributable scanner quote is **not_checked**. A selected follow-up scanner with
+a FAILED or PARTIAL outcome is **scan_failed**. If it was not selected or its
+structured status is unavailable, the finding is **not_checked**. Only a
+completed source scanner can mark it **not_observed**. Even that is **not
+resolved**.
+
+Scanner versions are reported only when present in saved tool output; older
+sessions generally have no version metadata. Per-finding attribution uses an
+exact scanner quote from the saved evidence, never an LLM guess. The source
+citation demonstrates what the scanner printed, not exploitability or actual
+remediation. Diff exports include selected finding descriptions and bounded
+evidence excerpts; **review and protect sensitive data before sharing**.
 
 ### Passive-Only Recon + Shodan InternetDB
 

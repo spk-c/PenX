@@ -226,6 +226,13 @@ def export_html(data: dict, output_dir: str, *, mode: str = "technical") -> str:
         evidence = (source["evidence"][:300] if source["evidence_ref"]
                     else "No exact quoted scanner evidence verified; human review required.")
         evidence_ref = source["evidence_ref"] or "unverified"
+        from penx_app.reporting.finding_trace import finding_trace
+        trace = finding_trace(item, data)
+        if trace["raw_evidence"]:
+            evidence = trace["raw_evidence"][:300]
+        scanner_name = trace["scanner"] or "Unattributed"
+        scanner_version = trace["scanner_version"] or "Not recorded"
+        scan_date = trace["recorded_at"] or "Unknown"
         port = _h(item[5] or "-")
         service = _h(item[6] or "-")
         return f"""<article class="finding severity-{_severity(item[3])} status-{status.lower()}">
@@ -233,7 +240,7 @@ def export_html(data: dict, output_dir: str, *, mode: str = "technical") -> str:
             <h3>{title}</h3>{badge(item[3])}</div>
           <div class="finding-meta"><span>Status: {status}</span><span>Confidence: {confidence}</span>
             <span>Port: {port}</span><span>Service: {service}</span></div>
-          <p>{desc}</p><details class="evidence"><summary>Saved scan evidence</summary><pre>{_h(evidence)}</pre><small>Evidence reference: {_h(evidence_ref)} · Exact quote matching is not confirmation of exploitability.</small></details></article>"""
+          <p>{desc}</p><details class="evidence"><summary>Saved scan evidence</summary><pre>{_h(evidence)}</pre><small>Source: {_h(scanner_name)} · Scanner version: {_h(scanner_version)} · Scan date: {_h(scan_date)} · Evidence reference: {_h(evidence_ref)} · Exact quote matching is not confirmation of exploitability.</small></details></article>"""
 
     def rec(item, i):
         return f"""<article class="rec"><span class="rec-index">[R-{i:02d}]</span>
