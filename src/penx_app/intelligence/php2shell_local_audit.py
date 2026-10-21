@@ -9,6 +9,10 @@ _CRASH = re.compile(r"\b(?:segmentation fault|sigsegv|exit(?:ed)?(?:\s+on)?\s+si
 _FIELD = re.compile(r"\bPHP_SESSION_UPLOAD_PROGRESS\b", re.I)
 _POST = re.compile(r'"POST\s+[^"\r\n]{1,300}"\s+5(?:00|02|03)\b', re.I)
 _INI = re.compile(r"^\s*([a-z][a-z0-9_.-]{1,90})\s*=\s*(.*?)\s*$", re.I)
+_POOL_INI = re.compile(
+    r"^\s*php_(?:admin_)?(?:flag|value)\[\s*([a-z][a-z0-9_.-]{1,90})\s*\]\s*=\s*(.*?)\s*$",
+    re.I,
+)
 _KEYS = ("session.upload_progress.enabled", "session.use_strict_mode", "fatal_error_backtraces")
 
 
@@ -35,7 +39,11 @@ def _config(text: str | None) -> dict:
         line = line.strip()
         if not line or line.startswith((";", "#", "[")):
             continue
-        match = _INI.fullmatch(line)
+        # php.ini uses name=value; PHP-FPM pool files may also express the
+        # same settings through php_flag/php_admin_flag (or *_value).
+        # These are file observations only: pool inheritance, per-dir
+        # overrides and the running worker's effective values are unknown.
+        match = _INI.fullmatch(line) or _POOL_INI.fullmatch(line)
         if match and match.group(1).lower() in values:
             values[match.group(1).lower()].add(
                 _bool_value(match.group(2).split(";", 1)[0])
