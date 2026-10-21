@@ -6,6 +6,8 @@ from penx_app.version import VERSION
 USAGE = ('Usage: PenX.exe [--version | --check | --setup-status | --setup | '
          '--setup-native | --llm-setup | --check-update | --update | '
          '--export-session SL --format json|sarif [--redact] | '
+         '--php2shell-audit [--scan-file FILE] [--php-ini FILE] '
+         '[--access-log FILE] [--error-log FILE] | '
          'preflight --target HOST [--profile ID] [--scanners KEYS] '
          '[--consent]]')
 
@@ -55,6 +57,9 @@ def main() -> int:
         if command == '--export-session':
             from penx_app.reporting.machine_reports import export_cli
             return export_cli(args[1:])
+        if command == '--php2shell-audit':
+            from penx_app.cli.php2shell_audit_cli import audit_cli
+            return audit_cli(args[1:])
         if command == 'preflight':
             from penx_app.application.preflight import main as preflight_main
             return preflight_main(args[1:])
