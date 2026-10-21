@@ -74,6 +74,15 @@ class ScanDiffEvidenceStatesTests(unittest.TestCase):
                 self.assertEqual(diff["finding_state_counts"]["not_observed"], 0)
                 self.assertEqual(diff["finding_state_counts"]["resolved"], 0)
 
+    def test_nmap_metadata_failure_overrules_text_footer(self):
+        prior = session(1)
+        later = session(2, finding=False, scanner_status="FAILED",
+                        raw_override=CLEAN_NMAP)
+        result = compare_sessions(prior, later)
+        self.assertFalse(result["port_comparison_reliable"])
+        self.assertEqual(result["missing_ports"], {})
+        self.assertEqual(result["finding_state_counts"]["scan_failed"], 1)
+
     def test_legacy_coverage_fails_closed(self):
         old = session(1)
         new = session(2, finding=False)
