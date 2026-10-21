@@ -73,6 +73,22 @@ def _observed_version(name: str, section: str) -> str | None:
     return match.group(1) if match else None
 
 
+def _raw_excerpt(quote: str, section: str) -> str:
+    """Return the actual saved scanner bytes as text, not the model's label."""
+    parts = re.findall(r'["“]([^"”]{12,1000})["”]', quote)
+    if not parts:
+        parts = [quote]
+    for part in parts:
+        tokens = part.split()
+        if not tokens or len(part) > 1000:
+            continue
+        pattern = re.compile(r"\\s+".join(re.escape(token) for token in tokens), re.I)
+        match = pattern.search(section)
+        if match:
+            return section[match.start():match.end()][:1000]
+    return ""
+
+
 def finding_trace(row, data: dict) -> dict:
     """Return source-backed provenance or a clear 'unattributed' verdict.
 
@@ -90,6 +106,7 @@ def finding_trace(row, data: dict) -> dict:
         "scanner_version": None,
         "scanner_status": "UNKNOWN",
         "evidence": quote if valid else "",
+        "raw_evidence": "",
         "evidence_status": "scanner-quote-matched" if valid else "review-required",
         "evidence_ref": None,
         "recorded_at": str(data["history"][2]) if data.get("history") else None,
@@ -105,6 +122,7 @@ def finding_trace(row, data: dict) -> dict:
         return trace
     name, body = matches[0]
     trace["scanner"] = name
+    trace["raw_evidence"] = _raw_excerpt(quote, body)
     trace["scanner_version"] = _observed_version(name, body)
     trace["scanner_status"] = scanner_coverage(data).get(name, "UNKNOWN")
     return trace
@@ -130,7 +148,12 @@ def missing_finding_status(row: dict, newer: dict) -> tuple[str, str]:
     latest_section = _sections(latest_raw).get(scanner)
     if latest_section is None:
         return "not_checked", f"{scanner} has no unambiguous saved output section."
-    if source.get("evidence") and evidence_in_scan(source["evidence"], latest_section):
+    if source.get("raw_evidence") and evidence_in_scan(source["raw_evidence"], latest_section):
+        return "still_present", (
+            f"{scanner} reproduced the original scanner evidence; "
+            "the model omitted the finding in its follow-up report."
+        )
+    if not source.get("raw_evidence") and source.get("evidence") and evidence_in_scan(source["evidence"], latest_section):
         return "still_present", (
             f"{scanner} reproduced the original scanner evidence; "
             "the model omitted the finding in its follow-up report."
