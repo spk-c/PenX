@@ -92,6 +92,7 @@ def _finding(row, raw_scan: str, target: str, redact: bool, *, session: dict | N
     from penx_app.reporting.finding_trace import finding_trace
     trace = finding_trace(row, session) if session is not None else {}
     return {
+        "raw_evidence": _mask(trace.get("raw_evidence") or "", target, redact),
         "scanner": trace.get("scanner"),
         "scanner_version": trace.get("scanner_version"),
         "scanner_status": trace.get("scanner_status", "UNKNOWN"),
@@ -130,7 +131,7 @@ def report_payload(data: dict, *, redact: bool = False) -> dict:
         "limitations": [
             "AI conclusions are hypotheses until independently verified.",
             "Scanner-quote-matched means an exact quote exists; not proof of exploitability.",
-            "Raw scanner output is intentionally omitted from machine-readable exports.",
+            "Full raw scanner output is omitted; bounded verified excerpts may be included.",
             "Redaction masks the assessed target and IPv4/IPv6 literals only; review before sharing."
         ],
     }
