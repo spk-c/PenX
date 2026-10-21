@@ -16,7 +16,7 @@ in the development guide and run:
 python -m unittest discover -s tests -p 'test_php2shell_live_http.py' -v
 ```
 
-The test mocks an authorized live HTTP HEAD response containing
+The suite includes an actual loopback HTTP server bound to `127.0.0.1` and asserts exactly **one HEAD**, no GET/POST and no exploit payload. It also mocks an authorized live HTTP HEAD response containing
 `X-Powered-By: PHP/8.4.26`, verifies that it is flagged
 `POTENTIALLY_VULNERABLE` and requires no additional GET/POST requests.
 It also checks patched-looking, missing and inconsistent headers, expected
