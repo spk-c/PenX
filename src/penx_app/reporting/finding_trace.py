@@ -121,6 +121,18 @@ def missing_finding_status(row: dict, newer: dict) -> tuple[str, str]:
         return "scan_failed", f"{scanner} did not complete successfully in the follow-up."
     if status != "COMPLETE":
         return "not_checked", f"{scanner} was not checked with reliable coverage in the follow-up."
+    if source.get("scanner_status") != "COMPLETE":
+        return "not_checked", "Previous scanner completion cannot be established."
+    # A model omitting a finding is NOT negative scanner evidence. Check whether
+    # the exact earlier quote persists in the same completed adapter section.
+    summary = newer.get("summary")
+    latest_raw = str(summary[2] or "") if summary else ""
+    latest_section = _sections(latest_raw).get(scanner, "")
+    if source.get("evidence") and evidence_in_scan(source["evidence"], latest_section):
+        return "still_present", (
+            f"{scanner} reproduced the original scanner evidence; "
+            "the model omitted the finding in its follow-up report."
+        )
     return "not_observed", (
         f"{scanner} completed in the follow-up; the finding was not repeated. "
         "This does not prove remediation."
