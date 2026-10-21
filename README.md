@@ -188,6 +188,16 @@ The advisory distinguishes a pre-fix version banner, a version at or after an up
 
 [Technical scope and limitations →](docs/SCANNING_AND_REPORTS.md#php2shell-release-posture-offline-advisory)
 
+### PHP2Shell live check in normal scans
+
+PenX now assesses PHP2Shell **during the standard live scan**, using the existing HTTP headers adapter (tool [4]). It reuses the already authorized HEAD request (or the normal GET fallback for unsupported HEAD), with **no extra network requests and no exploit payloads**.
+
+- `POTENTIALLY_VULNERABLE`: a reported PHP version is older than the upstream fix or is on an unsupported branch. Public headers and vendor backports can produce false positives.
+- `UNVERIFIED`: no reliable pre-fix PHP banner, conflicting banners, or a patched-looking version. It does **not** prove the server is safe.
+- `PATCH_VERIFIED` and `RCE_CONFIRMED`: reserved for separately authenticated server-side verification. This scanner does not emit these statuses.
+
+JSON and SARIF reports include the `verification_status`, `patch_verified`, `rce_confirmed` and `live_header_check_observed` fields in their existing PHP2Shell advisory. Read [the non-destructive lab guide](docs/PHP2SHELL_LIVE_LAB.md).
+
 ### Offline PHP2Shell log and configuration check
 
 PenX can also assess **local, already-collected server evidence** without probing the target or running the uploaded exploit scripts:

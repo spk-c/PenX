@@ -479,3 +479,24 @@ but the PHP Security Team explicitly cautions that no configuration-only
 workaround covers all CVE-2026-109618 and CVE-2026-109619 variants.
 Install the upstream or distribution-provided security patch and restart
 affected workers. Refer to the [official PHP advisory](https://www.php.net/).
+
+## PHP2Shell assessment during a live scan
+
+The existing HTTP headers scanner ([4] in the [a] standard, [n]
+standard+Nikto and [x] full scans) now performs a live header assessment
+using its **already authorized** HEAD/GET response. No additional requests,
+uploads, multipart bodies, memory-pressure triggers or PHP payloads.
+
+Results print `[PENX PHP2SHELL LIVE] POTENTIALLY_VULNERABLE` for exactly
+one recognizable upstream pre-fix PHP release or unsupported PHP branch.
+Missing, conflicting or patched-looking public headers are `UNVERIFIED`.
+These are screening results, not proof of exploitation or patch safety.
+
+Saved JSON and SARIF advisory properties include `verification_status`,
+`live_header_check_observed`, `patch_verified: false` and
+`rce_confirmed: false`. `PATCH_VERIFIED` and `RCE_CONFIRMED` remain reserved
+for independent, authenticated server-side evidence. Do not infer them from
+public version banners. Vendor backports and multiple PHP workers require
+manual authoritative runtime/package verification.
+
+See [isolated lab examples](PHP2SHELL_LIVE_LAB.md).
