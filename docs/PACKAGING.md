@@ -4,6 +4,8 @@
 PenX is a Windows-first Python application; npm is not an appropriate primary distribution channel.
 The GitHub repository has published verified Windows binaries for [v0.4.9](https://github.com/spk-c/PenX/releases/tag/v0.4.9). The **current checked-in Scoop and WinGet drafts** pin that official ZIP and SHA-256, but they have not been published or certified by their community registries. Historical WinGet manifest drafts are available from Git history; only the current version remains in the working tree to avoid accidental publication of obsolete download links.
 
+**v0.4.10 release candidate:** The checked-in application/source package now report 0.4.10. The published 0.4.9 Scoop and WinGet draft URLs and SHA-256 values remain pinned to **verified 0.4.9 assets** until the new release build and checksums are independently verified. Do not relabel existing hashes as v0.4.10 or promote the manifests prematurely.
+
 ## Release/version warning
 
 Both current draft manifests reference the **published v0.4.9 ZIP** under `spk-c/PenX`, pinned to SHA-256 `d80db9d78940df626f532c283c5bb41c850579ba8c9345e3c202a6a1c4a9f358`.
