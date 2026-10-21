@@ -423,9 +423,9 @@ def report_text(diff: dict) -> str:
         f"SL#{diff['from_session']} ({diff['from_date']}) -> "
         f"SL#{diff['to_session']} ({diff['to_date']})",
         f"New observations/advice: {len(diff['new_findings'])} | "
-        f"Not repeated: {len(diff['not_observed_findings'])} | "
+        f"Not repeated by model: {len(diff['not_observed_findings'])} | "
         f"Severity changed: {len(diff['severity_changes'])} | "
-        f"Still present: {len(diff['persistent_findings'])}",
+        f"Still present in model report: {len(diff['persistent_findings'])}",
     ]
     statuses = diff.get("finding_states")
     if statuses is not None:
