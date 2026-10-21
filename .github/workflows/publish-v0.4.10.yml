@@ -49,7 +49,14 @@ jobs:
             echo "::error::Release already exists; refusing duplicate publication."
             exit 1
           fi
-          existing="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/$TAG" --jq '.object.sha' 2>/dev/null || true)"
+          # Matching-refs returns [] for an absent tag and avoids ambiguous
+          # GET responses that can print literal "null" for missing .object.sha.
+          existing="$(gh api "repos/$GITHUB_REPOSITORY/git/matching-refs/tags/$TAG" \
+            --jq '.[] | select(.ref == "refs/tags/v0.4.10") | .object.sha')"
+          if [[ -n "$existing" && ! "$existing" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::Unexpected Git reference response; refusing publication."
+            exit 1
+          fi
           if [[ -n "$existing" && "$existing" != "$GITHUB_SHA" ]]; then
             echo "::error::Tag already exists at a different commit; refusing to move it."
             exit 1
