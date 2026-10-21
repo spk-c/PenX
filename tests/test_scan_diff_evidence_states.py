@@ -31,10 +31,18 @@ def session(number, *, finding=True, scanner_status="COMPLETE", selected=True,
             "vulns": rows, "corrections": [], "scan_result": scan_result}
 
 
+CLEAN_NMAP = (
+    "[ NMAP OUTPUT ]\\n"
+    "[PENX ADAPTER STATUS: COMPLETE; EVIDENCE: YES]\\n"
+    "Nmap 7.94 scan initiated\\n"
+    "Nmap done: 1 IP address scanned\\n"
+)
+
+
 class ScanDiffEvidenceStatesTests(unittest.TestCase):
     def test_complete_followup_is_not_observed_never_resolved(self):
         old = session(1)
-        new = session(2, finding=False)
+        new = session(2, finding=False, raw_override=CLEAN_NMAP)
         diff = compare_sessions(old, new)
         self.assertEqual(diff["finding_state_counts"]["not_observed"], 1)
         self.assertEqual(diff["finding_state_counts"]["resolved"], 0)
@@ -45,6 +53,12 @@ class ScanDiffEvidenceStatesTests(unittest.TestCase):
         self.assertEqual(trace["scanner_version"], "7.94")
         self.assertEqual(trace["evidence_ref"], "scan:1:finding:10")
         self.assertIn("80/tcp open http", trace["evidence"])
+
+    def test_model_omission_with_repeated_evidence_is_still_present(self):
+        diff = compare_sessions(session(1), session(2, finding=False))
+        self.assertEqual(diff["finding_state_counts"]["still_present"], 1)
+        self.assertEqual(diff["finding_state_counts"]["not_observed"], 0)
+        self.assertIn("reproduced the original", report_text(diff))
 
     def test_missing_scanner_is_not_checked(self):
         diff = compare_sessions(session(1), session(2, finding=False, selected=False))
