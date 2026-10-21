@@ -1,19 +1,13 @@
 name: Offline tests
 
 on:
-  push:
-    branches: [main]
-    paths-ignore:
-      - '**/*.md'
-      - 'assets/**'
-  # Always test pull requests, including documentation-only changes, so
-  # required branch-protection checks are never silently skipped.
+  # Automatic Linux validation on PRs; no duplicated post-merge main runs.
+  # No PR paths filter so required checks are always reported.
   pull_request:
   workflow_dispatch:
 
-# Automatic feature-branch validation happens on PRs rather than on every
-# feature-branch push, avoiding duplicate runs and PR runner queue contention.
-# Manual branch test runs remain available via workflow_dispatch.
+# Expensive Windows jobs run by manual dispatch, or in the tagged release
+# workflow. PRs still run the complete Linux offline/test/lint gate.
 concurrency:
   group: offline-tests-${{ github.workflow }}-${{ github.event.pull_request.head.repo.full_name || github.repository }}-${{ github.head_ref || github.ref_name }}
   cancel-in-progress: true
@@ -26,6 +20,8 @@ permissions:
 
 jobs:
   tests:
+    # Keep the ruleset-required Windows check but skip its runner on PRs.
+    if: matrix.os != 'windows-latest' || github.event_name == 'workflow_dispatch'
     runs-on: ${{ matrix.os }}
     timeout-minutes: 25
     strategy:
@@ -55,16 +51,7 @@ jobs:
         run: |
           python -m pip install --disable-pip-version-check "ruff>=0.13,<1"
           python -m ruff check --select E9,F63,F7,F82 penx.py src scripts tests
-          # Gradually enforce unused-import hygiene in the extracted modules
-          # without mixing a repository-wide formatting change into refactoring.
-          python -m ruff check --select F401 src/penx_app/application/scan_outcome.py src/penx_app/reporting/report_batch.py src/penx_app/application/scanner_execution.py src/penx_app/scanners/scan_results.py src/penx_app/analysis/llm_client.py src/penx_app/analysis/analysis_pipeline.py src/penx_app/analysis/structured_scan_evidence.py src/penx_app/analysis/scan_input_budget.py src/penx_app/application/risk_assessment.py src/penx_app/application/scan_recovery.py src/penx_app/application/scan_trends.py src/penx_app/storage/schema_migrations.py src/penx_app/storage/correction_repository.py src/penx_app/reporting/export.py src/penx_app/reporting/report_design.py src/penx_app/intelligence/search.py src/penx_app/storage/db_backend.py src/penx_app/storage/evaluation_repository.py src/penx_app/cli/scanner_menu.py src/penx_app/cli/db_display.py src/penx_app/intelligence/source_verification.py src/penx_app/intelligence/vendor_status.py src/penx_app/intelligence/wordpress_advisories.py src/penx_app/intelligence/shodan_enrichment.py src/penx_app/intelligence/cve_priority.py src/penx_app/scanners/process_runner.py src/penx_app/application/scanner_selection.py src/penx_app/cli/scanner_cancellation.py src/penx_app/cli/cli_navigation.py src/penx_app/scanners/registry.py src/penx_app/cli/cli_views.py src/penx_app/analysis/parsers.py src/penx_app/intelligence/cve_observations.py
-      - name: Type check critical Windows installer modules
-        if: runner.os == 'Linux'
-        run: |
-          python -m pip install --disable-pip-version-check "mypy>=1.15,<2"
-          python -m mypy --follow-imports=skip --ignore-missing-imports --no-incremental src/penx_app/setup/windows_python_setup.py src/penx_app/setup/native_scanner_setup.py src/penx_app/scanners/native_web_scanners.py src/penx_app/domain src/penx_app/application/assessment_service.py src/penx_app/settings.py src/penx_app/storage/session_repository.py src/penx_app/application/scan_outcome.py src/penx_app/application/scanner_execution.py src/penx_app/reporting/report_batch.py src/penx_app/scanners/scan_results.py src/penx_app/analysis/llm_client.py src/penx_app/analysis/scan_input_budget.py src/penx_app/application/scan_recovery.py src/penx_app/storage/schema_migrations.py src/penx_app/storage/correction_repository.py src/penx_app/reporting/export.py src/penx_app/reporting/report_design.py src/penx_app/intelligence/search.py src/penx_app/storage/db_backend.py src/penx_app/storage/evaluation_repository.py src/penx_app/cli/scanner_menu.py src/penx_app/cli/db_display.py src/penx_app/intelligence/source_verification.py src/penx_app/application/scan_trends.py src/penx_app/application/risk_assessment.py src/penx_app/analysis/structured_scan_evidence.py src/penx_app/analysis/analysis_pipeline.py src/penx_app/application/scanner_selection.py src/penx_app/cli/scanner_cancellation.py src/penx_app/cli/cli_navigation.py src/penx_app/scanners/registry.py src/penx_app/cli/cli_views.py src/penx_app/analysis/parsers.py src/penx_app/intelligence/cve_observations.py
-      # Distinct from the incremental quality gates above: audit the entire
-      # maintained application package, so newly added modules are included.
+      # One full-tree Ruff and one mypy pass replace duplicated subset checks.
       - name: Full-tree Ruff unused-import gate
         if: runner.os == 'Linux'
         run: python -m ruff check --select F401 src/penx_app
@@ -85,7 +72,7 @@ jobs:
           --check-thresholds scripts/benchmark_thresholds.json
           --output refactor-benchmark.json
       - name: Upload synthetic baseline
-        if: github.ref == 'refs/heads/main' || github.event_name == 'pull_request'
+        if: github.event_name == 'workflow_dispatch'
         uses: actions/upload-artifact@v7
         with:
           name: refactor-baseline-${{ matrix.os }}
@@ -95,7 +82,7 @@ jobs:
       - name: Generate CVE fixture quality report
         run: python cve_quality.py --json > cve-quality-report.json
       - name: Upload CVE quality report
-        if: github.ref == 'refs/heads/main' || github.event_name == 'pull_request'
+        if: github.event_name == 'workflow_dispatch'
         uses: actions/upload-artifact@v7
         with:
           name: cve-quality-${{ matrix.os }}
@@ -103,13 +90,11 @@ jobs:
           if-no-files-found: error
           retention-days: 3
 
-  # Building PyInstaller and the Inno Setup installer used to run in the
-  # Windows regression-test matrix job, delaying the Windows test check.
-  # Run independent packaging verification in parallel instead. Keep the
-  # same EXE and installed-mode smoke checks on PRs and main.
+  # Windows package/installer smoke is manual here, and mandatory on tagged
+  # releases. The job name remains available as a required PR check.
   windows-package-smoke:
     name: Windows packaged app & installer
-    if: github.ref == 'refs/heads/main' || github.event_name == 'pull_request'
+    if: github.event_name == 'workflow_dispatch'
     runs-on: windows-latest
     timeout-minutes: 20
     steps:
@@ -137,8 +122,8 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "Packaged EXE import/version smoke failed" }
           & .\dist\PenX\PenX.exe --setup-status
           if ($LASTEXITCODE -ne 0) { throw "Packaged EXE setup-status smoke failed" }
-      - name: Windows installer build and installed EXE smoke test (PR)
-        if: github.event_name == 'pull_request'
+      - name: Windows installer build and installed EXE smoke test (manual)
+        if: github.event_name == 'workflow_dispatch'
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'

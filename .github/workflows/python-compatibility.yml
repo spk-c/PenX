@@ -1,28 +1,7 @@
 name: Python compatibility contracts
 
+# Three-version compatibility matrix is run manually to conserve CI minutes.
 on:
-  pull_request:
-    paths:
-      - 'src/**'
-      - 'tests/**'
-      - 'offline_tests.py'
-      - 'requirements.txt'
-      - 'requirements.lock.txt'
-      - 'pyproject.toml'
-      - '.github/workflows/python-compatibility.yml'
-      - 'scripts/configure_github.ps1'
-  push:
-    branches: [main]
-    paths:
-      - 'src/**'
-      - 'tests/**'
-      - 'offline_tests.py'
-      - 'requirements.txt'
-      - 'requirements.lock.txt'
-      - 'pyproject.toml'
-      - '.github/workflows/python-compatibility.yml'
-      - 'scripts/configure_github.ps1'
-  # Allow an on-demand compatibility run when the release gate requires one.
   workflow_dispatch:
 
 permissions:

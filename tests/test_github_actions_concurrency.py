@@ -70,12 +70,14 @@ class WorkflowConcurrencyTests(unittest.TestCase):
                     pr_repo="fork-two/PenX", head_ref="patch"),
         )
 
-    def test_pr_builds_and_release_integrity_remain_enabled(self):
+    def test_pr_linux_manual_windows_and_release_integrity_remain_enabled(self):
         ci = _workflow("ci.yml")
         release = _workflow("release.yml")
         self.assertIn("python offline_tests.py", ci)
         self.assertIn("python offline_tests.py", release)
-        self.assertIn("github.event_name == 'pull_request'", ci)
+        self.assertIn("  pull_request:", ci)
+        self.assertIn("if: matrix.os != 'windows-latest' || github.event_name == 'workflow_dispatch'", ci)
+        self.assertIn("if: github.event_name == 'workflow_dispatch'", ci)
         self.assertIn("python scripts/build_windows.py", release)
         self.assertIn("python scripts/build_windows.py", ci)
         self.assertIn("--onedir", (ROOT / "scripts" / "build_windows.py").read_text())

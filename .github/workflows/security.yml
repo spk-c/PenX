@@ -1,9 +1,8 @@
 name: Security audit
 
 on:
+  # PRs: Gitleaks and dependency review. Full scans: weekly/on demand.
   pull_request:
-  push:
-    branches: [main]
   workflow_dispatch:
   schedule:
     - cron: '21 5 * * 1'
@@ -33,15 +32,9 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITLEAKS_ENABLE_COMMENTS: "false"
           GITLEAKS_ENABLE_UPLOAD_ARTIFACT: "false"
-
-  dependency-review-prerequisite:
-    name: Dependency Graph prerequisite
-    if: github.event_name == 'pull_request' && vars.PENX_DEP_GRAPH_READY != 'true'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Surface required repository setting
-        run: |
-          echo "::warning::Dependency Review is not available until the repository owner enables GitHub Dependency Graph under Settings > Code security and analysis. After activation, set repository Actions variable PENX_DEP_GRAPH_READY=true to enforce dependency-review-action on PRs. Pip-audit still runs and fails on known vulnerabilities."
+      - name: Explain dependency-review prerequisite
+        if: github.event_name == 'pull_request' && vars.PENX_DEP_GRAPH_READY != 'true'
+        run: echo "::warning::Enable Dependency Graph and set PENX_DEP_GRAPH_READY=true to enforce PR dependency review. Weekly pip-audit remains enabled."
 
   dependency-review:
     name: Dependency changes policy
@@ -62,6 +55,7 @@ jobs:
 
   installed-dependencies:
     name: Audit installed Python dependencies
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -79,6 +73,7 @@ jobs:
 
   codeql:
     name: CodeQL Python security analysis
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:

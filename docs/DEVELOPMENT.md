@@ -84,11 +84,16 @@ To reduce runner minutes, network traffic and artifact storage:
 - Tagged releases publish the ZIP, checksum, and quality report **once** as
   GitHub Release assets. Only manual builds also upload an Actions artifact,
   which is retained for three days.
-- CI cancels superseded runs on the same branch (including duplicate push/PR
-  events), distinguishes fork owners to avoid collisions, and ignores documentation-
-  only changes. Feature-branch pushes run offline tests on both Windows and
-  Ubuntu without a PyInstaller build; PRs and `main` still exercise the
-  Windows executable build and launch checks.
+- PRs still run complete Linux/Python 3.13 regression, Ruff and mypy checks.
+  Ruleset-required Windows test/installer check names remain visible, but their
+  runner jobs are skipped on routine PRs to reduce usage.
+- Run **Actions → Offline tests → Run workflow** for full Windows regression
+  and installer verification on demand. Tagged releases still test, package,
+  install and validate Windows artifacts independently.
+- Post-merge `main` reruns are disabled; three-version Python compatibility
+  checks are manual. Gitleaks checks PRs; CodeQL and pip-audit run weekly or
+  manually. Targeted MariaDB PRs still run integration tests. Daily scheduled
+  issue-triage retries are disabled.
 
 Manual dispatches and tag-push releases use separate concurrency groups, so
 manually previewing an existing tag cannot cancel its official release.
