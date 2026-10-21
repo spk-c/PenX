@@ -374,6 +374,22 @@ def compare_sessions(older: dict, newer: dict) -> dict:
         "not_observed_findings": missing,
         "finding_states": finding_states,
         "finding_state_counts": counts,
+        "coverage_qualified_not_observed_findings": [
+            state["finding"] for state in finding_states
+            if state["status"] == "not_observed"
+        ],
+        "not_checked_findings": [
+            state["finding"] for state in finding_states
+            if state["status"] == "not_checked"
+        ],
+        "scan_failed_findings": [
+            state["finding"] for state in finding_states
+            if state["status"] == "scan_failed"
+        ],
+        "unreported_with_persistent_evidence": [
+            state["finding"] for state in finding_states
+            if state["status"] == "still_present" and state.get("reason")
+        ],
         "resolved_findings": [],  # No automatic resolution from non-observation.
         "scanner_coverage": {
             "previous": scanner_coverage(older),
