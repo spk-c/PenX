@@ -38,17 +38,25 @@ class GitHubRepositoryConfigurationTests(unittest.TestCase):
         manifest = json.loads((ROOT / "packaging/scoop/penx.json").read_text())
         from penx_app.version import VERSION
         self.assertEqual(manifest["homepage"], "https://github.com/spk-c/PenX")
-        self.assertEqual(manifest["version"], VERSION)
+        # Source may be ahead of the latest published Windows assets. Draft
+        # package hashes MUST remain pinned to a real earlier release until
+        # the next build's checksums are verified; never invent a new digest.
+        published_version = manifest["version"]
+        self.assertRegex(published_version, r"^\d+\.\d+\.\d+$")
+        self.assertGreaterEqual(
+            tuple(map(int, VERSION.split("."))),
+            tuple(map(int, published_version.split("."))),
+        )
         self.assertEqual(
             manifest["architecture"]["64bit"]["url"],
-            f"https://github.com/spk-c/PenX/releases/download/v{VERSION}/PenX-Windows-x64.zip",
+            f"https://github.com/spk-c/PenX/releases/download/v{published_version}/PenX-Windows-x64.zip",
         )
         archive_hash = manifest["architecture"]["64bit"]["hash"]
         self.assertRegex(archive_hash, r"^[0-9a-f]{64}$")
         doc = (ROOT / "docs/PACKAGING.md").read_text(encoding="utf-8")
         self.assertIn(archive_hash, doc)
         release_status = (ROOT / "docs/MAINTENANCE_STATUS.md").read_text(encoding="utf-8")
-        self.assertIn(f"/releases/tag/v{VERSION}", release_status)
+        self.assertIn(f"/releases/tag/v{published_version}", release_status)
         self.assertIn("historical", doc.lower())
         self.assertIn("not", doc.lower())
 
