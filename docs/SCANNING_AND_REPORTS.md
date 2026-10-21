@@ -441,3 +441,38 @@ patch on the server. Disabling `session.upload_progress.enabled` may
 limit some paths but **does not replace updating PHP**. Refer to the
 [official PHP security announcement](https://www.php.net/).
 
+## PHP2Shell local log and configuration triage
+
+PenX accepts **only files the operator explicitly supplies** and does not
+run payloads, fuzz PHP workers, submit HTTP requests or execute scripts from
+research archives. Example (Windows or a source checkout):
+
+~~~powershell
+.\PenX.exe --php2shell-audit --scan-file scan.txt --php-ini php.ini --access-log access.log --error-log error.log
+~~~
+
+At least one input is required. Inputs are bounded at 2 MB per file.
+The command prints JSON and does not persist private log lines, IPs,
+request paths, session IDs or php.ini contents.
+
+- A previous PenX scan transcript is checked using the **existing passive**
+  PHP release-banner logic.
+- Supplied php.ini text is reviewed for `session.upload_progress.enabled`,
+  `session.use_strict_mode` and `fatal_error_backtraces`; its contents
+  are not proof of the effective PHP worker/pool settings.
+- Access logs are summarized by 500/502/503 POST responses and explicit
+  mentions of the upload-progress form field *if present*. Default web
+  server access logs often lack request body field names.
+- PHP/Apache error logs are summarized for pre-initialization PHP memory
+  errors and worker crash messages. These signals have multiple unrelated
+  possible causes, and counts from different logs are **not correlated**.
+
+`review_indicators` means human review is warranted, **not confirmed
+exploitation**. `no_indicators_in_supplied_logs` is not proof that no
+attack occurred. Without logs the status is `not_checked`.
+
+Disabling upload progress may mitigate some confirmed PHP2Shell paths,
+but the PHP Security Team explicitly cautions that no configuration-only
+workaround covers all CVE-2026-109618 and CVE-2026-109619 variants.
+Install the upstream or distribution-provided security patch and restart
+affected workers. Refer to the [official PHP advisory](https://www.php.net/).
