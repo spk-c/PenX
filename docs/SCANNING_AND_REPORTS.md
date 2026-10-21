@@ -415,3 +415,29 @@ The technical PDF summarizes historical model output rather than printing
 the full transcript. The original text remains in the saved HTML report.
 Set `PENX_PDF_AI_APPENDIX=compact` or `full` to include it in new PDF exports.
 Existing report files are unchanged until regenerated from history.
+
+## PHP2Shell release posture (offline advisory)
+
+PenX evaluates already-saved `HTTP HEADERS`, `WHATWEB`, and `WEB FINGERPRINT`
+version banners for **CVE-2026-109618** and **CVE-2026-109619**. The
+advisory appears in assessment JSON, SARIF run properties, HTML and PDF
+reports. It does **not** issue extra HTTP requests, upload a file, create
+sessions, or execute any PHP/RCE payload.
+
+Known upstream patched PHP releases (2026-10-21):
+`8.2.35`, `8.3.36`, `8.4.27`, `8.5.12`.
+Older supported-branch banners are labeled `pre_fix_release_observed`;
+banners at or above the corresponding fixed version are labeled
+`fixed_release_observed`; unsupported branches are separated.
+Multiple conflicting version banners are marked ambiguous.
+
+**Limitations:** Public version banners are neither proof of an actual
+vulnerable PHP runtime nor reliable evidence that a server is patched.
+Reverse proxies can expose misleading headers, PHP versions may be hidden,
+and distributions can backport security fixes. The presence or absence
+of a version does not establish exploitability. To verify a production
+deployment, check the actual PHP runtime version and installed vendor
+patch on the server. Disabling `session.upload_progress.enabled` may
+limit some paths but **does not replace updating PHP**. Refer to the
+[official PHP security announcement](https://www.php.net/).
+
