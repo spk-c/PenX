@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import importlib
 from pathlib import Path
-import re
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -26,7 +25,7 @@ class ReleasePipelineContracts(unittest.TestCase):
         workflow = RELEASE.read_text(encoding="utf-8")
         self.assertIn("  push:\n    tags:", workflow)
         self.assertIn("github.ref_type == 'tag'", workflow)
-        self.assertIn('"v" + VERSION', workflow)
+        self.assertIn("'v' + VERSION", workflow)
         self.assertIn("python offline_tests.py", workflow)
         self.assertIn("--verify-tag", workflow)
         self.assertIn("gh release create", workflow)
