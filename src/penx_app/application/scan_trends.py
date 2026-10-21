@@ -458,10 +458,10 @@ def report_text(diff: dict) -> str:
                 lines.append("    Reference: " + trace["evidence_ref"])
             if trace.get("evidence"):
                 lines.append("    Original scanner quote: " +
-                             str(trace["evidence"])[:500].replace("\\n", " "))
+                             str(trace["evidence"])[:500].replace(chr(10), " "))
             if row.get("description"):
                 lines.append("    Finding assessment: " +
-                             str(row["description"])[:500].replace("\\n", " "))
+                             str(row["description"])[:500].replace(chr(10), " "))
     else:
         for name, label in (
             ("new_findings", "NEW IN REPORT"),
