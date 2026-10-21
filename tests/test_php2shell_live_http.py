@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import json
+import threading
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import unittest
 from unittest.mock import patch
 
@@ -95,6 +97,48 @@ class LivePhp2ShellTests(unittest.TestCase):
         self.assertEqual(sarif["runs"][0]["properties"]["php2shell"]["verification_status"],
                          "POTENTIALLY_VULNERABLE")
         get.assert_not_called()
+
+    def test_real_loopback_http_head_no_exploit_or_extra_requests(self):
+        """True socket round-trip against a local fixture, never a public host."""
+        class LocalHandler(BaseHTTPRequestHandler):
+            calls: list[str] = []
+            def do_HEAD(self):
+                LocalHandler.calls.append("HEAD")
+                self.send_response(200)
+                self.send_header("X-Powered-By", "PHP/8.4.26")
+                self.send_header("Content-Length", "0")
+                self.end_headers()
+            def do_GET(self):
+                LocalHandler.calls.append("GET")
+                self.send_response(405)
+                self.end_headers()
+            def do_POST(self):
+                LocalHandler.calls.append("POST")
+                self.send_response(405)
+                self.end_headers()
+            def log_message(self, *_args):
+                pass
+
+        server = ThreadingHTTPServer(("127.0.0.1", 0), LocalHandler)
+        worker = threading.Thread(target=server.serve_forever, daemon=True)
+        worker.start()
+        try:
+            url = "http://127.0.0.1:" + str(server.server_port) + "/"
+            live_output = run_curl_headers(url)
+            self.assertEqual(live_output.status, "COMPLETE")
+            self.assertIn("[PENX PHP2SHELL LIVE] POTENTIALLY_VULNERABLE",
+                          str(live_output))
+            self.assertEqual(LocalHandler.calls, ["HEAD"])
+            report = assess_php2shell(format_recon_for_llm(
+                {"HTTP headers": live_output}
+            ))
+            self.assertTrue(report["live_header_check_observed"])
+            self.assertFalse(report["rce_confirmed"])
+            self.assertFalse(report["patch_verified"])
+        finally:
+            server.shutdown()
+            server.server_close()
+            worker.join(timeout=3)
 
     def test_patched_looking_header_is_not_patch_verified(self):
         response = FakeResponse("PHP/8.4.27")
