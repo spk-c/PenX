@@ -14,8 +14,9 @@ class ActionsBudgetTests(unittest.TestCase):
         s = read("ci.yml")
         self.assertIn("  pull_request:", s)
         self.assertNotIn("  push:\n    branches: [main]", s)
-        self.assertIn("os: [windows-latest, ubuntu-latest]", s)
-        self.assertIn("if: matrix.os != 'windows-latest' || github.event_name == 'workflow_dispatch'", s)
+        self.assertIn("name: tests (ubuntu-latest)", s)
+        self.assertIn("name: tests (windows-latest)", s)
+        self.assertIn("if: github.event_name == 'workflow_dispatch'", s)
         self.assertIn("name: Windows packaged app & installer", s)
         self.assertIn("python offline_tests.py", s)
 
