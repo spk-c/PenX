@@ -1,13 +1,13 @@
 # PenX — maintenance and release status
 
-Published release rechecked: **21 October 2026** (v0.4.10 release candidate prepared). Field-acceptance status below is not independently revalidated here; this index is not certification that PenX is defect-free or field-tested.
+Published release rechecked: **21 October 2026** (v0.4.10 published; GitHub release assets verified). Field-acceptance status below is not independently revalidated here; this index is not certification that PenX is defect-free or field-tested.
 
 ## Release status
 
-- Latest published and downloadable Windows release: **[v0.4.9](https://github.com/spk-c/PenX/releases/tag/v0.4.9)** (tag: `8dec6ba14a3c082bd05058613db06ff3bf531f75`; [successful release CI](https://github.com/spk-c/PenX/actions/runs/39064672723)).
-- The v0.4.9 installer and portable ZIP include the accumulated fixes merged up to the tagged release commit. Any changes merged into [main](https://github.com/spk-c/PenX/tree/main) **after** that tag require a newer published build.
-- `src/penx_app/version.py` and `pyproject.toml` identify **0.4.10**, the next release candidate; **[v0.4.10](https://github.com/spk-c/PenX/releases/tag/v0.4.10) must not be considered published until that release exists with verified Windows assets.** The older v0.4.9 tag and binaries remain immutable.
-- Release publication: **completed** in [#80](https://github.com/spk-c/PenX/issues/80); public installer, portable ZIP, checksum file and CVE-quality artifact have been verified on GitHub. Unperformed physical Windows field acceptance remains in #81 and #82.
+- Latest published and downloadable Windows release: **[v0.4.10](https://github.com/spk-c/PenX/releases/tag/v0.4.10)** (tag: `28227b41c43582ae0a4125440ad6675d963ff5df`; [successful Windows release CI](https://github.com/spk-c/PenX/actions/runs/39622788442)).
+- The v0.4.10 installer and portable ZIP include changes through the tagged commit, including the PHP2Shell advisory. Changes merged into [main](https://github.com/spk-c/PenX/tree/main) **after** the tag require a newer build.
+- `src/penx_app/version.py` and `pyproject.toml` both identify **0.4.10**, matching the published tag. GitHub confirms the installer, portable ZIP, SHA256SUMS.txt and CVE-QUALITY.json assets are uploaded; previous tags remain immutable.
+- Release publication: **completed** for v0.4.10 via the reviewed [Windows Release workflow](https://github.com/spk-c/PenX/actions/runs/39622788442). Installer, portable ZIP, checksum and CVE-quality artifacts are published. Physical Windows field acceptance remains open in #81 and #82.
 
 ## Outstanding independent acceptance
 
@@ -30,7 +30,7 @@ Published release rechecked: **21 October 2026** (v0.4.10 release candidate prep
 
 1. Ensure all required Windows/Ubuntu installer, dependency and CodeQL checks pass on the exact release commit.
 2. Complete the operator-owned [Windows field scenarios](FIELD_ACCEPTANCE.md) or explicitly identify any NOT RUN criteria in release notes; never claim complete field certification from CI alone.
-3. For the planned v0.4.10 release, confirm the version in `src/penx_app/version.py` and `pyproject.toml`, then build from a unique reviewed `v0.4.10` tag; never reuse or move old tags.
-4. Publish the tagged Windows installer, portable ZIP and checksums via the reviewed release workflow, then update README, download instructions and pinned manifest drafts. Verify hashes independently and never move an existing release tag.
+3. For a future version higher than v0.4.10, update `src/penx_app/version.py` and `pyproject.toml`, ensure CI is green, and create a unique reviewed tag; never reuse or move an existing tag.
+4. Publish Windows assets via the reviewed release workflow, then update README, download instructions and draft manifests to match verified release asset digests. Never move an existing tag.
 
 No production scanner targets, private credentials or customer databases are required for documentation/CI maintenance.
