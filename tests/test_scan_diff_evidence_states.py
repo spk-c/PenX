@@ -53,6 +53,8 @@ class ScanDiffEvidenceStatesTests(unittest.TestCase):
         self.assertEqual(trace["scanner_version"], "7.94")
         self.assertEqual(trace["evidence_ref"], "scan:1:finding:10")
         self.assertIn("80/tcp open http", trace["evidence"])
+        self.assertEqual(trace["raw_evidence"], "80/tcp open http")
+        self.assertIn("Original scanner excerpt", report_text(diff))
 
     def test_model_omission_with_repeated_evidence_is_still_present(self):
         diff = compare_sessions(session(1), session(2, finding=False))
