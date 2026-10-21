@@ -16,6 +16,7 @@ from defusedxml.common import DefusedXmlException
 
 from penx_app.storage.db import get_all_history, get_session
 from penx_app.domain.finding_policy import active_vulnerabilities
+from penx_app.reporting.finding_trace import finding_trace, missing_finding_status, scanner_coverage
 
 
 _PORT = re.compile(r"^\s*(\d{1,5})/(tcp|udp)\s+open\s+(\S+)(?:\s+([^\r\n]+))?", re.I | re.M)
@@ -148,6 +149,8 @@ def _findings(data: dict) -> dict:
             "confidence": str(item[4] or "possible").lower(),
             "port": str(item[5] or ""),
             "service": str(item[6] or ""),
+            "source": finding_trace(item, data),
+            "description": str(item[7] or "")[:16000],
         })
     # Pair duplicate findings independently of storage insertion order.
     for group in rows.values():
@@ -345,11 +348,37 @@ def compare_sessions(older: dict, newer: dict) -> dict:
     fresh, missing, reworded_present, reworded = _reworded_matches(fresh, missing)
     still.extend(reworded_present)
 
+    # Legacy not_observed_findings retains all absent rows for API compatibility.
+    # Only the new per-finding states distinguish incomplete scanner coverage.
+    finding_states = []
+    for finding in fresh:
+        finding_states.append({"status": "new", "finding": finding})
+    for finding in still:
+        finding_states.append({"status": "still_present", "finding": finding})
+    for change in changed:
+        finding_states.append({
+            "status": "severity_changed", "finding": change["finding"],
+            "previous_severity": change["from"],
+        })
+    for finding in missing:
+        status, reason = missing_finding_status(finding, newer)
+        finding_states.append({"status": status, "finding": finding, "reason": reason})
+    counts = {name: sum(state["status"] == name for state in finding_states)
+              for name in ("new", "still_present", "severity_changed",
+                           "not_observed", "not_checked", "scan_failed", "resolved")}
+
     return {
         "target": a[1], "from_session": a[0], "to_session": b[0],
         "from_date": str(a[2]), "to_date": str(b[2]),
         "new_findings": fresh,
         "not_observed_findings": missing,
+        "finding_states": finding_states,
+        "finding_state_counts": counts,
+        "resolved_findings": [],  # No automatic resolution from non-observation.
+        "scanner_coverage": {
+            "previous": scanner_coverage(older),
+            "latest": scanner_coverage(newer),
+        },
         "severity_changes": changed,
         "persistent_findings": still,
         "reworded_recommendations": reworded,
@@ -364,9 +393,11 @@ def compare_sessions(older: dict, newer: dict) -> dict:
         ] if oldcomplete and newcomplete else [],
         "port_comparison_reliable": bool(oldcomplete and newcomplete),
         "shodan_internetdb": _shodan_diff(older, newer),
-        "note": ("Not observed is not confirmed fixed. Port disappearances require "
-                 "complete Nmap scans of both sessions; scan profiles and "
-                 "coverage must be comparable."),
+        "note": ("No finding is automatically marked resolved. A negative recheck "
+                 "with completed, comparable scanner coverage is still only "
+                 "not_observed; missing tools, partial scans and unknown "
+                 "provenance are kept separate as scan_failed/not_checked. "
+                 "Port comparisons require complete Nmap scans of both sessions."),
     }
 
 
@@ -380,12 +411,49 @@ def report_text(diff: dict) -> str:
         f"Severity changed: {len(diff['severity_changes'])} | "
         f"Still present: {len(diff['persistent_findings'])}",
     ]
-    for name, label in (
-        ("new_findings", "NEW IN REPORT"), ("not_observed_findings", "NOT REPEATED"),
-        ("persistent_findings", "PERSISTENT")
-    ):
-        for f in diff[name]:
-            lines.append(f"  [{label}] {f['name']} | {f['severity']} | {f['port']}")
+    statuses = diff.get("finding_states")
+    if statuses is not None:
+        counts = diff.get("finding_state_counts", {})
+        lines.append(
+            "Finding states | " + " | ".join(
+                f"{label}: {counts.get(key, 0)}"
+                for key, label in (
+                    ("new", "New"), ("still_present", "Still present"),
+                    ("severity_changed", "Severity changed"),
+                    ("not_observed", "Not observed"),
+                    ("not_checked", "Not checked"),
+                    ("scan_failed", "Scan failed"), ("resolved", "Resolved")
+                )
+            )
+        )
+        for entry in statuses:
+            row = entry["finding"]
+            label = entry["status"].upper().replace("_", " ")
+            lines.append(f"  [{label}] {row['name']} | {row['severity']} | {row['port']}")
+            if entry.get("reason"):
+                lines.append("    Coverage: " + entry["reason"])
+            trace = row.get("source") or {}
+            source_name = trace.get("scanner") or "unattributed"
+            version = trace.get("scanner_version") or "not recorded"
+            lines.append(f"    Source: {source_name} | Version: {version} | "
+                         f"Scan date: {trace.get('recorded_at') or 'unknown'} | "
+                         f"Evidence: {trace.get('evidence_status') or 'review-required'}")
+            if trace.get("evidence_ref"):
+                lines.append("    Reference: " + trace["evidence_ref"])
+            if trace.get("evidence"):
+                lines.append("    Original scanner quote: " +
+                             str(trace["evidence"])[:500].replace("\\n", " "))
+            if row.get("description"):
+                lines.append("    Finding assessment: " +
+                             str(row["description"])[:500].replace("\\n", " "))
+    else:
+        for name, label in (
+            ("new_findings", "NEW IN REPORT"),
+            ("not_observed_findings", "NOT REPEATED"),
+            ("persistent_findings", "PERSISTENT"),
+        ):
+            for f in diff[name]:
+                lines.append(f"  [{label}] {f['name']} | {f['severity']} | {f['port']}")
     for item in diff["severity_changes"]:
         lines.append(f"  [SEVERITY] {item['finding']['name']}: {item['from']} -> {item['to']}")
     for pair in diff.get("reworded_recommendations", []):
