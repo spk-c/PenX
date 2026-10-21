@@ -464,8 +464,11 @@ def report_text(diff: dict) -> str:
                          f"Evidence: {trace.get('evidence_status') or 'review-required'}")
             if trace.get("evidence_ref"):
                 lines.append("    Reference: " + trace["evidence_ref"])
+            if trace.get("raw_evidence"):
+                lines.append("    Original scanner excerpt: " +
+                             str(trace["raw_evidence"])[:500].replace(chr(10), " "))
             if trace.get("evidence"):
-                lines.append("    Original scanner quote: " +
+                lines.append("    Model evidence citation: " +
                              str(trace["evidence"])[:500].replace(chr(10), " "))
             if row.get("description"):
                 lines.append("    Finding assessment: " +
