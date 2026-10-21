@@ -228,6 +228,8 @@ def export_html(data: dict, output_dir: str, *, mode: str = "technical") -> str:
         evidence_ref = source["evidence_ref"] or "unverified"
         from penx_app.reporting.finding_trace import finding_trace
         trace = finding_trace(item, data)
+        if trace["raw_evidence"]:
+            evidence = trace["raw_evidence"][:300]
         scanner_name = trace["scanner"] or "Unattributed"
         scanner_version = trace["scanner_version"] or "Not recorded"
         scan_date = trace["recorded_at"] or "Unknown"
