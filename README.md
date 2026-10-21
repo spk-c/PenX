@@ -37,7 +37,7 @@
 > [!IMPORTANT]
 > **Authorized targets only.** PenX makes real network requests. Use it only on systems you own or are explicitly permitted to assess. AI-generated findings and CVE matches are **not proof of a vulnerability**—always review the underlying evidence.
 >
-> **Release status:** Installers and checksum files are linked from the [latest verified GitHub Release](https://github.com/spk-c/PenX/releases/latest). Independent Windows/scanner and historical-database [field acceptance](docs/MAINTENANCE_STATUS.md) remains **not signed off**.
+> **Release status (21 October 2026):** [v0.4.10](https://github.com/spk-c/PenX/releases/tag/v0.4.10) has published Windows installer, portable ZIP and SHA-256 checksums. Independent Windows/scanner and historical-database [field acceptance](docs/MAINTENANCE_STATUS.md) remains **not signed off**.
 
 ## Download
 
