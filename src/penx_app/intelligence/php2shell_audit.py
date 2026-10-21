@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import re
 
-from penx_app.reporting.scan_coverage import HEAD
+from penx_app.reporting.scan_coverage import ADAPTER_STATUS, HEAD
 
 CVE_IDS = ("CVE-2026-109618", "CVE-2026-109619")
 FIXED_RELEASES = {"8.2": "8.2.35", "8.3": "8.3.36",
@@ -35,6 +35,11 @@ def _observed_banners(raw_scan: str) -> list[dict[str, str]]:
             continue
         end = markers[i + 1].start() if i + 1 < len(markers) else len(raw_scan)
         section = raw_scan[marker.end():end][:_MAX_SECTION_CHARS]
+        metadata_text = re.sub(r"^\s*={20,}\r?\n", "", section).lstrip()
+        marker_status = ADAPTER_STATUS.match(metadata_text)
+        if marker_status and (marker_status.group(1) == "FAILED"
+                              or marker_status.group(2) == "NO"):
+            continue
         for pattern in (_POWERED, _WHATWEB):
             for match in pattern.finditer(section):
                 version = match.group(1)
