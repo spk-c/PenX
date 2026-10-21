@@ -1,6 +1,6 @@
 <!-- penx-download-options-v1 -->
 
-> **Availability:** [PenX v0.4.7 Windows installer and portable ZIP](https://github.com/spk-c/PenX/releases/tag/v0.4.7) are published, with SHA-256 checksums. Source archives generated automatically by GitHub are not ready-to-run Windows applications.
+> **Availability:** Download the current Windows installer or portable ZIP from the [latest official PenX release](https://github.com/spk-c/PenX/releases/latest), together with its SHA-256 checksums. GitHub-generated source archives are not ready-to-run Windows applications.
 
 ## Which Windows download should I choose?
 
