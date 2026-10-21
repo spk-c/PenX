@@ -42,6 +42,13 @@ class Php2ShellAuditTests(unittest.TestCase):
                          ["status"], "unknown")
         self.assertEqual(assess_php2shell(saved_scan("Server: nginx"))["status"], "unknown")
 
+    def test_failed_adapter_version_banner_is_not_trusted(self):
+        text = ("[ HTTP HEADERS OUTPUT ]\n"
+                + "=" * 50 + "\n"
+                + "[PENX ADAPTER STATUS: FAILED; EVIDENCE: NO]\n"
+                + "X-Powered-By: PHP/8.4.26\n")
+        self.assertEqual(assess_php2shell(text)["status"], "unknown")
+
     def test_conflicting_multiple_headers_fail_closed(self):
         raw = saved_scan("X-Powered-By: PHP/8.4.26\nX-Powered-By: PHP/8.5.12")
         self.assertEqual(assess_php2shell(raw)["status"], "conflicting_or_multiple_versions")
