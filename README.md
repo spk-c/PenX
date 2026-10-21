@@ -37,19 +37,19 @@
 > [!IMPORTANT]
 > **Authorized targets only.** PenX makes real network requests. Use it only on systems you own or are explicitly permitted to assess. AI-generated findings and CVE matches are **not proof of a vulnerability**—always review the underlying evidence.
 >
-> **Release status:** [v0.4.9](https://github.com/spk-c/PenX/releases/tag/v0.4.9) has published Windows assets and automated release checks. Independent Windows/scanner and historical-database [field acceptance](docs/MAINTENANCE_STATUS.md) remains **not signed off**.
+> **Release status:** Installers and checksum files are linked from the [latest verified GitHub Release](https://github.com/spk-c/PenX/releases/latest). Independent Windows/scanner and historical-database [field acceptance](docs/MAINTENANCE_STATUS.md) remains **not signed off**.
 
 ## Download
 
-**The easiest way to get started is the Windows installer.** PenX v0.4.9 is available from [official GitHub Releases](https://github.com/spk-c/PenX/releases/tag/v0.4.9):
+**The easiest way to get started is the Windows installer.** Use the [latest official GitHub Release](https://github.com/spk-c/PenX/releases/latest) for the newest *published* build:
 
 | Edition | Recommended for | Get it |
 | --- | --- | --- |
-| **Windows installer** (`PenX-Setup-x64.exe`) | Most Windows 10/11 users; Start menu and uninstall entry | **[Download installer](https://github.com/spk-c/PenX/releases/download/v0.4.9/PenX-Setup-x64.exe)** |
-| **Portable ZIP** (`PenX-Windows-x64.zip`) | Running PenX from an extracted directory | **[Download portable ZIP](https://github.com/spk-c/PenX/releases/download/v0.4.9/PenX-Windows-x64.zip)** |
+| **Windows installer** (`PenX-Setup-x64.exe`) | Most Windows 10/11 users; Start menu and uninstall entry | **[Download installer](https://github.com/spk-c/PenX/releases/latest/download/PenX-Setup-x64.exe)** |
+| **Portable ZIP** (`PenX-Windows-x64.zip`) | Running PenX from an extracted directory | **[Download portable ZIP](https://github.com/spk-c/PenX/releases/latest/download/PenX-Windows-x64.zip)** |
 | **Source code** | Developers and Python-based installations | [Install from source](#from-source) |
 
-**Verify your download:** Compare the file against [SHA256SUMS.txt](https://github.com/spk-c/PenX/releases/download/v0.4.9/SHA256SUMS.txt) from the same release. Extract the **complete portable ZIP**, including `_internal`; GitHub's auto-generated *Source code (ZIP)* is **not** the packaged Windows app.
+**Verify your download:** Compare the file against [SHA256SUMS.txt](https://github.com/spk-c/PenX/releases/latest/download/SHA256SUMS.txt) from the same release. Extract the **complete portable ZIP**, including `_internal`; GitHub's auto-generated *Source code (ZIP)* is **not** the packaged Windows app.
 
 > [!NOTE]
 > The installer is **not Authenticode-signed** and may trigger Windows SmartScreen. Third-party scanner binaries and local AI models are **not bundled**. Read the [Windows installation guide](WINDOWS.md) before installing extra dependencies.
@@ -170,6 +170,23 @@ PenX passes collected scanner evidence to an **OpenAI-compatible model endpoint 
 - **Export redaction is limited.** Review any output before publication.
 
 [Configure local AI and CVE research →](docs/LOCAL_AI_AND_CVE.md)
+
+## PHP2Shell security advisory (CVE-2026-109618 / CVE-2026-109619)
+
+PenX includes an **offline, non-exploiting PHP release-posture assessment** for these PHP2Shell CVEs. When a normal authorized scan has already collected a PHP version banner from HTTP headers or web fingerprinting, PenX compares that *reported version* against the upstream PHP security releases:
+
+| PHP branch | Upstream fixed release |
+| --- | --- |
+| 8.2 | **8.2.35** |
+| 8.3 | **8.3.36** |
+| 8.4 | **8.4.27** |
+| 8.5 | **8.5.12** |
+
+The advisory distinguishes a pre-fix version banner, a version at or after an upstream fix, unsupported branches, missing evidence and conflicting version observations. Results are included in **HTML, PDF, JSON and SARIF** assessment exports.
+
+**What it does not do:** PenX does not execute the php2shell exploit, upload a payload, verify remote code execution or claim the server is definitely vulnerable based on an HTTP header. Version banners may be hidden/spoofed or supplied by a reverse proxy; vendor packages can backport fixes. Check the actual installed PHP package and vendor security status on systems you administer. Disabling `session.upload_progress.enabled` is not a replacement for installing the security update.
+
+[Technical scope and limitations →](docs/SCANNING_AND_REPORTS.md#php2shell-release-posture-offline-advisory)
 
 ## Reports and exports
 
