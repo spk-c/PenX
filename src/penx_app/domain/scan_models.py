@@ -6,6 +6,12 @@ import json
 import math
 from typing import TYPE_CHECKING
 
+from penx_app.domain.scan_diagnostics import (
+    MAX_EVENTS_PER_ADAPTER,
+    PlanSummary,
+    ScannerRunEvent,
+)
+
 if TYPE_CHECKING:
     from penx_app.domain.evidence import EvidenceRecord
 
@@ -29,6 +35,7 @@ class ScannerResult:
     exit_code: int | None = None
     diagnostics: str = ''
     evidence_records: tuple['EvidenceRecord', ...] = ()
+    run_events: tuple[ScannerRunEvent, ...] = ()
 
     def __post_init__(self):
         if self.status not in ('COMPLETE', 'PARTIAL', 'FAILED'):
@@ -47,11 +54,19 @@ class ScannerResult:
             raise ValueError('Invalid scanner diagnostic text')
         if not isinstance(self.evidence_records, tuple):
             raise ValueError('Invalid scanner evidence records')
+        if not isinstance(self.run_events, tuple) \
+                or len(self.run_events) > MAX_EVENTS_PER_ADAPTER:
+            raise ValueError('Invalid scanner run events')
+        if any(not isinstance(event, ScannerRunEvent)
+               or event.scanner_id != self.scanner_id
+               for event in self.run_events):
+            raise ValueError('Run event does not match adapter')
 
 
 @dataclass(frozen=True)
 class ScanResult:
     results: tuple[ScannerResult, ...]
+    plan_summary: PlanSummary | None = None
 
     @property
     def has_evidence(self) -> bool:
@@ -62,6 +77,8 @@ class ScanResult:
 
         Version 1 stays available for historical scans without provenance.
         Version 2 carries the same adapter outcomes plus source anchors.
+        Version 3 (additive) adds bounded lifecycle events per adapter and a
+        top-level plan summary; event-free results stay byte-identical v1/v2.
         """
         if len(self.results) > 100:
             raise ValueError('Too many scanner metadata records')
@@ -78,7 +95,17 @@ class ScanResult:
                 row['records'] = [asdict(record) for record in result.evidence_records]
                 version = 2
             rows.append(row)
-        encoded = json.dumps({'version': version, 'adapters': rows}, ensure_ascii=True)
+        if any(result.run_events for result in self.results) \
+                or self.plan_summary is not None:
+            version = 3
+        if version == 3:
+            for row, result in zip(rows, self.results):
+                row['events'] = [event.to_dict()
+                                 for event in result.run_events]
+        payload = {'version': version, 'adapters': rows}
+        if version == 3 and self.plan_summary is not None:
+            payload['plan'] = asdict(self.plan_summary)
+        encoded = json.dumps(payload, ensure_ascii=True)
         if len(encoded) > 100_000:
             raise ValueError('Scanner metadata exceeds its size limit')
         return encoded
@@ -89,11 +116,24 @@ class ScanResult:
             raise ValueError('Scanner metadata exceeds its size limit')
         value = json.loads(text)
         if not isinstance(value, dict) or type(value.get('version')) is not int \
-                or value['version'] not in (1, 2):
+                or value['version'] not in (1, 2, 3):
             raise ValueError('Unsupported scanner metadata version')
+        version = value['version']
         rows = value.get('adapters')
         if not isinstance(rows, list) or len(rows) > 100:
             raise ValueError('Invalid scanner metadata')
+        plan_summary: PlanSummary | None = None
+        if version == 3:
+            raw_plan = value.get('plan')
+            if raw_plan is not None:
+                if not isinstance(raw_plan, dict) or set(raw_plan) != {
+                        'profile_id', 'profile_version',
+                        'max_parallelism', 'global_budget_seconds'}:
+                    raise ValueError('Invalid plan metadata')
+                try:
+                    plan_summary = PlanSummary(**raw_plan)
+                except (TypeError, ValueError) as exc:
+                    raise ValueError('Invalid plan metadata') from exc
         results = []
         for row in rows:
             if (not isinstance(row, dict) or not isinstance(row.get('id'), str)
@@ -104,10 +144,14 @@ class ScanResult:
             # Historical anchors are stored claims. Without fresh source text
             # this parser does not independently reverify their raw offsets.
             evidence_records: tuple['EvidenceRecord', ...] = ()
-            if value['version'] == 1:
-                if 'records' in row:
-                    raise ValueError('Legacy metadata cannot contain anchors')
-            else:
+            run_events: tuple[ScannerRunEvent, ...] = ()
+            if version == 1:
+                if 'records' in row or 'events' in row:
+                    raise ValueError(
+                        'Legacy metadata cannot contain anchors or run events')
+            elif version == 2 and 'events' in row:
+                raise ValueError('Metadata version 2 cannot contain run events')
+            if version in (2, 3):
                 from penx_app.domain.evidence import EvidenceRecord
                 raw_records = row.get('records', [])
                 if not isinstance(raw_records, list) or len(raw_records) > 4:
@@ -127,11 +171,27 @@ class ScanResult:
                         raise ValueError('Evidence metadata contradicts scanner outcome')
                     collected.append(record)
                 evidence_records = tuple(collected)
+            if version == 3:
+                raw_events = row.get('events')
+                if not isinstance(raw_events, list) \
+                        or len(raw_events) > MAX_EVENTS_PER_ADAPTER:
+                    raise ValueError('Invalid run event metadata')
+                events = []
+                for raw_event in raw_events:
+                    try:
+                        event = ScannerRunEvent.from_dict(raw_event)
+                    except (TypeError, ValueError) as exc:
+                        raise ValueError('Invalid run event metadata') from exc
+                    if event.scanner_id != row['id']:
+                        raise ValueError('Run event does not match adapter')
+                    events.append(event)
+                run_events = tuple(events)
             # Dataclass validates the allowed status/evidence combinations.
             results.append(ScannerResult(row['id'], '', row['status'],
                                          row['evidence'], row['name'],
-                                         evidence_records=evidence_records))
-        return cls(tuple(results))
+                                         evidence_records=evidence_records,
+                                         run_events=run_events))
+        return cls(tuple(results), plan_summary=plan_summary)
 
     def evidence_records(self) -> tuple['EvidenceRecord', ...]:
         """In-memory provenance anchors attached at the adapter boundary."""

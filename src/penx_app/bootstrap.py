@@ -5,7 +5,9 @@ from penx_app.version import VERSION
 
 USAGE = ('Usage: PenX.exe [--version | --check | --setup-status | --setup | '
          '--setup-native | --llm-setup | --check-update | --update | '
-         '--export-session SL --format json|sarif [--redact]]')
+         '--export-session SL --format json|sarif [--redact] | '
+         'preflight --target HOST [--profile ID] [--scanners KEYS] '
+         '[--consent]]')
 
 
 def _force_utf8_text_streams(streams) -> None:
@@ -53,6 +55,9 @@ def main() -> int:
         if command == '--export-session':
             from penx_app.reporting.machine_reports import export_cli
             return export_cli(args[1:])
+        if command == 'preflight':
+            from penx_app.application.preflight import main as preflight_main
+            return preflight_main(args[1:])
         print(USAGE)
         return 2
 

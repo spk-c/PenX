@@ -25,6 +25,81 @@ def _call_adapter(runner, target: str, cancel_event: threading.Event | None):
     return runner(target)
 
 
+def _overload_observed(rows: dict) -> bool:
+    """True when a completed selected probe already reported HTTP 508."""
+    return any(
+        ("508 resource limit is reached" in str(output).casefold() or
+         re.search(r"(?im)^HTTP\s+508(?:\s|$)", str(output)))
+        for label, output in rows.items()
+        if label.lower() in {"http headers", "web fingerprint", "nmap"}
+    )
+
+
+def _cancelled_row(name: str, scanner_id: str) -> tuple[str, ScannerOutput]:
+    note = f"[!] {name} was not started: scan cancelled by caller."
+    return note, ScannerOutput(
+        note, status="PARTIAL", evidence=False,
+        scanner_id=scanner_id,
+        diagnostics="Not started: caller cancelled scan sequence",
+    )
+
+
+def _overload_skip_row(name: str, scanner_id: str) -> tuple[str, ScannerOutput]:
+    note = ("[!] Skipped active HTTP checks: previous selected probes observed "
+            "HTTP 508 Resource Limit Is Reached. Avoid additional load; "
+            "retry after the target recovers. No scan was run.")
+    return note, ScannerOutput(
+        note, status="PARTIAL", evidence=False,
+        scanner_id=scanner_id,
+        diagnostics="Skipped after HTTP 508 from a previous selected scanner",
+    )
+
+
+def _run_adapter(name: str, runner, target: str, emit,
+                 cancel_event: threading.Event | None,
+                 scanner_id: str) -> ScannerOutput:
+    """Run one adapter with the established normalization and isolation."""
+    emit(f'\n[*] Running {name}...')
+    started = time.monotonic()
+    try:
+        output = _call_adapter(runner, target, cancel_event)
+        if not isinstance(output, ScannerOutput):
+            # Legacy adapters may return plain text, but None, false,
+            # empty containers and arbitrary object reprs are never
+            # trustworthy completed scanner evidence.
+            if not isinstance(output, str):
+                output = ScannerOutput(
+                    f"[!] Unsupported scanner result type: {type(output).__name__}",
+                    status="FAILED", evidence=False,
+                    diagnostics="Adapter did not return ScannerOutput or text",
+                )
+            else:
+                failed = (not output.strip() or
+                          output.lstrip().startswith(('[!', '[EXIT CODE', '[ERROR]', 'Traceback ')))
+                output = ScannerOutput(
+                    output, status='FAILED' if failed else 'COMPLETE',
+                    evidence=not failed,
+                )
+        return ScannerOutput(
+            str(output), status=output.status, evidence=output.evidence,
+            scanner_id=scanner_id,
+            duration_seconds=time.monotonic() - started,
+            exit_code=output.exit_code, diagnostics=output.diagnostics,
+        )
+    except Exception as exc:
+        # A broken optional adapter must not discard evidence from earlier
+        # scanners or throw the user back to the main menu.
+        detail = re.sub(r"[\x00-\x1f\x7f]+", " ", str(exc))[:220]
+        message = f"[!] {name} failed ({type(exc).__name__}): {detail}"
+        emit(message)
+        return ScannerOutput(
+            message, status="FAILED", evidence=False,
+            scanner_id=scanner_id,
+            duration_seconds=time.monotonic() - started,
+            diagnostics=detail,
+        )
+
+
 def run_selected(request: ScanRequest, *, menu: dict, emit=lambda *_: None,
                  cancel_event: threading.Event | None = None) -> dict:
     if request.passive_only:
@@ -39,73 +114,20 @@ def run_selected(request: ScanRequest, *, menu: dict, emit=lambda *_: None,
         if cancel_event is not None and cancel_event.is_set():
             # Preserve selected-scanner coverage without executing the next
             # adapter after a caller cancelled the running scan sequence.
-            note = f"[!] {name} was not started: scan cancelled by caller."
+            note, row = _cancelled_row(name, SCANNERS[key].id)
             emit(note)
-            results[name] = ScannerOutput(
-                note, status="PARTIAL", evidence=False,
-                scanner_id=SCANNERS[key].id,
-                diagnostics="Not started: caller cancelled scan sequence",
-            )
+            results[name] = row
             continue
         # Keep the menu function standalone (also used by isolated CLI tests).
         # Only trust previously collected HTTP/WhatWeb/Nmap evidence; no extra
         # probe is made solely to decide whether the target is resource-limited.
-        overloaded = any(
-            ("508 resource limit is reached" in str(output).casefold() or
-             re.search(r"(?im)^HTTP\s+508(?:\s|$)", str(output)))
-            for label, output in results.items()
-            if label.lower() in {"http headers", "web fingerprint", "nmap"}
-        )
-        if SCANNERS[key].resource_sensitive and overloaded:
-            note = ("[!] Skipped active HTTP checks: previous selected probes observed "
-                    "HTTP 508 Resource Limit Is Reached. Avoid additional load; "
-                    "retry after the target recovers. No scan was run.")
+        if SCANNERS[key].resource_sensitive and _overload_observed(results):
+            note, row = _overload_skip_row(name, SCANNERS[key].id)
             emit(f"\n[!] Skipping {name}: HTTP 508 resource limit already observed.")
-            results[name] = ScannerOutput(
-                note, status="PARTIAL", evidence=False,
-                scanner_id=SCANNERS[key].id,
-                diagnostics="Skipped after HTTP 508 from a previous selected scanner",
-            )
+            results[name] = row
             continue
-        emit(f'\n[*] Running {name}...')
-        started = time.monotonic()
-        try:
-            output = _call_adapter(runner, request.target, cancel_event)
-            if not isinstance(output, ScannerOutput):
-                # Legacy adapters may return plain text, but None, false,
-                # empty containers and arbitrary object reprs are never
-                # trustworthy completed scanner evidence.
-                if not isinstance(output, str):
-                    output = ScannerOutput(
-                        f"[!] Unsupported scanner result type: {type(output).__name__}",
-                        status="FAILED", evidence=False,
-                        diagnostics="Adapter did not return ScannerOutput or text",
-                    )
-                else:
-                    failed = (not output.strip() or
-                              output.lstrip().startswith(('[!', '[EXIT CODE', '[ERROR]', 'Traceback ')))
-                    output = ScannerOutput(
-                        output, status='FAILED' if failed else 'COMPLETE',
-                        evidence=not failed,
-                    )
-            results[name] = ScannerOutput(
-                str(output), status=output.status, evidence=output.evidence,
-                scanner_id=SCANNERS[key].id,
-                duration_seconds=time.monotonic() - started,
-                exit_code=output.exit_code, diagnostics=output.diagnostics,
-            )
-        except Exception as exc:
-            # A broken optional adapter must not discard evidence from earlier
-            # scanners or throw the user back to the main menu.
-            detail = re.sub(r"[\x00-\x1f\x7f]+", " ", str(exc))[:220]
-            message = f"[!] {name} failed ({type(exc).__name__}): {detail}"
-            emit(message)
-            results[name] = ScannerOutput(
-                message, status="FAILED", evidence=False,
-                scanner_id=SCANNERS[key].id,
-                duration_seconds=time.monotonic() - started,
-                diagnostics=detail,
-            )
+        results[name] = _run_adapter(name, runner, request.target, emit,
+                                     cancel_event, SCANNERS[key].id)
     return results
 
 
