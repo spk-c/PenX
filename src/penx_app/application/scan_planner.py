@@ -14,6 +14,7 @@ import time
 from dataclasses import dataclass, replace
 
 from penx_app.application.scanner_execution import (
+    _call_adapter,
     _cancelled_row,
     _overload_observed,
     _overload_skip_row,
@@ -35,6 +36,8 @@ from penx_app.domain.scan_plan import (
     validate_plan,
 )
 from penx_app.scanners.registry import SCANNERS
+from penx_app.domain.scanner_configuration import ScannerConfiguration
+from penx_app.scanners.configuration_runtime import configured_adapter
 
 # Built-in per-node defaults mirroring the adapter-level deadlines already
 # applied by the adapters in scanners/tools.py (sequential mode).
@@ -112,17 +115,39 @@ def run_plan(plan: ScanPlan, *, menu: dict, emit=lambda *_: None,
     if plan.passive_only:
         raise ValueError(
             'Passive collection cannot dispatch active scanner adapters.')
+    if any(key not in menu for key in plan.scanner_keys):
+        raise ValueError('Invalid scanner selection. No scanners started.')
+    configurations = {item.scanner_key: item for item in plan.scanner_configuration}
+    for key, timeout in plan.per_scanner_timeouts.items():
+        configurations[key] = replace(configurations.get(key, ScannerConfiguration(key)),
+                                      timeout_seconds=timeout)
+    if configurations:
+        configured_menu = dict(menu)
+        for key, options in configurations.items():
+            if key not in menu:
+                raise ValueError('Configured scanner missing from adapter menu')
+            def bind(runner, config):
+                def run(target, *, cancel_event=None):
+                    with configured_adapter(config):
+                        return _call_adapter(runner, target, cancel_event)
+                return run
+            configured_menu[key] = (menu[key][0], bind(menu[key][1], options))
+        menu = configured_menu
+        timeouts = dict(plan.per_scanner_timeouts)
+        timeouts.update({key: options.timeout_seconds for key, options in configurations.items()
+                         if options.timeout_seconds is not None})
+        plan = replace(plan, per_scanner_timeouts=timeouts)
     if (plan.max_parallelism == 1
             and plan.global_budget_seconds is None
             and plan.dispatch_interval_seconds is None):
+        if configurations:
+            result = _run_plan_scheduled(plan, menu=menu, emit=emit, cancel_event=cancel_event)
+            return replace(result, scanner_configuration=tuple(configurations[key] for key in sorted(configurations)))
         # Zero-behavior-change path: the existing sequential executor.
         return run_selected_structured(plan.to_request(), menu=menu,
                                        emit=emit, cancel_event=cancel_event)
-    missing = [key for key in plan.scanner_keys if key not in menu]
-    if missing:
-        raise ValueError('Invalid scanner selection. No scanners started.')
-    return _run_plan_scheduled(plan, menu=menu, emit=emit,
-                               cancel_event=cancel_event)
+    result = _run_plan_scheduled(plan, menu=menu, emit=emit, cancel_event=cancel_event)
+    return replace(result, scanner_configuration=tuple(configurations[key] for key in sorted(configurations)))
 
 
 def _terminal_event(output: ScannerOutput) -> str:
@@ -183,14 +208,33 @@ def _run_plan_scheduled(plan: ScanPlan, *, menu: dict, emit,
     last_start: float | None = None
     workers = max(1, plan.max_parallelism)
 
+    class NodeCancellation(threading.Event):
+        def is_set(self):
+            return super().is_set() or effective_cancel.is_set()
+
+        def wait(self, timeout=None):
+            until = time.monotonic() + timeout if timeout is not None else None
+            while not self.is_set():
+                remaining = until - time.monotonic() if until is not None else 0.05
+                if remaining <= 0:
+                    break
+                super().wait(min(0.05, remaining))
+            return self.is_set()
+
+    node_events: dict[str, NodeCancellation] = {}
+
     with concurrent.futures.ThreadPoolExecutor(
             max_workers=workers) as pool:
         while pending or in_flight:
+            if deadline is not None and time.monotonic() >= deadline:
+                effective_cancel.set()
             # Reap finished or timed-out nodes first so fresh 508 evidence is
             # visible before the next dispatch decision.
             for key, future in list(in_flight.items()):
                 if future.done():
                     in_flight.pop(key)
+                    if key in rows:
+                        continue
                     try:
                         record(key, future.result())
                     except Exception as exc:
@@ -202,9 +246,11 @@ def _run_plan_scheduled(plan: ScanPlan, *, menu: dict, emit,
                             status="FAILED", evidence=False,
                             scanner_id=ids[key],
                             diagnostics=detail))
-                elif (time.monotonic() - started_at[key]
+                elif key not in rows and (time.monotonic() - started_at[key]
                       >= node_timeout[key]):
-                    in_flight.pop(key)
+                    # Retain the occupied worker until it actually exits;
+                    # otherwise timed-out work could exceed parallelism.
+                    node_events[key].set()
                     timeout = node_timeout[key]
                     note = (f"[!] {names[key]} timed out after "
                             f"{timeout} seconds.")
@@ -223,6 +269,8 @@ def _run_plan_scheduled(plan: ScanPlan, *, menu: dict, emit,
                 for key, future in list(in_flight.items()):
                     if future in done:
                         in_flight.pop(key)
+                        if key in rows:
+                            continue
                         try:
                             record(key, future.result())
                         except Exception as exc:
@@ -240,13 +288,13 @@ def _run_plan_scheduled(plan: ScanPlan, *, menu: dict, emit,
                 key = pending[0]
                 name = names[key]
                 spec = SCANNERS[key]
-                if effective_cancel.is_set():
+                now = time.monotonic()
+                if effective_cancel.is_set() and (deadline is None or now < deadline):
                     note, output_row = _cancelled_row(name, ids[key])
                     safe_emit(note)
                     record(key, output_row)
                     pending.pop(0)
                     continue
-                now = time.monotonic()
                 if deadline is not None and now >= deadline:
                     note = (f"[!] {name} was not started: global budget "
                             "exhausted.")
@@ -270,16 +318,20 @@ def _run_plan_scheduled(plan: ScanPlan, *, menu: dict, emit,
                     wait = (last_start + plan.dispatch_interval_seconds
                             - time.monotonic())
                     if wait > 0:
-                        time.sleep(wait)
+                        if deadline is not None:
+                            wait = min(wait, max(0, deadline - time.monotonic()))
+                        effective_cancel.wait(wait)
+                        continue  # Recheck cancellation and budget before dispatch.
                 last_start = time.monotonic()
                 started_at[key] = last_start
                 events.setdefault(key, []).append(ScannerRunEvent(
                     ids[key], 'started', None, None,
                     f"dispatched as node {schedule.index(key) + 1}/"
                     f"{len(schedule)}"[:200]))
+                node_events[key] = NodeCancellation()
                 in_flight[key] = pool.submit(
                     _run_adapter, name, menu[key][1], plan.target,
-                    safe_emit, effective_cancel, ids[key])
+                    safe_emit, node_events[key], ids[key])
                 pending.pop(0)
 
     ordered = []

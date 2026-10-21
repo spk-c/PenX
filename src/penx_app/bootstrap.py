@@ -67,6 +67,9 @@ def main() -> int:
         if command == 'scan':
             from penx_app.application.headless_scan import main as scan_main
             return scan_main(args[1:])
+        if command == 'profiles':
+            from penx_app.application.profile_documents import main as profiles_main
+            return profiles_main(args[1:])
         print(USAGE)
         return 2
 

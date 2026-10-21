@@ -57,6 +57,7 @@ def scan_report(plan, result: ScanResult, *, redact: bool = False) -> dict:
         'target': _mask(plan.target, plan.target, redact),
         'scan_date': datetime.now(timezone.utc).isoformat(),
         'profile': asdict(result.plan_summary) if result.plan_summary else None,
+        'scanner_configuration': [item.to_dict() for item in result.scanner_configuration],
         'coverage': result.coverage(),
         'adapters': [{'id': row.scanner_id, 'status': row.status, 'evidence': row.evidence,
                       'diagnostics': _mask(row.diagnostics, plan.target, redact),
@@ -90,13 +91,14 @@ def main(argv: list[str]) -> int:
     selection = parser.add_mutually_exclusive_group()
     selection.add_argument('--profile')
     selection.add_argument('--scanners', help='Explicit comma-separated registry keys')
+    selection.add_argument('--profile-file', help='Validated local profile JSON (no embedded authorization)')
     parser.add_argument('--authorized', action='store_true', help='Confirm authorization for this exact target')
     parser.add_argument('--consent', action='store_true', help='Authorize consent-gated active web checks')
     parser.add_argument('--output', default='./reports')
     parser.add_argument('--format', choices=('json', 'sarif', 'both'), default='json')
     parser.add_argument('--redact', action='store_true')
     parser.add_argument('--fail-on', choices=tuple(SEVERITIES))
-    parser.add_argument('--max-parallelism', type=int, default=1)
+    parser.add_argument('--max-parallelism', type=int)
     parser.add_argument('--budget', type=int)
     parser.add_argument('--dispatch-interval', type=float)
     parser.add_argument('--dry-run', action='store_true')
@@ -109,20 +111,26 @@ def main(argv: list[str]) -> int:
     try:
         target = args.target.strip()
         normalize_host(target)  # Pure validation before availability probes or adapters.
-        plan = _build_plan(target, profile=args.profile, scanners=args.scanners, consent=args.consent)
-        plan = replace(plan, max_parallelism=args.max_parallelism,
-                       global_budget_seconds=args.budget,
-                       dispatch_interval_seconds=args.dispatch_interval)
+        if args.profile_file:
+            from penx_app.application.profile_documents import load_profile
+            plan = load_profile(args.profile_file).to_plan(target, active_consent=args.consent)
+        else:
+            plan = _build_plan(target, profile=args.profile, scanners=args.scanners, consent=args.consent)
+        plan = replace(plan, max_parallelism=args.max_parallelism if args.max_parallelism is not None else plan.max_parallelism,
+                       global_budget_seconds=args.budget if args.budget is not None else plan.global_budget_seconds,
+                       dispatch_interval_seconds=args.dispatch_interval if args.dispatch_interval is not None else plan.dispatch_interval_seconds)
         from penx_app.domain.scan_plan import assert_valid_plan
         assert_valid_plan(plan)
+        if plan.max_parallelism > 8 or (plan.global_budget_seconds is not None and plan.global_budget_seconds > 3600):
+            raise ValueError('Headless limits: at most 8 workers and a 3600-second global budget')
         if args.dry_run:
             preflight = build_preflight(plan)
             print(format_report(preflight))
             return 0 if preflight.available else 4
         if not args.authorized:
             raise ValueError('Pass --authorized only for targets you own or have explicit permission to assess.')
-        if plan.passive_only and (args.budget is not None or args.max_parallelism != 1
-                                  or args.dispatch_interval is not None):
+        if plan.passive_only and (plan.global_budget_seconds is not None or plan.max_parallelism != 1
+                                  or plan.dispatch_interval_seconds is not None):
             raise ValueError('Passive providers do not support planner budgets, parallelism or dispatch intervals.')
         dispatched = True
         if plan.passive_only:

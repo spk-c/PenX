@@ -6,6 +6,7 @@ import json
 import math
 from typing import TYPE_CHECKING
 from penx_app.domain.raw_artifact import RawArtifact
+from penx_app.domain.scanner_configuration import ScannerConfiguration
 
 from penx_app.domain.scan_diagnostics import (
     MAX_EVENTS_PER_ADAPTER,
@@ -73,6 +74,13 @@ class ScannerResult:
 class ScanResult:
     results: tuple[ScannerResult, ...]
     plan_summary: PlanSummary | None = None
+    scanner_configuration: tuple[ScannerConfiguration, ...] = ()
+
+    def __post_init__(self):
+        if (not isinstance(self.scanner_configuration, tuple) or len(self.scanner_configuration) > 100
+                or any(not isinstance(item, ScannerConfiguration) for item in self.scanner_configuration)
+                or len({item.scanner_key for item in self.scanner_configuration}) != len(self.scanner_configuration)):
+            raise ValueError('Invalid scan configuration snapshot')
 
     @property
     def has_evidence(self) -> bool:
@@ -103,7 +111,7 @@ class ScanResult:
                 version = 2
             rows.append(row)
         if any(result.run_events or result.raw_artifact for result in self.results) \
-                or self.plan_summary is not None:
+                or self.plan_summary is not None or self.scanner_configuration:
             version = 3
         if version == 3:
             for row, result in zip(rows, self.results):
@@ -114,6 +122,8 @@ class ScanResult:
         payload = {'version': version, 'adapters': rows}
         if version == 3 and self.plan_summary is not None:
             payload['plan'] = asdict(self.plan_summary)
+        if self.scanner_configuration:
+            payload['configuration'] = [item.to_dict() for item in self.scanner_configuration]
         encoded = json.dumps(payload, ensure_ascii=True)
         if len(encoded) > 100_000:
             raise ValueError('Scanner metadata exceeds its size limit')
@@ -128,6 +138,11 @@ class ScanResult:
                 or value['version'] not in (1, 2, 3):
             raise ValueError('Unsupported scanner metadata version')
         version = value['version']
+        configuration = value.get('configuration', [])
+        if (not isinstance(configuration, list) or len(configuration) > 100
+                or (version != 3 and 'configuration' in value)):
+            raise ValueError('Invalid scan configuration metadata')
+        parsed_configuration = tuple(ScannerConfiguration.from_dict(item) for item in configuration)
         rows = value.get('adapters')
         if not isinstance(rows, list) or len(rows) > 100:
             raise ValueError('Invalid scanner metadata')
@@ -210,7 +225,8 @@ class ScanResult:
                                          evidence_records=evidence_records,
                                          run_events=run_events,
                                          raw_artifact=raw_artifact))
-        return cls(tuple(results), plan_summary=plan_summary)
+        return cls(tuple(results), plan_summary=plan_summary,
+                   scanner_configuration=parsed_configuration)
 
     def evidence_records(self) -> tuple['EvidenceRecord', ...]:
         """In-memory provenance anchors attached at the adapter boundary."""

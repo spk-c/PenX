@@ -10,6 +10,7 @@ import math
 from dataclasses import dataclass
 
 from penx_app.domain.scan_models import ScanRequest
+from penx_app.domain.scanner_configuration import ScannerConfiguration
 from penx_app.scanners.registry import CONSENT_KEYS, SCANNERS
 
 TIMEOUT_MIN_SECONDS = 30
@@ -34,6 +35,7 @@ class ScanPlan:
     max_parallelism: int
     global_budget_seconds: int | None
     dispatch_interval_seconds: float | None
+    scanner_configuration: tuple[ScannerConfiguration, ...] = ()
 
     def to_request(self) -> ScanRequest:
         """1:1 mapping to the existing ScanRequest contract.
@@ -56,6 +58,16 @@ def _is_strict_int(value: object) -> bool:
 def validate_plan(plan: ScanPlan) -> list[str]:
     """Return every structural violation (empty list means the plan is valid)."""
     errors: list[str] = []
+    configuration = plan.scanner_configuration
+    if (not isinstance(configuration, tuple)
+            or any(not isinstance(item, ScannerConfiguration) for item in configuration)):
+        errors.append('R11: scanner configuration must contain typed options')
+    else:
+        configured_keys = [item.scanner_key for item in configuration]
+        if len(set(configured_keys)) != len(configured_keys):
+            errors.append('R11: duplicate scanner configuration')
+        if isinstance(plan.scanner_keys, tuple) and any(key not in plan.scanner_keys for key in configured_keys):
+            errors.append('R11: configuration must refer to selected scanners')
     # R1
     if not isinstance(plan.profile_id, str) or not plan.profile_id.strip():
         errors.append('R1: profile_id must be a non-empty string')

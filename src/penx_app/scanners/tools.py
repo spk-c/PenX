@@ -126,6 +126,8 @@ from penx_app.scanners.process_runner import run_tool
 
 def _run_external(command, *, timeout, cancel_event=None, **kwargs):
     """Retain legacy subprocess mocks when the caller has no cancellation token."""
+    from penx_app.scanners.configuration_runtime import external_options
+    command, timeout = external_options(command, timeout)
     if cancel_event is not None:
         kwargs["cancel_event"] = cancel_event
     return run_tool(command, timeout=timeout, **kwargs)

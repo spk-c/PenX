@@ -1,5 +1,24 @@
 # PenX Roadmap Progress
 
+## Phase 4 completion — 2026-10-22
+
+- Added strict typed per-scanner timeouts, Nmap ports, Nuclei severity subsets
+  and non-increasing native scanner request rates. Fixed argument lists retain
+  safety flags and target scope; arbitrary flags/paths/secrets are rejected.
+- Added bounded versioned profile validation, builtin/custom export and explicit
+  headless profile import. Files contain no target or transferable authorization.
+- Bound options within worker contexts; persisted allowlisted metadata v3
+  snapshots and exposed configuration differences in comparisons.
+- Fixed node timeout signaling, occupied-worker accounting, global cancellation
+  after final dispatch, and budget/cancellation checks after dispatch waits.
+- Added 12 offline configuration/profile/deadline acceptance tests. Verified
+  actual adapter argument forwarding through mocked process execution.
+- Verification: **all 210 offline suites passed**, exit 0; the final menu-guard
+  adjustment was additionally checked by the 15 executor tests, all passed.
+  Ruff full-tree/F401 and Linux-platform mypy passed (113 source files).
+- Usage, caps and cooperative-I/O limitations: `SCANNER_CONFIGURATION.md`.
+- Next: Phase 5 guided beginner mode, profile recommendations and explanations.
+
 ## Phase 3 completion — 2026-10-22
 
 - Added authorized headless `penx scan`, using existing profiles/planner and

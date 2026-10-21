@@ -384,7 +384,8 @@ def compare_sessions(older: dict, newer: dict) -> dict:
         comparability_notes.append('Scanner selections differ; findings absent from the follow-up may not have been checked.')
     if previous_context['plan'] is None or latest_context['plan'] is None:
         comparability_notes.append('Profile/configuration metadata is not recorded for one or both sessions.')
-    elif previous_context['plan'] != latest_context['plan']:
+    elif (previous_context['plan'] != latest_context['plan']
+          or previous_context['scanner_configuration'] != latest_context['scanner_configuration']):
         comparability_notes.append('Scan profiles or execution configuration differ; interpret the comparison with caution.')
 
     return {
@@ -447,6 +448,7 @@ def comparison_context(data: dict) -> dict:
         'scanner_ids': sorted(row.scanner_id for row in result.results) if result is not None else None,
         'coverage': scanner_coverage(data),
         'plan': asdict(result.plan_summary) if result is not None and result.plan_summary else None,
+        'scanner_configuration': [item.to_dict() for item in result.scanner_configuration] if result is not None else None,
         'configuration_status': 'recorded-plan-summary' if result is not None and result.plan_summary else 'not-recorded',
     }
 

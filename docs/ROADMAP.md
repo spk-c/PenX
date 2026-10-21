@@ -14,7 +14,7 @@ Status values: `NOT STARTED`, `IN PROGRESS`, `IMPLEMENTED`, `TESTED`, `READY FOR
 | 1 | Scanner orchestration and flexible scan profiles | very high | COMPLETE |
 | 2 | Evidence traceability and trustworthy scan comparison | very high | COMPLETE |
 | 3 | JSON/SARIF reporting and CI/CD integration | high | COMPLETE |
-| 4 | Typed per-scanner configuration | high | NOT STARTED |
+| 4 | Typed per-scanner configuration | high | COMPLETE |
 | 5 | Guided mode for beginners | medium | NOT STARTED |
 | 6 | Extended local AI automation | later | NOT STARTED |
 
@@ -121,16 +121,18 @@ Phase 3 additions (2026-10-22; see `HEADLESS_SCANS.md`):
 
 ## Phase 4 — Typed per-scanner configuration
 
-**Priority: high. Status: NOT STARTED.**
+**Priority: high. Status: COMPLETE (2026-10-22).**
 
 Existing: per-scanner timeouts via `PENX_<NAME>_TIMEOUT` env vars
 (`scanners/tools.py::_scanner_timeout`, clamped 30–900 s),
 `PENX_NUCLEI_TEMPLATE_TIMEOUT`, `PENX_LLM_TIMEOUT`.
 
-Open items (brief §4): strict typed schema with argument allowlists, no shell
-interpolation, no automatic scope expansion, no consent bypass; bounded
-resource budgets; profile-scoped settings; safe import/export/validation of
-custom profiles; secrets never stored in exported profiles.
+Implemented: strict typed scanner options, fixed argument allowlists, no shell
+interpolation, no automatic scope expansion or consent bypass; bounded
+profile/headless budgets; context-local profile settings; bounded custom profile
+import/export/validation with secret/target/consent fields rejected. Configuration
+snapshots are persisted and compared. Node deadlines now signal running adapters
+without freeing occupied slots early. See `SCANNER_CONFIGURATION.md`.
 
 ## Phase 5 — Guided mode for beginners
 
