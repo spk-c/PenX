@@ -74,7 +74,7 @@ def _mask(value: str, target: str, enabled: bool) -> str:
     return _IPV4.sub(mask_address, text)
 
 
-def _finding(row, raw_scan: str, target: str, redact: bool) -> dict:
+def _finding(row, raw_scan: str, target: str, redact: bool, *, session: dict | None = None) -> dict:
     """Never promote legacy confirmed entries lacking scanner quote evidence."""
     desc = str(row[7] or "")
     evidence = ""
@@ -87,7 +87,15 @@ def _finding(row, raw_scan: str, target: str, redact: bool) -> dict:
     if not matched and confidence == "confirmed":
         confidence = "possible"
     name = str(row[2] or "Unnamed finding")
+    # Attribution is separately verified against a saved scanner section.
+    # Model prose and guesses must never fill a missing scanner version.
+    from penx_app.reporting.finding_trace import finding_trace
+    trace = finding_trace(row, session) if session is not None else {}
     return {
+        "scanner": trace.get("scanner"),
+        "scanner_version": trace.get("scanner_version"),
+        "scanner_status": trace.get("scanner_status", "UNKNOWN"),
+        "evidence_recorded_at": trace.get("recorded_at"),
         "id": int(row[0]),
         "rule": "PENX-" + hashlib.sha256(name.lower().encode("utf-8")).hexdigest()[:12],
         "name": _mask(name, target, redact),
@@ -110,7 +118,7 @@ def report_payload(data: dict, *, redact: bool = False) -> dict:
         raise ValueError("Cannot export a missing or incomplete saved assessment")
     target = str(history[1] or "")
     raw = str(summary[2] or "")
-    findings = [_finding(row, raw, target, redact)
+    findings = [_finding(row, raw, target, redact, session=data)
                 for row in ReportView.from_session(data).active_findings]
     return {
         "schema": "penx-assessment-v1",
