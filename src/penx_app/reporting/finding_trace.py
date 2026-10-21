@@ -127,7 +127,9 @@ def missing_finding_status(row: dict, newer: dict) -> tuple[str, str]:
     # the exact earlier quote persists in the same completed adapter section.
     summary = newer.get("summary")
     latest_raw = str(summary[2] or "") if summary else ""
-    latest_section = _sections(latest_raw).get(scanner, "")
+    latest_section = _sections(latest_raw).get(scanner)
+    if latest_section is None:
+        return "not_checked", f"{scanner} has no unambiguous saved output section."
     if source.get("evidence") and evidence_in_scan(source["evidence"], latest_section):
         return "still_present", (
             f"{scanner} reproduced the original scanner evidence; "
