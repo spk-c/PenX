@@ -82,7 +82,7 @@ def _raw_excerpt(quote: str, section: str) -> str:
         tokens = part.split()
         if not tokens or len(part) > 1000:
             continue
-        pattern = re.compile(r"\\s+".join(re.escape(token) for token in tokens), re.I)
+        pattern = re.compile(r"\s+".join(re.escape(token) for token in tokens), re.I)
         match = pattern.search(section)
         if match:
             return section[match.start():match.end()][:1000]
