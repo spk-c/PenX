@@ -61,6 +61,11 @@ metadata and marks incomplete scanner execution as unsuccessful. Duplicate
 Nuclei matches retain the highest observed severity.
 Mixed valid and malformed native JSONL records retain usable evidence but mark
 collection partial; discarded records are never treated as successful coverage.
+Clipped template IDs or endpoint paths also mark collection partial. Invalid
+or credential-bearing endpoint URLs cannot establish successful native evidence;
+query redaction remains intentional and does not itself mark output truncated.
+ffuf time-limit handling uses diagnostics, not text inside JSON observations,
+and does not override unrelated process failures.
 Non-Nuclei observations share the global 1000-finding limit, with input or
 finding truncation explicitly reported rather than silently omitted.
 

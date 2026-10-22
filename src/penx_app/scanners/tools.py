@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from enum import Enum as Enum
 import ipaddress
+import json
 import os
 from pathlib import Path
 import re
@@ -563,7 +564,20 @@ def _run_native_web_scanner(scanner: str, target: str, *, cancel_event=None) -> 
 
 def _summarize_native_run(scanner: str, result: str) -> ScannerOutput:
     outcome = _process_outcome(result)
-    if scanner == "ffuf" and "Maximum running time for entire process reached" in str(result):
+    timeout_notice = False
+    if scanner == 'ffuf' and 'Maximum running time for entire process reached' in str(result):
+        # Response-controlled JSON fields are observations, not tool diagnostics.
+        for line in str(result).splitlines():
+            try:
+                json.loads(line)
+            except (ValueError, TypeError):
+                if 'Maximum running time for entire process reached' in line:
+                    timeout_notice = True
+        codes = re.findall(r'(?m)^\[EXIT CODE (-?\d{1,12})\]', str(result))
+        timeout_notice = (timeout_notice and outcome.status != 'PARTIAL'
+                          and outcome.exit_code in (None, 0, 1)
+                          and all(int(code) in (0, 1) for code in codes))
+    if timeout_notice:
         # ffuf returns nonzero even after a bounded partial enumeration.
         excerpt, observed = summarize_output("ffuf", str(result))
         return ScannerOutput("[PARTIAL FFUF ENUMERATION: time limit reached]\n" +
@@ -602,6 +616,8 @@ def _summarize_native_run(scanner: str, result: str) -> ScannerOutput:
         notes.append('Native results truncated for display')
     if parsing.get('discarded'):
         notes.append('Native output contains unparseable or incomplete records')
+    if parsing.get('clipped'):
+        notes.append('Native endpoint or template identity truncated for display')
     return ScannerOutput(summary, status="PARTIAL" if notes else "COMPLETE", evidence=True,
                          diagnostics='; '.join(notes))
 

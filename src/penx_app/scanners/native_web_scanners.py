@@ -196,7 +196,8 @@ def _single_line(value, limit: int = 200) -> str:
     return text[:limit]
 
 
-def _summary_url(value: object, limit: int = 200) -> str:
+def _summary_url(value: object, limit: int = 200, *,
+                 diagnostics: dict[str, int] | None = None) -> str:
     """Retain an endpoint path, never provider-returned credentials or query values.
 
     Native scanner JSONL is untrusted and can contain signed URLs or session
@@ -205,17 +206,32 @@ def _summary_url(value: object, limit: int = 200) -> str:
     if not isinstance(value, str) or not value.strip():
         return ""
     raw = value.strip()
-    if "@" in raw or raw.startswith("//"):
+    def bounded(url):
+        clean = _single_line(url, len(url))
+        if diagnostics is not None and len(clean) > limit:
+            diagnostics['clipped'] = diagnostics.get('clipped', 0) + 1
+        return clean[:limit]
+
+    if raw.startswith("//"):
         return "[URL CREDENTIALS REDACTED]"
     try:
         if "://" in raw:
             parsed = urlsplit(raw)
-            if parsed.scheme not in ("http", "https") or not parsed.hostname:
+            if parsed.username is not None or parsed.password is not None:
+                return '[URL CREDENTIALS REDACTED]'
+            if (parsed.scheme not in ("http", "https") or not parsed.hostname
+                    or parsed.port == 0 or parsed.netloc.endswith(':')):
                 return "[INVALID URL]"
-            return _single_line(parsed._replace(query="", fragment="").geturl(), limit)
+            return bounded(parsed._replace(query="", fragment="").geturl())
         # ProjectDiscovery's input field may contain a bare host:port.
         # Never render a query or fragment even when no scheme is supplied.
-        return _single_line(raw.split("?", 1)[0].split("#", 1)[0], limit)
+        bare = raw.split("?", 1)[0].split("#", 1)[0]
+        parsed = urlsplit('//' + bare)
+        if parsed.username is not None or parsed.password is not None:
+            return '[URL CREDENTIALS REDACTED]'
+        if not parsed.hostname or parsed.port == 0 or parsed.netloc.endswith(':'):
+            return '[INVALID URL]'
+        return bounded(bare)
     except (ValueError, UnicodeError):
         return "[INVALID URL]"
 
@@ -226,6 +242,7 @@ def summarize_output(scanner: str, raw: str, *, max_items: int = 60,
     output = []
     capped = False
     discarded = 0
+    field_diagnostics: dict[str, int] = {}
     for line in str(raw).splitlines():
         if not line.strip():
             continue
@@ -246,7 +263,14 @@ def summarize_output(scanner: str, raw: str, *, max_items: int = 60,
                 info = {}
             # Escape the record delimiter without aliasing an existing slash
             # or a literal percent escape in another template identity.
-            template = _single_line(item.get("template-id"), 120).replace('%', '%25').replace('|', '%7C')
+            raw_template = item.get('template-id')
+            if not isinstance(raw_template, str):
+                discarded += 1
+                continue
+            template_text = _single_line(raw_template, len(raw_template)).strip()
+            if len(template_text) > 120:
+                field_diagnostics['clipped'] = field_diagnostics.get('clipped', 0) + 1
+            template = template_text[:120].replace('%', '%25').replace('|', '%7C')
             if not template:
                 discarded += 1
                 continue
@@ -254,13 +278,14 @@ def summarize_output(scanner: str, raw: str, *, max_items: int = 60,
             if severity not in ('info', 'low', 'medium', 'high', 'critical'):
                 discarded += 1
             name = _single_line(info.get("name") or template, 150).replace('|', '/')
-            matched = _summary_url(item.get("matched-at") or item.get("host"), 200)
-            if not matched:
+            matched = _summary_url(item.get("matched-at") or item.get("host"), 200, diagnostics=field_diagnostics)
+            if not matched or matched in ('[INVALID URL]', '[URL CREDENTIALS REDACTED]'):
                 discarded += 1
+                continue
             output.append(f"TEMPLATE {template} | {severity} | {name} | {matched}")
         elif scanner == "httpx":
-            url = _summary_url(item.get("url") or item.get("input"), 200)
-            if not url:
+            url = _summary_url(item.get("url") or item.get("input"), 200, diagnostics=field_diagnostics)
+            if not url or url in ('[INVALID URL]', '[URL CREDENTIALS REDACTED]'):
                 discarded += 1
                 continue
             code = _single_line(item.get("status_code"), 8)
@@ -271,8 +296,8 @@ def summarize_output(scanner: str, raw: str, *, max_items: int = 60,
                 tech = []
             output.append(f"HTTP {code} | {url} | {server} | {title} | technologies: {', '.join(_single_line(t, 60) for t in tech[:12])[:250]}")
         elif scanner == "ffuf":
-            url = _summary_url(item.get("url"), 220)
-            if not url:
+            url = _summary_url(item.get("url"), 220, diagnostics=field_diagnostics)
+            if not url or url in ('[INVALID URL]', '[URL CREDENTIALS REDACTED]'):
                 discarded += 1
                 continue
             code = _single_line(item.get("status"), 8)
@@ -283,7 +308,7 @@ def summarize_output(scanner: str, raw: str, *, max_items: int = 60,
             capped = True
             break
     if diagnostics is not None:
-        diagnostics.update(discarded=discarded, capped=int(capped))
+        diagnostics.update(discarded=discarded, capped=int(capped), clipped=field_diagnostics.get('clipped', 0))
     if output:
         return "\n".join(output) + ("\n[Results capped for display]" if capped else ""), True
     return {
