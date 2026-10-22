@@ -123,7 +123,8 @@ $source = [Text.Encoding]::UTF8.GetString($bytes)
 if ($source -notmatch '(?m)^VERSION\s*=\s*"(\d+\.\d+\.\d+)"') {
     throw "Could not determine the current application version"
 }
-$tag = "v" + $Matches[1]
+$version = $Matches[1]
+$tag = "v" + $version
 Write-Host "Preparing $tag from main commit $sha"
 
 # A protected, reviewed release PR must be the exact current main commit.
@@ -174,7 +175,7 @@ $manifest = Invoke-GhJson "repos/$repo/contents/pyproject.toml?ref=main"
 $pyproject = [Text.Encoding]::UTF8.GetString(
     [Convert]::FromBase64String(($manifest.content -replace "\s", ""))
 )
-if ($pyproject -notmatch ('(?m)^version\s*=\s*"' + [regex]::Escape($Matches[1]) + '"')) {
+if ($pyproject -notmatch ('(?m)^version\s*=\s*"' + [regex]::Escape($version) + '"')) {
     throw "Cannot publish: Python package and CLI versions differ"
 }
 
