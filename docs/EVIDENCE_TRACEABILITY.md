@@ -12,6 +12,12 @@ coverage, and the persisted plan summary (profile ID/version, parallelism and
 global budget). Text, HTML and PDF comparisons show the same context and explicit
 warnings when selections or configuration differ. Missing historical metadata
 stays unknown. A missing finding never automatically becomes resolved.
+Comparison scope preserves URL path/query case and non-root trailing slashes;
+only hostname/scheme case and the optional root slash are normalized. Nmap
+port changes require unambiguous completed output: failure/cancellation markers,
+negative exit codes, duplicate Nmap sections and malformed structured XML cannot
+be overridden by a success footer. Scanner metadata rejects duplicate JSON
+fields, and evidence flags must be actual JSON/Python booleans.
 
 ## Optional raw artifacts
 

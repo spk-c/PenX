@@ -14,7 +14,7 @@ ADAPTER_STATUS = re.compile(
     r"^\[PENX ADAPTER STATUS: (COMPLETE|PARTIAL|FAILED); EVIDENCE: (YES|NO)\](?:\r?\n|$)"
 )
 FAIL = re.compile(
-    r"(?im)(?:^\s*\[EXIT CODE [1-9]\d*\]|^\s*\[!\]|"
+    r"(?im)(?:^\s*\[EXIT CODE [+-]?[1-9]\d*\]|^\s*\[!\]|"
     r"^\s*(?:[-+]\s*)?ERROR:\s|^\s*\+\s*\[FAIL\]|Required module not found|"
     r"^\s*\[!] Timed out|^\s*\[PARTIAL OUTPUT\]|"
     r"^\s*\[!] Executable not found|^\s*\[!] Could not start|"

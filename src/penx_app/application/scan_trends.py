@@ -11,6 +11,7 @@ import re
 from dataclasses import asdict
 from difflib import SequenceMatcher
 from pathlib import Path
+from urllib.parse import urlsplit, urlunsplit
 from penx_app.file_output import publish_unique
 from defusedxml import ElementTree as ET
 from defusedxml.common import DefusedXmlException
@@ -19,6 +20,7 @@ from penx_app.storage.db import get_all_history, get_session
 from penx_app.domain.finding_policy import active_vulnerabilities
 from penx_app.domain.finding_identity import finding_fingerprint
 from penx_app.reporting.finding_trace import finding_trace, missing_finding_status, scanner_coverage
+from penx_app.reporting.scan_coverage import HEAD, FAIL
 
 
 _PORT = re.compile(r"^\s*(\d{1,5})/(tcp|udp)\s+open\s+(\S+)(?:\s+([^\r\n]+))?", re.I | re.M)
@@ -27,7 +29,20 @@ _RISK = {"UNKNOWN": 0, "LOW": 1, "MEDIUM": 2, "HIGH": 3, "CRITICAL": 4}
 
 def canonical_target(target: str) -> str:
     """Compare a user-entered target conservatively; avoid DNS resolution."""
-    return str(target).strip().lower().rstrip("/")
+    value = str(target).strip()
+    if '://' in value:
+        try:
+            parts = urlsplit(value)
+        except ValueError:
+            return value  # Malformed historical targets must not gain aliases.
+        # DNS names and schemes are case-insensitive; URL paths and query
+        # values are not. Only an empty root path and '/' are equivalent.
+        userinfo, delimiter, authority = parts.netloc.rpartition('@')
+        return urlunsplit((parts.scheme.lower(), userinfo + delimiter + authority.lower(),
+                           '' if parts.path == '/' else parts.path,
+                           parts.query, parts.fragment))
+    host, separator, path = value.partition('/')
+    return host.lower() + (separator + path if path else '')
 
 
 def _needs_host_identity(data: dict) -> bool:
@@ -49,15 +64,20 @@ def _ports(data: dict, *, host_scoped: bool = False) -> tuple[dict, bool]:
     raw = str(summary[2] or "") if summary else ""
     # Only errors from Nmap invalidate Nmap coverage. A WhatWeb timeout in
     # another scanner section does not turn a completed Nmap scan incomplete.
-    section = re.search(
-        r"(?ms)^\[\s*NMAP OUTPUT\s*\]\s*$"
-        r"([\s\S]*?)(?=^\[\s*[A-Za-z0-9_ /-]+ OUTPUT\s*\]\s*$|\Z)",
-        raw
-    )
-    raw = section.group(1) if section else raw
+    markers = [marker for marker in HEAD.finditer(raw)
+               if marker.group(1).strip().upper() != 'PARTIAL']
+    nmap_sections = [index for index, marker in enumerate(markers)
+                     if marker.group(1).strip().upper() == 'NMAP']
+    if len(nmap_sections) > 1:
+        return {}, False  # Duplicated sections cannot establish one trusted run.
+    if nmap_sections:
+        index = nmap_sections[0]
+        end = markers[index + 1].start() if index + 1 < len(markers) else len(raw)
+        raw = raw[markers[index].end():end]
     found: dict[str, dict] = {}
     # Prefer structured Nmap output, where service product/version are distinct.
     match = re.search(r"<nmaprun\b[\s\S]*?</nmaprun>", raw)
+    structured_present = '[NMAP STRUCTURED XML]' in raw or bool(re.search(r'<nmaprun\b', raw))
     parsed_xml = False
     xml_completed = False
     identity_complete = True
@@ -127,12 +147,9 @@ def _ports(data: dict, *, host_scoped: bool = False) -> tuple[dict, bool]:
             }
     # XML must include successful runstats; text-only Nmap must show its
     # completion footer. Failed/timed-out tool wrappers override both signals.
-    failed = bool(re.search(
-        r"(?im)^\s*(?:\[EXIT CODE [1-9]\d*\]|\[!\] Timed out|"
-        r"\[!\] Nmap is not installed|\[!\] Executable not found)",
-        raw
-    ))
-    has_nmap = not failed and identity_complete and (
+    failed = bool(FAIL.search(raw) or re.search(
+        r'(?m)^\[PENX ADAPTER STATUS: (?:PARTIAL|FAILED); EVIDENCE: (?:YES|NO)\]', raw))
+    has_nmap = not failed and identity_complete and (parsed_xml or not structured_present) and (
         xml_completed if parsed_xml else bool(re.search(r"Nmap done:", raw, re.I))
     )
     return found, has_nmap

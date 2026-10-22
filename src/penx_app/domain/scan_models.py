@@ -43,6 +43,8 @@ class ScannerResult:
     raw_artifact: RawArtifact | None = None
 
     def __post_init__(self):
+        if type(self.evidence) is not bool:
+            raise ValueError('Scanner evidence flag must be boolean')
         if self.raw_artifact is not None and (
                 not isinstance(self.raw_artifact, RawArtifact)
                 or not self.evidence or self.status == 'FAILED'):
@@ -142,7 +144,18 @@ class ScanResult:
     def from_metadata(cls, text: str) -> ScanResult:
         if len(text) > 100_000:
             raise ValueError('Scanner metadata exceeds its size limit')
-        value = json.loads(text)
+        def unique_object(pairs):
+            result = {}
+            for key, item in pairs:
+                if key in result:
+                    raise ValueError('Duplicate scanner metadata field')
+                result[key] = item
+            return result
+
+        def invalid_constant(value):
+            raise ValueError('Non-finite scanner metadata number')
+
+        value = json.loads(text, object_pairs_hook=unique_object, parse_constant=invalid_constant)
         if not isinstance(value, dict) or type(value.get('version')) is not int \
                 or value['version'] not in (1, 2, 3):
             raise ValueError('Unsupported scanner metadata version')
@@ -286,6 +299,8 @@ class ScannerOutput(str):
                 duration_seconds: float | None = None,
                 exit_code: int | None = None, diagnostics: str = '',
                 evidence_records: tuple['EvidenceRecord', ...] = ()):
+        if type(evidence) is not bool:
+            raise ValueError('Scanner evidence flag must be boolean')
         if status not in {"COMPLETE", "PARTIAL", "FAILED"}:
             raise ValueError("Invalid scanner outcome status")
         if not isinstance(evidence_records, tuple):
