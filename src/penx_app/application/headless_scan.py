@@ -18,7 +18,7 @@ from penx_app.reporting.machine_reports import _mask, sarif_from_report
 from penx_app.scanners.scanner_targets import normalize_host
 
 SEVERITIES = {'info': 0, 'low': 1, 'medium': 2, 'high': 3, 'critical': 4}
-_TEMPLATE = re.compile(r'^TEMPLATE ([^|]{1,180}) \| (info|low|medium|high|critical) \| (.{1,500}) \| (.{1,1000})$')
+_TEMPLATE = re.compile(r'^TEMPLATE ([^|]{1,400}) \| (info|low|medium|high|critical) \| (.{1,500}) \| (.{1,1000})$')
 
 
 def scan_report(plan, result: ScanResult, *, redact: bool = False) -> dict:
@@ -68,6 +68,10 @@ def scan_report(plan, result: ScanResult, *, redact: bool = False) -> dict:
     from penx_app.application.scanner_observations import observations
     seen = {item['fingerprint'] for item in findings}
     for adapter in result.results:
+        if (adapter.status == 'COMPLETE' and adapter.evidence
+                and adapter.scanner_id in ('tls', 'http_headers', 'nmap', 'nikto')
+                and len(adapter.text) > 1_048_576):
+            findings_truncated = True
         for rule, name, severity, quote, location in observations(adapter):
             fingerprint = finding_fingerprint(rule, location, adapter.scanner_id, target=plan.target)
             if fingerprint in seen:

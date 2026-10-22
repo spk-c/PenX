@@ -34,4 +34,6 @@ def observations(adapter):
         for match in re.finditer(r'(?m)^\+ (?:OSVDB-\d+|/[^\s:]{0,100}): [^\r\n]{12,500}$', text):
             found.append(('nikto-observation', 'Nikto observation requires applicability review',
                           'info', match.group(0), match.group(0).split(': ', 1)[0]))
-    return found[:100]
+    # The report builder applies its global finding cap and records truncation.
+    # A second silent cap here would make omitted observations invisible to it.
+    return found

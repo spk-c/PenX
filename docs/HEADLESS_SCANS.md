@@ -59,6 +59,10 @@ exit: they result in incomplete coverage (exit 5, unless a scanner failed).
 JSON exposes `findings_truncated`; SARIF preserves coverage, policy and exit
 metadata and marks incomplete scanner execution as unsuccessful. Duplicate
 Nuclei matches retain the highest observed severity.
+Mixed valid and malformed native JSONL records retain usable evidence but mark
+collection partial; discarded records are never treated as successful coverage.
+Non-Nuclei observations share the global 1000-finding limit, with input or
+finding truncation explicitly reported rather than silently omitted.
 
 `.github/workflows/authorized-scan.yml` is an optional manual-only workflow,
 never a PR-triggered network scan. It requires an explicit authorization input,

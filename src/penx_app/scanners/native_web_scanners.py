@@ -220,33 +220,48 @@ def _summary_url(value: object, limit: int = 200) -> str:
         return "[INVALID URL]"
 
 
-def summarize_output(scanner: str, raw: str, *, max_items: int = 60) -> tuple[str, bool]:
+def summarize_output(scanner: str, raw: str, *, max_items: int = 60,
+                     diagnostics: dict[str, int] | None = None) -> tuple[str, bool]:
     """Remove huge raw HTTP bodies and never treat empty results as vulnerabilities."""
     output = []
     capped = False
+    discarded = 0
     for line in str(raw).splitlines():
+        if not line.strip():
+            continue
         if len(line) > 1_000_000:
+            discarded += 1
             continue
         try:
             item = json.loads(line)
         except (ValueError, TypeError):
+            discarded += 1
             continue
         if not isinstance(item, dict):
+            discarded += 1
             continue
         if scanner == "nuclei":
             info = item.get("info") or {}
             if not isinstance(info, dict):
                 info = {}
-            template = _single_line(item.get("template-id"), 120)
+            # Escape the record delimiter without aliasing an existing slash
+            # or a literal percent escape in another template identity.
+            template = _single_line(item.get("template-id"), 120).replace('%', '%25').replace('|', '%7C')
             if not template:
+                discarded += 1
                 continue
-            severity = _single_line(info.get("severity") or "unknown", 20)
-            name = _single_line(info.get("name"), 150)
+            severity = _single_line(info.get("severity") or "unknown", 20).strip().lower()
+            if severity not in ('info', 'low', 'medium', 'high', 'critical'):
+                discarded += 1
+            name = _single_line(info.get("name") or template, 150).replace('|', '/')
             matched = _summary_url(item.get("matched-at") or item.get("host"), 200)
+            if not matched:
+                discarded += 1
             output.append(f"TEMPLATE {template} | {severity} | {name} | {matched}")
         elif scanner == "httpx":
             url = _summary_url(item.get("url") or item.get("input"), 200)
             if not url:
+                discarded += 1
                 continue
             code = _single_line(item.get("status_code"), 8)
             server = _single_line(item.get("webserver"), 80)
@@ -258,6 +273,7 @@ def summarize_output(scanner: str, raw: str, *, max_items: int = 60) -> tuple[st
         elif scanner == "ffuf":
             url = _summary_url(item.get("url"), 220)
             if not url:
+                discarded += 1
                 continue
             code = _single_line(item.get("status"), 8)
             output.append(f"ENDPOINT HTTP {code} | {url}")
@@ -266,6 +282,8 @@ def summarize_output(scanner: str, raw: str, *, max_items: int = 60) -> tuple[st
             output.pop()
             capped = True
             break
+    if diagnostics is not None:
+        diagnostics.update(discarded=discarded, capped=int(capped))
     if output:
         return "\n".join(output) + ("\n[Results capped for display]" if capped else ""), True
     return {

@@ -589,16 +589,21 @@ def _summarize_native_run(scanner: str, result: str) -> ScannerOutput:
             "raw scanner diagnostics omitted because they may contain secrets.",
             status=outcome.status, evidence=False,
         )
-    summary, evidence = summarize_output(scanner, str(outcome))
+    parsing: dict[str, int] = {}
+    summary, evidence = summarize_output(scanner, str(outcome), diagnostics=parsing)
     if not evidence:
         return ScannerOutput(
             "[!] " + scanner + " emitted no parseable JSONL result; "
             "unstructured tool output omitted (may include confidential URLs).",
             status="FAILED", evidence=False,
         )
-    capped = summary.endswith('[Results capped for display]')
-    return ScannerOutput(summary, status="PARTIAL" if capped else "COMPLETE", evidence=True,
-                         diagnostics='Native results truncated for display' if capped else '')
+    notes = []
+    if parsing.get('capped'):
+        notes.append('Native results truncated for display')
+    if parsing.get('discarded'):
+        notes.append('Native output contains unparseable or incomplete records')
+    return ScannerOutput(summary, status="PARTIAL" if notes else "COMPLETE", evidence=True,
+                         diagnostics='; '.join(notes))
 
 
 def run_nuclei(target: str, *, cancel_event=None) -> ScannerOutput:
