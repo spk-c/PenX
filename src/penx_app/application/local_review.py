@@ -10,7 +10,7 @@ import os
 import time
 from pathlib import Path
 
-from penx_app.analysis.local_review_client import local_endpoint, request_review
+from penx_app.analysis.local_review_client import local_endpoint, request_review, validate_review_options
 from penx_app.domain.local_review import (
     MAX_PROMPT_CHARS, REVIEW_SCHEMA, review_sources, strict_json, validate_review,
 )
@@ -23,6 +23,7 @@ MAX_INPUT_BYTES = 4_194_304
 def create_review(report: dict, *, endpoint: str, model: str, max_findings: int = 20,
                   timeout: int = 60, client=None) -> dict:
     endpoint = local_endpoint(endpoint)
+    model = validate_review_options(model, timeout)
     sources = review_sources(report, max_findings=max_findings)
     if not sources:
         raise ValueError('No eligible findings to review; empty coverage is not a safety verdict')
@@ -83,6 +84,7 @@ def main(argv: list[str]) -> int:
             raise ValueError('Batch limit: 10 reports and 5..600 seconds')
         # Validate endpoint before opening a batch or invoking any client.
         local_endpoint(args.endpoint)
+        model = validate_review_options(args.model, args.timeout)
         deadline = time.monotonic() + args.batch_budget
         outcomes = []
         for index, filename in enumerate(args.report):
@@ -95,7 +97,7 @@ def main(argv: list[str]) -> int:
                 if len(content) > MAX_INPUT_BYTES:
                     raise ValueError('Review source report exceeds 4 MiB')
                 report = strict_json(content.decode('utf-8'))
-                review = create_review(report, endpoint=args.endpoint, model=args.model,
+                review = create_review(report, endpoint=args.endpoint, model=model,
                                        max_findings=args.max_findings, timeout=min(args.timeout, remaining))
                 review['source_sha256'] = hashlib.sha256(content).hexdigest()
                 path = publish_unique(args.output, 'penx_review', '.json',

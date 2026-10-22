@@ -93,7 +93,7 @@ def validate_review(text: str, sources: list[dict], *, allowed_scanners: set[str
         used.add(identity)
         quote = item['evidence_quote']
         if quote:
-            if len(quote.strip()) < 12 or quote not in original[identity]['evidence']:
+            if len(''.join(quote.split())) < 12 or quote not in original[identity]['evidence']:
                 raise ValueError('Review citation must exactly match supplied evidence')
         elif item['assessment'] != 'insufficient_evidence':
             raise ValueError('Evidence-free review must remain insufficient_evidence')

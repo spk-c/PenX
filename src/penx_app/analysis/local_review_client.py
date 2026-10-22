@@ -28,13 +28,22 @@ def local_endpoint(value: str) -> str:
     return urlunsplit((parts.scheme, authority, parts.path.rstrip('/') + '/v1/chat/completions', '', ''))
 
 
-def request_review(messages: list[dict], *, endpoint: str, model: str, schema: dict,
-                   api_key: str = '', timeout: int = 60, session_factory=None) -> str:
-    endpoint = local_endpoint(endpoint)
-    if not isinstance(model, str) or not model.strip() or len(model) > 200 or model.casefold() == 'auto':
+def validate_review_options(model: str, timeout: int) -> str:
+    """Validate before request admission or an injected client is invoked."""
+    if not isinstance(model, str):
+        raise ValueError('Choose an explicit local model ID; discovery is disabled')
+    model = model.strip()
+    if not model or len(model) > 200 or model.casefold() == 'auto':
         raise ValueError('Choose an explicit local model ID; discovery is disabled')
     if type(timeout) is not int or not 5 <= timeout <= 120:
         raise ValueError('Review read timeout must be in 5..120 seconds')
+    return model
+
+
+def request_review(messages: list[dict], *, endpoint: str, model: str, schema: dict,
+                   api_key: str = '', timeout: int = 60, session_factory=None) -> str:
+    endpoint = local_endpoint(endpoint)
+    model = validate_review_options(model, timeout)
     factory = requests.Session if session_factory is None else session_factory
     with factory() as session:
         session.trust_env = False
@@ -61,6 +70,7 @@ def request_review(messages: list[dict], *, endpoint: str, model: str, schema: d
     message = choice.get('message')
     if (choice.get('finish_reason') != 'stop' or not isinstance(message, dict)
             or message.get('role') != 'assistant'
+            or message.get('refusal')
             or message.get('tool_calls') or message.get('function_call')):
         raise ValueError('Incomplete or tool-bearing local review rejected')
     text = extract_chat_text(payload)

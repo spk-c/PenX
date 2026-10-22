@@ -26,13 +26,18 @@ returns exit 1; it never rewrites successful drafts or the source reports.
 Only literal loopback addresses and `localhost` are accepted. `localhost` is
 converted to `127.0.0.1` without DNS discovery. Environment proxies and HTTP
 redirects are disabled. Choose an explicit loaded model: model discovery,
-automatic retries and cloud fallback are disabled. A local server can itself be
-configured to relay requests; operate it with locally hosted weights if local
+automatic retries and cloud fallback are disabled.
+Model IDs are trimmed before validation and dispatch; padded `auto` values are
+still rejected. Model and timeout settings are validated before batch budget
+adjustment or any client invocation, including injected clients.
+
+A local server can itself be configured to relay requests; operate it with locally hosted weights if local
 processing is required. Authentication uses `PENX_LLM_API_KEY` from the process
 environment, never from an exported profile or command-line argument.
 
 The server must support schema-constrained chat completion. Unsupported servers,
-truncated answers, reasoning-only output, tool calls, malformed JSON, unknown
+truncated answers, refusals (even alongside content), reasoning-only output,
+tool calls, malformed JSON, unknown
 fields and duplicate keys fail without publishing a draft. No model call was
 made during development verification; transport tests use synthetic sessions.
 
@@ -45,7 +50,7 @@ made during development verification; transport tests use synthetic sessions.
 - Connect timeout: 5 seconds. Read timeout: `--timeout 5..120` seconds (default
   60). This is an I/O inactivity timeout, not a hard whole-request deadline.
 - Every returned finding must reference a supplied fingerprint. Evidence quotes
-  must be exact substrings of the supplied excerpt, at least 12 non-padding
+  must be exact substrings of the supplied excerpt, at least 12 non-whitespace
   characters and at most 1000 characters. This validates citation consistency,
   not source authenticity or vulnerability applicability.
 - Without a quote, an item must remain `insufficient_evidence`. Other allowed
