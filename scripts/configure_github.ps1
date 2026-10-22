@@ -23,26 +23,22 @@ $rulesetPath = Join-Path $root ".github/rulesets/protect-main.json"
 
 function Invoke-GhJson {
     param([Parameter(Mandatory = $true)][string]$Endpoint)
-    # GitHub CLI can intermittently return truncated JSON ("unexpected end of
-    # JSON input"). Retry only these read-only requests, never tag creation.
+    # Retry read-only GitHub GETs if the CLI returns truncated JSON.
+    # The tag-creating POST below is intentionally never retried.
     for ($attempt = 1; $attempt -le 3; $attempt++) {
         $output = & gh api $Endpoint
         $exitCode = $LASTEXITCODE
         $raw = $output -join [Environment]::NewLine
         if ($exitCode -eq 0 -and $raw.Trim()) {
-            try {
-                return ConvertFrom-Json -InputObject $raw -ErrorAction Stop
-            }
-            catch {
-                Write-Warning "Invalid JSON from GitHub (attempt $attempt/3): $Endpoint"
-            }
+            try { return ConvertFrom-Json -InputObject $raw -ErrorAction Stop }
+            catch { Write-Warning "Invalid GitHub JSON (attempt $attempt/3): $Endpoint" }
         }
         elseif ($exitCode -ne 0) {
-            Write-Warning "GitHub API read failed (attempt $attempt/3): $Endpoint"
+            Write-Warning "GitHub API GET failed (attempt $attempt/3): $Endpoint"
         }
         if ($attempt -lt 3) { Start-Sleep -Milliseconds (300 * $attempt) }
     }
-    throw "GitHub API read failed or returned incomplete JSON after 3 attempts: $Endpoint"
+    throw "GitHub API GET failed or returned incomplete JSON after 3 attempts: $Endpoint"
 }
 
 if (-not (Get-Command gh -ErrorAction SilentlyContinue)) {
@@ -144,72 +140,11 @@ Write-Host "Preparing $tag from main commit $sha"
 
 # A protected, reviewed release PR must be the exact current main commit.
 # CI on main runs Linux checks; real Windows + security checks run on release/* PRs.
-# Resolve the PR number from the exact main commit's squash-merge subject.
-# The commits/<sha>/pulls endpoint can fail in gh CLI with truncated JSON.
-# A single, small pull/<number> request is more reliable and fails closed.
+# Read the PR number from the exact main commit's squash-merge subject.
+# Direct commits/<sha>/pulls is unreliable in some GitHub CLI environments.
 $mainCommit = Invoke-GhJson "repos/$repo/commits/$sha"
-$subject = [string](($mainCommit.commit.message -split '`r?`n')[0])
-if ($subject -notmatch '\(#([0-9]+)\)\s*
-if ($reviewSha -notmatch '^[0-9a-f]{40}$') {
-    throw "Cannot publish: release PR head SHA is missing or invalid"
-}
-$checks = Invoke-GhJson "repos/$repo/commits/$reviewSha/check-runs?per_page=100"
-if ($checks.total_count -ge 100) {
-    throw "Cannot publish: check results may be paginated"
-}
-$requiredChecks = @(
-    'tests (ubuntu-latest)',
-    'tests (windows-latest)',
-    'Windows packaged app & installer',
-    'Gitleaks history and change scan',
-    'package'
-)
-foreach ($name in $requiredChecks) {
-    $passed = @($checks.check_runs | Where-Object {
-        $_.name -eq $name -and $_.status -eq 'completed' -and
-        $_.conclusion -eq 'success' -and $_.head_sha -eq $reviewSha
-    })
-    if ($passed.Count -lt 1) {
-        throw "Cannot publish: release PR required check not green: $name"
-    }
-}
-
-# GitHub's actions/runs list does not reliably filter by head_sha.
-# Use commit-specific check runs instead; this cannot accept another SHA.
-$mainChecks = Invoke-GhJson "repos/$repo/commits/$sha/check-runs?per_page=100"
-if ($mainChecks.total_count -ge 100) {
-    throw "Cannot publish: main check results may be paginated"
-}
-$mainPassed = @($mainChecks.check_runs | Where-Object {
-    $_.name -eq 'tests (ubuntu-latest)' -and
-    $_.status -eq 'completed' -and $_.conclusion -eq 'success' -and
-    $_.head_sha -ceq $sha
-})
-if ($mainPassed.Count -ne 1) {
-    throw "Cannot publish: exact main commit does not have a passing post-merge CI run"
-}
-$manifest = Invoke-GhJson "repos/$repo/contents/pyproject.toml?ref=main"
-$pyproject = [Text.Encoding]::UTF8.GetString(
-    [Convert]::FromBase64String(($manifest.content -replace "\s", ""))
-)
-if ($pyproject -notmatch ('(?m)^version\s*=\s*"' + [regex]::Escape($version) + '"')) {
-    throw "Cannot publish: Python package and CLI versions differ"
-}
-
-# Existing tags are immutable: never move or replace them.
-$matchingTags = @(Invoke-GhJson "repos/$repo/git/matching-refs/tags/$tag")
-$prior = @($matchingTags | Where-Object { $_.ref -eq "refs/tags/$tag" })
-if ($prior.Count -gt 0) {
-    Write-Host "[INFO] Tag $tag already exists. No tag was changed."
-    Write-Host "Review https://github.com/spk-c/PenX/releases/tag/$tag"
-    exit 0
-}
-# GitHub user-authenticated tag creation triggers the checked-in tagged-release workflow.
-& gh api -X POST "repos/$repo/git/refs" -f "ref=refs/tags/$tag" -f "sha=$sha" | Out-Null
-if ($LASTEXITCODE -ne 0) { throw "Could not create release tag $tag" }
-Write-Host "[OK] Created immutable tag $tag at $sha; Windows Release will verify assets before publication."
-Write-Host "Follow: https://github.com/spk-c/PenX/actions/workflows/release.yml"
-) {
+$subject = [string](($mainCommit.commit.message -split '\r?\n')[0])
+if ($subject -notmatch '\(#([0-9]+)\)\s*$') {
     throw "Cannot publish: main HEAD has no PR number in its squash-merge subject"
 }
 $prNumber = [int]$Matches[1]
@@ -245,10 +180,16 @@ foreach ($name in $requiredChecks) {
     }
 }
 
-$runs = Invoke-GhJson "repos/$repo/actions/runs?head_sha=$sha&per_page=100"
-$mainPassed = @($runs.workflow_runs | Where-Object {
-    $_.name -eq 'Offline tests' -and $_.event -eq 'push' -and
-    $_.head_sha -eq $sha -and $_.conclusion -eq 'success'
+# Verify the exact merged commit, rather than relying on an unreliable
+# actions/runs?head_sha filter that can return no runs for valid commits.
+$mainChecks = Invoke-GhJson "repos/$repo/commits/$sha/check-runs?per_page=100"
+if ($mainChecks.total_count -ge 100) {
+    throw "Cannot publish: main check results may be paginated"
+}
+$mainPassed = @($mainChecks.check_runs | Where-Object {
+    $_.name -eq 'tests (ubuntu-latest)' -and
+    $_.status -eq 'completed' -and $_.conclusion -eq 'success' -and
+    $_.head_sha -ceq $sha
 })
 if ($mainPassed.Count -lt 1) {
     throw "Cannot publish: exact main commit does not have a passing post-merge CI run"
