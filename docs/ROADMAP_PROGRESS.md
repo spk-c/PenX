@@ -1,5 +1,22 @@
 # PenX Roadmap Progress
 
+## Phase 5 completion — 2026-10-22
+
+- Added `penx guided` and main-menu [g], with goal-based profiles and a
+  plain-language explanation for every registered scanner.
+- Added exact-host scope display, permission/active-consent questions, local
+  preflight, explicit incomplete-coverage acceptance and final start confirmation.
+  Back/decline/EOF paths never dispatch from the preview.
+- Explained severity, confidence, evidence and incomplete coverage before
+  collection. Confirmed runs reuse the existing headless path; advanced flows
+  remain available. Guided collection creates no AI/DB assessment session.
+- Added 12 offline wizard/guidance/dispatch tests.
+- Verification: **all 211 offline suites passed**, exit 0; full-tree fatal Ruff,
+  application F401 and Linux-platform mypy passed (115 source files).
+- Usage and beginner scope limits: `GUIDED_MODE.md`.
+- Next: Phase 6 optional bounded local-AI review, preserving non-AI operation
+  and preventing model-originated execution or scope expansion.
+
 ## Phase 4 completion — 2026-10-22
 
 - Added strict typed per-scanner timeouts, Nmap ports, Nuclei severity subsets

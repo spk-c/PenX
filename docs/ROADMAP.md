@@ -15,7 +15,7 @@ Status values: `NOT STARTED`, `IN PROGRESS`, `IMPLEMENTED`, `TESTED`, `READY FOR
 | 2 | Evidence traceability and trustworthy scan comparison | very high | COMPLETE |
 | 3 | JSON/SARIF reporting and CI/CD integration | high | COMPLETE |
 | 4 | Typed per-scanner configuration | high | COMPLETE |
-| 5 | Guided mode for beginners | medium | NOT STARTED |
+| 5 | Guided mode for beginners | medium | COMPLETE |
 | 6 | Extended local AI automation | later | NOT STARTED |
 
 ## Phase 0 — Repository audit and development baseline
@@ -136,12 +136,13 @@ without freeing occupied slots early. See `SCANNER_CONFIGURATION.md`.
 
 ## Phase 5 — Guided mode for beginners
 
-**Priority: medium. Status: NOT STARTED.**
+**Priority: medium. Status: COMPLETE (2026-10-22).**
 
-Current UX is advanced-first (`cli/app.py::_recon_choice_menu`). The guided
-mode must add plain-language scanner descriptions, profile recommendations,
-scope/consent/risk explanations, pre-scan previews, and confidence/severity/
-evidence explanations without restricting the advanced flow (brief §5).
+Implemented: separate `penx guided` and main-menu [g] entry with plain-language
+scanner descriptions, goal-based profile recommendations, scope/consent/risk
+explanations, local preflight, explicit partial-coverage and final-start choices,
+and confidence/severity/evidence explanations. Existing advanced flows remain
+available. See `GUIDED_MODE.md`.
 
 ## Phase 6 — Extended local AI automation
 

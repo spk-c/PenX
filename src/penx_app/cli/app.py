@@ -396,6 +396,7 @@ def _main_menu_loop():
     while True:
         banner()
         print("  \033[92m[1]\033[0m  New Scan")
+        print("  \033[92m[g]\033[0m  Guided Scan (beginner collection)")
         print("  \033[92m[14]\033[0m  Run Recon Tools (no assessment)")
         print("  \033[92m[2]\033[0m  View History")
         print("  \033[92m[3]\033[0m  Export Eval Package")
@@ -420,6 +421,11 @@ def _main_menu_loop():
             outcome = _execute_scan()
             if outcome.acknowledge:
                 input("\n\033[90mPress Enter to return to main menu...\033[0m")
+
+        elif choice.lower() == "g":
+            from penx_app.cli.guided_scan import run_guided
+            run_guided()
+            input("\n\033[90mPress Enter to continue...\033[0m")
 
         elif choice == "14":
             # Recon-only: the tool picker runs and its evidence is shown,
