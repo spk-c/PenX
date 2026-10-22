@@ -23,11 +23,26 @@ $rulesetPath = Join-Path $root ".github/rulesets/protect-main.json"
 
 function Invoke-GhJson {
     param([Parameter(Mandatory = $true)][string]$Endpoint)
-    $output = & gh api $Endpoint
-    if ($LASTEXITCODE -ne 0) { throw "GitHub API request failed: $Endpoint" }
-    $raw = $output -join [Environment]::NewLine
-    if (-not $raw.Trim()) { return $null }
-    return ConvertFrom-Json -InputObject $raw
+    # GitHub CLI can intermittently return truncated JSON ("unexpected end of
+    # JSON input"). Retry only these read-only requests, never tag creation.
+    for ($attempt = 1; $attempt -le 3; $attempt++) {
+        $output = & gh api $Endpoint
+        $exitCode = $LASTEXITCODE
+        $raw = $output -join [Environment]::NewLine
+        if ($exitCode -eq 0 -and $raw.Trim()) {
+            try {
+                return ConvertFrom-Json -InputObject $raw -ErrorAction Stop
+            }
+            catch {
+                Write-Warning "Invalid JSON from GitHub (attempt $attempt/3): $Endpoint"
+            }
+        }
+        elseif ($exitCode -ne 0) {
+            Write-Warning "GitHub API read failed (attempt $attempt/3): $Endpoint"
+        }
+        if ($attempt -lt 3) { Start-Sleep -Milliseconds (300 * $attempt) }
+    }
+    throw "GitHub API read failed or returned incomplete JSON after 3 attempts: $Endpoint"
 }
 
 if (-not (Get-Command gh -ErrorAction SilentlyContinue)) {
@@ -129,16 +144,83 @@ Write-Host "Preparing $tag from main commit $sha"
 
 # A protected, reviewed release PR must be the exact current main commit.
 # CI on main runs Linux checks; real Windows + security checks run on release/* PRs.
-$associated = @(Invoke-GhJson "repos/$repo/commits/$sha/pulls?per_page=100")
-$releasePR = @($associated | Where-Object {
-    $_.merged_at -and $_.merge_commit_sha -eq $sha -and
-    $_.base.ref -eq 'main' -and $_.head.ref -like 'release/*' -and
-    $_.head.repo.full_name -eq $repo
-})
-if ($releasePR.Count -ne 1) {
-    throw "Cannot publish: main HEAD must be the squash/merge commit of a reviewed release/* PR"
+# Resolve the PR number from the exact main commit's squash-merge subject.
+# The commits/<sha>/pulls endpoint can fail in gh CLI with truncated JSON.
+# A single, small pull/<number> request is more reliable and fails closed.
+$mainCommit = Invoke-GhJson "repos/$repo/commits/$sha"
+$subject = [string](($mainCommit.commit.message -split '`r?`n')[0])
+if ($subject -notmatch '\(#([0-9]+)\)\s*
+if ($reviewSha -notmatch '^[0-9a-f]{40}$') {
+    throw "Cannot publish: release PR head SHA is missing or invalid"
 }
-$reviewSha = [string]$releasePR[0].head.sha
+$checks = Invoke-GhJson "repos/$repo/commits/$reviewSha/check-runs?per_page=100"
+if ($checks.total_count -ge 100) {
+    throw "Cannot publish: check results may be paginated"
+}
+$requiredChecks = @(
+    'tests (ubuntu-latest)',
+    'tests (windows-latest)',
+    'Windows packaged app & installer',
+    'Gitleaks history and change scan',
+    'package'
+)
+foreach ($name in $requiredChecks) {
+    $passed = @($checks.check_runs | Where-Object {
+        $_.name -eq $name -and $_.status -eq 'completed' -and
+        $_.conclusion -eq 'success' -and $_.head_sha -eq $reviewSha
+    })
+    if ($passed.Count -lt 1) {
+        throw "Cannot publish: release PR required check not green: $name"
+    }
+}
+
+# GitHub's actions/runs list does not reliably filter by head_sha.
+# Use commit-specific check runs instead; this cannot accept another SHA.
+$mainChecks = Invoke-GhJson "repos/$repo/commits/$sha/check-runs?per_page=100"
+if ($mainChecks.total_count -ge 100) {
+    throw "Cannot publish: main check results may be paginated"
+}
+$mainPassed = @($mainChecks.check_runs | Where-Object {
+    $_.name -eq 'tests (ubuntu-latest)' -and
+    $_.status -eq 'completed' -and $_.conclusion -eq 'success' -and
+    $_.head_sha -ceq $sha
+})
+if ($mainPassed.Count -ne 1) {
+    throw "Cannot publish: exact main commit does not have a passing post-merge CI run"
+}
+$manifest = Invoke-GhJson "repos/$repo/contents/pyproject.toml?ref=main"
+$pyproject = [Text.Encoding]::UTF8.GetString(
+    [Convert]::FromBase64String(($manifest.content -replace "\s", ""))
+)
+if ($pyproject -notmatch ('(?m)^version\s*=\s*"' + [regex]::Escape($version) + '"')) {
+    throw "Cannot publish: Python package and CLI versions differ"
+}
+
+# Existing tags are immutable: never move or replace them.
+$matchingTags = @(Invoke-GhJson "repos/$repo/git/matching-refs/tags/$tag")
+$prior = @($matchingTags | Where-Object { $_.ref -eq "refs/tags/$tag" })
+if ($prior.Count -gt 0) {
+    Write-Host "[INFO] Tag $tag already exists. No tag was changed."
+    Write-Host "Review https://github.com/spk-c/PenX/releases/tag/$tag"
+    exit 0
+}
+# GitHub user-authenticated tag creation triggers the checked-in tagged-release workflow.
+& gh api -X POST "repos/$repo/git/refs" -f "ref=refs/tags/$tag" -f "sha=$sha" | Out-Null
+if ($LASTEXITCODE -ne 0) { throw "Could not create release tag $tag" }
+Write-Host "[OK] Created immutable tag $tag at $sha; Windows Release will verify assets before publication."
+Write-Host "Follow: https://github.com/spk-c/PenX/actions/workflows/release.yml"
+) {
+    throw "Cannot publish: main HEAD has no PR number in its squash-merge subject"
+}
+$prNumber = [int]$Matches[1]
+$releasePR = Invoke-GhJson "repos/$repo/pulls/$prNumber"
+if (-not $releasePR.merged_at -or $releasePR.merge_commit_sha -cne $sha -or
+    $releasePR.base.ref -cne 'main' -or
+    $releasePR.head.ref -notlike 'release/*' -or
+    $releasePR.head.repo.full_name -cne $repo) {
+    throw "Cannot publish: main HEAD is not an exact merged release/* PR (#$prNumber)"
+}
+$reviewSha = [string]$releasePR.head.sha
 if ($reviewSha -notmatch '^[0-9a-f]{40}$') {
     throw "Cannot publish: release PR head SHA is missing or invalid"
 }
