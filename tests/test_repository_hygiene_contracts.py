@@ -1,6 +1,5 @@
 """Regression checks for low-cost main verification and safe branch pruning."""
 from pathlib import Path
-import re
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -20,9 +19,11 @@ class RepositoryHygieneContracts(unittest.TestCase):
     def test_prune_is_opt_in_and_covers_all_topic_prefixes(self):
         script = (ROOT / "scripts/prune_merged_github_branches.ps1").read_text(encoding="utf-8")
         self.assertIn("param([switch]$Apply)", script)
+        allowed = next(line for line in script.splitlines()
+                       if line.startswith("$eligiblePrefix"))
         for prefix in ("chore", "docs", "feat", "feature", "fix",
                        "maintenance", "quality", "refactor", "release"):
-            self.assertRegex(script, re.escape(prefix) + r"\|?|/")
+            self.assertIn(prefix, allowed)
         self.assertIn("Get-GhPages", script)
         self.assertIn("Get-Comparison", script)
         self.assertIn("ahead_by", script)
