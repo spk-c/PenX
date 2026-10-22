@@ -144,10 +144,11 @@ Write-Host "Preparing $tag from main commit $sha"
 # Direct commits/<sha>/pulls is unreliable in some GitHub CLI environments.
 $mainCommit = Invoke-GhJson "repos/$repo/commits/$sha"
 $subject = [string](($mainCommit.commit.message -split '\r?\n')[0])
-if ($subject -notmatch '\(#([0-9]+)\)\s*$') {
+$prMatch = [regex]::Match($subject, '\(#([0-9]+)\)\s*$')
+if (-not $prMatch.Success) {
     throw "Cannot publish: main HEAD has no PR number in its squash-merge subject"
 }
-$prNumber = [int]$Matches[1]
+$prNumber = [int]$prMatch.Groups[1].Value
 $releasePR = Invoke-GhJson "repos/$repo/pulls/$prNumber"
 if (-not $releasePR.merged_at -or $releasePR.merge_commit_sha -cne $sha -or
     $releasePR.base.ref -cne 'main' -or
