@@ -77,8 +77,37 @@ if ($matching.Count -eq 0) {
     Write-Host "[OK] Ruleset created; direct pushes to main require a PR."
 }
 else {
-    Write-Host "[OK] Ruleset already exists: review its enforcement in GitHub settings."
+    $rulesetId = $matching[0].id
+    if (-not $rulesetId) { throw "Existing ruleset does not expose an ID" }
+    $remote = Invoke-GhJson "repos/$repo/rulesets/$rulesetId"
+    $types = @($remote.rules | ForEach-Object { $_.type })
+    $requiredTypes = @('deletion', 'non_fast_forward', 'pull_request', 'required_status_checks')
+    $missingTypes = @($requiredTypes | Where-Object { $_ -notin $types })
+    $checks = @($remote.rules | Where-Object { $_.type -eq 'required_status_checks' } |
+        ForEach-Object { $_.parameters.required_status_checks } |
+        ForEach-Object { $_.context })
+    $expectedChecks = @('tests (ubuntu-latest)', 'tests (windows-latest)',
+                        'Windows packaged app & installer', 'Gitleaks history and change scan')
+    $missingChecks = @($expectedChecks | Where-Object { $_ -notin $checks })
+    if ($remote.enforcement -ne 'active' -or $missingTypes.Count -gt 0 -or
+        $missingChecks.Count -gt 0) {
+        # Restore the repository's checked-in baseline, without a duplicate ruleset.
+        # Owners with intentionally stricter custom settings should review first.
+        & gh api -X PUT "repos/$repo/rulesets/$rulesetId" --input $rulesetPath | Out-Null
+        if ($LASTEXITCODE -ne 0) { throw "Could not restore active main protection ruleset" }
+        Write-Host "[FIXED] Restored active main ruleset from reviewed template."
+    }
+    else { Write-Host "[OK] Existing main ruleset is active and includes required checks." }
 }
+# Read back from GitHub to verify effective persisted server-side configuration.
+$allRulesets = @(Invoke-GhJson "repos/$repo/rulesets?per_page=100")
+$activeMatch = @($allRulesets | Where-Object {
+    $_.name -eq $rulesetName -and $_.enforcement -eq 'active'
+})
+if ($activeMatch.Count -ne 1) {
+    throw "Ruleset not confirmed active on GitHub. Check repository Settings -> Rules."
+}
+Write-Host "[VERIFIED] GitHub returned one active PenX main ruleset."
 
 Write-Host "[3/3] Repository settings checked."
 if (-not $PublishRelease) {
