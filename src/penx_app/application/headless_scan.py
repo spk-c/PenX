@@ -12,7 +12,7 @@ from penx_app.application.scan_planner import run_plan
 from penx_app.cli.scanner_cancellation import scanner_cancellation
 from penx_app.domain.finding_identity import finding_fingerprint
 from penx_app.domain.scan_diagnostics import PlanSummary
-from penx_app.domain.scan_models import ScanResult, ScannerResult
+from penx_app.domain.scan_models import ScanResult
 from penx_app.file_output import publish_unique
 from penx_app.reporting.machine_reports import _mask, sarif_from_report
 from penx_app.scanners.scanner_targets import normalize_host
@@ -22,12 +22,13 @@ _TEMPLATE = re.compile(r'^TEMPLATE ([^|]{1,180}) \| (info|low|medium|high|critic
 
 
 def scan_report(plan, result: ScanResult, *, redact: bool = False) -> dict:
-    """Report adapter observations; only Nuclei template matches have severity.
+    """Report explicit scanner observations with conservative severity rules.
 
     Raw banners, errors and inventory are never interpreted as vulnerabilities.
     A template match still requires independent human applicability review.
     """
     findings: list[dict] = []
+    seen_nuclei = set()
     for adapter in result.results:
         if adapter.scanner_id != 'nuclei' or not adapter.evidence or adapter.status == 'FAILED':
             continue
@@ -37,6 +38,9 @@ def scan_report(plan, result: ScanResult, *, redact: bool = False) -> dict:
                 continue
             template, severity, name, location = (part.strip() for part in match.groups())
             fingerprint = finding_fingerprint(template, location, 'nuclei', target=plan.target)
+            if fingerprint in seen_nuclei:
+                continue
+            seen_nuclei.add(fingerprint)
             findings.append({
                 'id': len(findings) + 1, 'rule': 'PENX-NUCLEI-' + template,
                 'fingerprint': fingerprint, 'name': _mask(name, plan.target, redact),
@@ -52,12 +56,33 @@ def scan_report(plan, result: ScanResult, *, redact: bool = False) -> dict:
             })
             if len(findings) >= 1000:
                 break
+    from penx_app.application.scanner_observations import observations
+    seen = {item['fingerprint'] for item in findings}
+    for adapter in result.results:
+        for rule, name, severity, quote, location in observations(adapter):
+            fingerprint = finding_fingerprint(rule, location, adapter.scanner_id, target=plan.target)
+            if fingerprint in seen or len(findings) >= 1000:
+                continue
+            seen.add(fingerprint)
+            findings.append({
+                'id': len(findings) + 1, 'rule': 'PENX-' + rule, 'fingerprint': fingerprint,
+                'name': name, 'description': 'Scanner observation; independent applicability review required.',
+                'severity': severity, 'confidence': 'possible', 'status': 'scanner-quote-matched',
+                'port': location.split('/')[0] if adapter.scanner_id == 'nmap' else '',
+                'service': _mask(location, plan.target, redact), 'scanner': adapter.scanner_id, 'scanner_version': None,
+                'scanner_status': adapter.status, 'evidence_recorded_at': None,
+                'evidence': _mask(quote, plan.target, redact), 'raw_evidence': _mask(quote, plan.target, redact),
+                'evidence_ref': fingerprint,
+                'raw_artifact': asdict(adapter.raw_artifact) if adapter.raw_artifact else None,
+                'artifact_status': 'stored-reference-not-revalidated' if adapter.raw_artifact else 'not-retained',
+            })
     return {
         'schema': 'penx-scan-v1', 'session': None,
         'target': _mask(plan.target, plan.target, redact),
         'scan_date': datetime.now(timezone.utc).isoformat(),
         'profile': asdict(result.plan_summary) if result.plan_summary else None,
         'scanner_configuration': [item.to_dict() for item in result.scanner_configuration],
+        'dependencies': [list(edge) for edge in plan.dependencies],
         'coverage': result.coverage(),
         'adapters': [{'id': row.scanner_id, 'status': row.status, 'evidence': row.evidence,
                       'diagnostics': _mask(row.diagnostics, plan.target, redact),
@@ -66,7 +91,7 @@ def scan_report(plan, result: ScanResult, *, redact: bool = False) -> dict:
         'findings': findings, 'php2shell': None,
         'limitations': [
             'Headless collection runs without AI and creates no saved assessment session.',
-            'Only explicit Nuclei template matches are severity-rated; other adapters supply coverage only.',
+            'Deterministic rules cover Nuclei, selected HTTP/TLS checks and Nmap/Nikto observations; other adapters supply coverage only.',
             'No matches does not establish absence of vulnerabilities.',
             'Hashes attest integrity against trusted references, not exploitability.',
         ],
@@ -129,17 +154,13 @@ def main(argv: list[str]) -> int:
             return 0 if preflight.available else 4
         if not args.authorized:
             raise ValueError('Pass --authorized only for targets you own or have explicit permission to assess.')
-        if plan.passive_only and (plan.global_budget_seconds is not None or plan.max_parallelism != 1
-                                  or plan.dispatch_interval_seconds is not None):
-            raise ValueError('Passive providers do not support planner budgets, parallelism or dispatch intervals.')
+        if plan.passive_only and plan.max_parallelism != 1:
+            raise ValueError('Passive providers run sequentially; use max-parallelism 1.')
         dispatched = True
         if plan.passive_only:
-            # Passive providers have no typed completion/cancellation contract.
-            # Preserve that uncertainty; never promote text to COMPLETE.
-            from penx_app.scanners.passive_recon import passive_recon
-            text = passive_recon(plan.target, include_paid=False)
-            result = ScanResult((ScannerResult('passive_recon', text, 'PARTIAL', False,
-                                               'Passive recon', diagnostics='Provider coverage is not independently verified'),))
+            from penx_app.application.passive_execution import run_passive_plan
+            with scanner_cancellation() as event:
+                result = run_passive_plan(plan, cancel_event=event)
         else:
             from penx_app.scanners.tools import TOOLS_MENU
             with scanner_cancellation() as event:

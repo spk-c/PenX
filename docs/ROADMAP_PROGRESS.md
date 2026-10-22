@@ -1,5 +1,34 @@
 # PenX Roadmap Progress
 
+## Roadmap gap correction — 2026-10-22
+
+This entry supersedes the earlier blanket phase-completion claims below. The
+old entries remain a historical implementation log, not final field sign-off.
+
+- Added explicit dependency DAGs to plans/custom profiles, stable topological
+  dispatch, cycle/scope rejection, prerequisite failure isolation and persisted
+  dependency snapshots in metadata/preflight/reports/comparisons.
+- Added typed headless passive provider execution with cooperative cancellation,
+  provider/global deadlines, bounded streaming and dispatch intervals. Existing
+  interactive passive collection remains backward-compatible.
+- Extended deterministic headless findings beyond Nuclei: selected HTTP/TLS
+  checks and informational Nmap/Nikto observations. Findings retain exact source
+  quotations; incomplete/failed sources and missing headers are not promoted.
+  Stable identities exclude changing certificate countdowns. Duplicate Nuclei
+  records are collapsed before optional local review.
+- Extended optional local review to bounded multi-report batches with independent
+  failure handling, admission budget and an atomic draft manifest. It still has
+  no scanner/shell/action execution capability.
+- Added 18 offline gap-closure acceptance tests. All 213 offline suites passed
+  in the final full run; subsequent small boolean/provider guards were checked
+  again with the gap-closure and scan-plan suites. Ruff fatal/F401 and
+  Linux-platform mypy passed (121 source files).
+- Original external brief could not be recovered from available Git history;
+  root `roadmap.md` is absent and excluded by `.gitignore`. No invented original
+  is added. The tracked acceptance matrix is `ROADMAP_ACCEPTANCE.md`.
+- Phase status is now TESTED (offline), not COMPLETE. Real scanner/model/CI,
+  Windows/Npcap and release/recovery field acceptance remain unclaimed.
+
 ## Phase 6 completion — 2026-10-22
 
 - Added explicit `penx review-scan` for bounded draft triage of existing headless

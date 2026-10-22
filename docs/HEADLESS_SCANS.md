@@ -22,15 +22,22 @@ repeated runs. It does not create a saved assessment session. JSON uses the
 separate `penx-scan-v1` schema so collection cannot be confused with a reviewed
 `penx-assessment-v1` export. Both standalone schemas are in `docs/schemas/`.
 
-Only explicit bounded Nuclei template matches produce severity-rated findings;
-other scanners currently provide collection coverage, not automatic security
-verdicts. A match remains a hypothesis requiring applicability review. A clean
+Explicit Nuclei matches, HTTP HSTS-disable/PHP-version observations and verified
+TLS certificates nearing expiry produce conservatively rated findings. Nmap
+open services and structured Nikto observations are informational. Remaining
+adapters provide collection coverage, not automatic security verdicts. A match
+remains a hypothesis requiring applicability review. A clean
 exit means collection/policy passed, never proof of absence of vulnerabilities.
-Passive collection uses historical providers only, disables paid providers and
-keeps untyped provider completeness marked partial. It returns incomplete
-coverage rather than inventing success. The passive provider API currently has
-no cooperative cancellation or global-budget contract; unsupported budget,
-parallelism and dispatch-interval overrides are rejected before collection.
+Headless passive collection uses typed DNS/CT/RDAP and public-IP InternetDB
+providers, with no active target adapter or paid API. It supports cooperative
+cancellation, global budget and provider dispatch intervals, running sequentially.
+Each provider has a 15-second deadline; DNS/HTTP inactivity timeouts are at most
+one second. Checks occur before/after I/O and between response chunks. These are
+cooperative bounds, not forcible thread termination. Failed, cancelled and
+truncated provider outcomes remain distinct from successful external lookups.
+Successful provider coverage never proves target reachability or security.
+The original interactive passive API is retained for compatibility.
+`PENX_SHODAN_INTERNETDB=off` is respected by the headless provider selection.
 
 | Exit | Meaning |
 | --- | --- |
@@ -45,7 +52,7 @@ Scanner failures take precedence over incomplete coverage, which takes
 precedence over finding policy. Reports are written for normal scanner failures
 and partial outcomes; an emergency interrupt or report-write error can prevent
 publication. `--fail-on info|low|medium|high|critical` is opt-in and considers
-Nuclei matches at or above the threshold. Findings remain in SARIF regardless
+deterministic findings at or above the threshold. Findings remain in SARIF regardless
 of policy exit. Stable `partialFingerprints` support SARIF result correlation.
 
 `.github/workflows/authorized-scan.yml` is an optional manual-only workflow,

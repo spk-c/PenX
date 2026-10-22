@@ -5,6 +5,7 @@ collection report, explicitly invoke:
 
 ```text
 python penx.py review-scan reports/penx_scan.json --model your-loaded-model --endpoint http://127.0.0.1:1234 --output ./reports
+python penx.py review-scan reports/penx_scan.json reports/penx_scan_1.json --model your-loaded-model --batch-budget 300
 ```
 
 This sends selected observation excerpts to a loopback API and writes a separate
@@ -13,6 +14,14 @@ findings, evidence, severity, coverage and CI policy are not modified. The draft
 is marked `draft-unverified`; omitted findings stay unreviewed. No target is
 contacted by this review path. No scanner, shell command, search, remediation or
 follow-up action is executed.
+
+Batch mode accepts at most 10 explicit source files, with one bounded request
+per report and a `--batch-budget` of 5–600 seconds (default 600). Admission of
+each report checks the remaining budget and reduces its read timeout. This is
+cooperative admission/I/O control, not a hard wall-clock interrupt. Independent
+reports continue after one failure. A separate `penx_review_batch.json` manifest
+records source hashes, draft filenames and sanitized errors. Partial failure
+returns exit 1; it never rewrites successful drafts or the source reports.
 
 Only literal loopback addresses and `localhost` are accepted. `localhost` is
 converted to `127.0.0.1` without DNS discovery. Environment proxies and HTTP

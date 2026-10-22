@@ -26,7 +26,8 @@ Confirmed runs use the existing headless collector and produce JSON/SARIF
 reports. They do not reserve assessment sessions or call a model. The wizard
 explains severity as potential impact, confidence as support for a claim, and
 scanner evidence as an observation requiring independent review. Missing
-findings do not establish safety or remediation. Only Nuclei matches currently
-receive automatic severity policy; other adapters supply coverage.
+findings do not establish safety or remediation. Explicit Nuclei/HTTP/TLS rules
+receive severity policy; Nmap/Nikto observations remain informational and other
+adapters supply coverage.
 
 Existing advanced scan menus, presets and report flows remain available.

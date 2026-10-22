@@ -21,8 +21,9 @@ _TIMEOUT = (5, 12)
 
 
 def _query_json(url: str, *, params: dict | None = None, auth=None,
-                allow_redirects: bool = False) -> object:
-    response = requests.get(url, params=params, auth=auth, timeout=_TIMEOUT,
+                allow_redirects: bool = False, control=None) -> object:
+    timeout = _TIMEOUT if control is None else (min(1, control()), min(1, control()))
+    response = requests.get(url, params=params, auth=auth, timeout=timeout,
                             headers={"User-Agent": "PenX/2.0 passive-recon",
                                      "Accept": "application/json"},
                             allow_redirects=allow_redirects, stream=True)
@@ -31,10 +32,14 @@ def _query_json(url: str, *, params: dict | None = None, auth=None,
         # Bound third-party data so large registries cannot exhaust memory.
         pieces, total = [], 0
         for chunk in response.iter_content(chunk_size=8192):
+            if control is not None:
+                control()
             total += len(chunk)
             if total > _MAX_BYTES:
                 raise ValueError("Source response exceeded 200 KB.")
             pieces.append(chunk)
+        if control is not None:
+            control()
         return json.loads(b"".join(pieces).decode("utf-8"))
     finally:
         response.close()

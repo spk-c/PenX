@@ -29,8 +29,9 @@ RESULT_GUIDANCE = (
     'Confidence describes how well a claim is supported. A scanner quote is an '
     'observation, not independent vulnerability verification. Missing evidence '
     'needs review. A failed or partial scan cannot show that a weakness is fixed. '
-    'Headless severity policy currently rates only Nuclei matches; other tools '
-    'supply collection coverage. An empty findings list does not mean secure.'
+    'Headless policy rates explicit template, HTTP and TLS observations; open '
+    'services and Nikto observations remain informational. Other tools supply '
+    'collection coverage. An empty findings list does not mean secure.'
 )
 
 

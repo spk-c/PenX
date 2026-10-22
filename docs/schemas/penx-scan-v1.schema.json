@@ -17,7 +17,7 @@
     }},
     "findings": {"type": "array", "maxItems": 1000, "items": {
       "type": "object", "required": ["fingerprint", "severity", "scanner", "evidence", "status"],
-      "properties": {"fingerprint": {"type": "string", "pattern": "^penx-finding-v1:[a-f0-9]{64}$"}, "severity": {"enum": ["info", "low", "medium", "high", "critical"]}, "scanner": {"const": "nuclei"}, "evidence": {"type": "string"}, "status": {"const": "scanner-quote-matched"}}
+      "properties": {"fingerprint": {"type": "string", "pattern": "^penx-finding-v1:[a-f0-9]{64}$"}, "severity": {"enum": ["info", "low", "medium", "high", "critical"]}, "scanner": {"enum": ["nuclei", "nmap", "nikto", "http_headers", "tls"]}, "evidence": {"type": "string"}, "status": {"const": "scanner-quote-matched"}}
     }},
     "exit_code": {"enum": [0, 3, 4, 5]},
     "policy": {"type": "object", "required": ["fail_on"], "properties": {"fail_on": {"enum": [null, "info", "low", "medium", "high", "critical"]}}},

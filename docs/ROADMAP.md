@@ -2,7 +2,10 @@
 
 Canonical phase plan for the modular security-orchestration program.
 
-- Source brief (full requirements): `roadmap.md` in the repository root (2026-10-21)
+- Maintained requirements: this document; acceptance evidence: `ROADMAP_ACCEPTANCE.md`.
+- The original external brief (2026-10-21), previously referenced as root
+  `roadmap.md`, is absent here and excluded by `.gitignore`. It is not present
+  in available Git history. This public document does not reconstruct it.
 - Progress tracker: `docs/ROADMAP_PROGRESS.md`
 - Architecture audit and implementation packages: `docs/ARCHITECTURE_PLAN.md`
 
@@ -11,12 +14,15 @@ Status values: `NOT STARTED`, `IN PROGRESS`, `IMPLEMENTED`, `TESTED`, `READY FOR
 | Phase | Scope | Priority | Status (2026-10-22) |
 | --- | --- | --- | --- |
 | 0 | Repository audit and development baseline | prerequisite | COMPLETE |
-| 1 | Scanner orchestration and flexible scan profiles | very high | COMPLETE |
-| 2 | Evidence traceability and trustworthy scan comparison | very high | COMPLETE |
-| 3 | JSON/SARIF reporting and CI/CD integration | high | COMPLETE |
-| 4 | Typed per-scanner configuration | high | COMPLETE |
-| 5 | Guided mode for beginners | medium | COMPLETE |
-| 6 | Extended local AI automation | later | COMPLETE |
+| 1 | Scanner orchestration and flexible scan profiles | very high | TESTED |
+| 2 | Evidence traceability and trustworthy scan comparison | very high | TESTED |
+| 3 | JSON/SARIF reporting and CI/CD integration | high | TESTED |
+| 4 | Typed per-scanner configuration | high | TESTED |
+| 5 | Guided mode for beginners | medium | TESTED |
+| 6 | Bounded local AI draft/batch review | later | TESTED |
+
+TESTED denotes automated offline verification, not final field/release acceptance.
+The previous blanket COMPLETE labels are superseded by `ROADMAP_ACCEPTANCE.md`.
 
 ## Phase 0 — Repository audit and development baseline
 
@@ -32,7 +38,7 @@ baseline tests. All satisfied — see `docs/ARCHITECTURE_PLAN.md` (audit) and
 
 ## Phase 1 — Scanner orchestration and flexible scan profiles
 
-**Priority: very high. Status: COMPLETE (PR #100 merged).**
+**Priority: very high. Status: TESTED (base PR #100 plus dependency-DAG follow-up).**
 
 Scope (brief §1):
 
@@ -71,7 +77,7 @@ Implementation packages P1-1 … P1-5: `docs/ARCHITECTURE_PLAN.md` §7.
 
 ## Phase 2 — Evidence traceability and trustworthy scan comparison
 
-**Priority: very high. Status: COMPLETE (2026-10-22).**
+**Priority: very high. Status: TESTED (2026-10-22; field acceptance open).**
 
 Implemented (PR #94 and follow-ups, base `ad21266`):
 
@@ -99,7 +105,7 @@ Phase 2 additions (2026-10-22; see `EVIDENCE_TRACEABILITY.md`):
 
 ## Phase 3 — JSON/SARIF reporting and CI/CD integration
 
-**Priority: high. Status: COMPLETE (2026-10-22).**
+**Priority: high. Status: TESTED (2026-10-22; CI/field acceptance open).**
 
 Implemented:
 
@@ -114,14 +120,15 @@ Phase 3 additions (2026-10-22; see `HEADLESS_SCANS.md`):
 - Authorized headless `penx scan` using Phase 1 profiles/planner, bounded
   JSON/SARIF output, dry-run and optional raw artifacts, without AI or a DB.
 - Explicit exit codes distinguish usage, policy, scanner failure and partial
-  coverage; configurable Nuclei-match severity threshold.
+  coverage; configurable deterministic-finding severity threshold. Nuclei,
+  selected HTTP/TLS checks and informational Nmap/Nikto observations are covered.
 - Optional manual-only GitHub Actions workflow with authorization, quoted
   target inputs, SARIF upload and preserved policy exit codes.
 - Standalone `penx-assessment-v1` and distinct `penx-scan-v1` JSON schemas.
 
 ## Phase 4 — Typed per-scanner configuration
 
-**Priority: high. Status: COMPLETE (2026-10-22).**
+**Priority: high. Status: TESTED (2026-10-22; field acceptance open).**
 
 Existing: per-scanner timeouts via `PENX_<NAME>_TIMEOUT` env vars
 (`scanners/tools.py::_scanner_timeout`, clamped 30–900 s),
@@ -136,7 +143,7 @@ without freeing occupied slots early. See `SCANNER_CONFIGURATION.md`.
 
 ## Phase 5 — Guided mode for beginners
 
-**Priority: medium. Status: COMPLETE (2026-10-22).**
+**Priority: medium. Status: TESTED (2026-10-22; human usability acceptance open).**
 
 Implemented: separate `penx guided` and main-menu [g] entry with plain-language
 scanner descriptions, goal-based profile recommendations, scope/consent/risk
@@ -146,7 +153,7 @@ available. See `GUIDED_MODE.md`.
 
 ## Phase 6 — Extended local AI automation
 
-**Priority: later (after Phases 1–5 stabilize). Status: COMPLETE (2026-10-22).**
+**Priority: later (after Phases 1–5 stabilize). Status: TESTED for bounded draft/batch review; broader original scope unverified.**
 
 Existing: OpenAI-compatible local endpoint support, AI tool protocol
 (`analysis/ai_tool_protocol.py`), schema-validated structured output, bounded
@@ -157,7 +164,7 @@ unattended scope expansion; no AI-driven shell commands; no cloud dependency
 for base features.
 
 Implemented after green Phase 1–5 regression gates: explicit `penx review-scan`
-performs bounded local-only draft triage of existing headless reports. Exact
+performs bounded local-only single/batch draft triage of existing headless reports. Exact
 citations and source fingerprints are checked; suggested scanners stay within
 recorded selection. Drafts never modify findings/policy or dispatch actions.
 Loopback-only transport disables redirects, environment proxies, discovery and

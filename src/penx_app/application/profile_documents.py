@@ -26,6 +26,7 @@ class ProfileDocument:
     max_parallelism: int = 1
     global_budget_seconds: int | None = None
     dispatch_interval_seconds: float | None = None
+    dependencies: tuple[tuple[str, str], ...] = ()
 
     def __post_init__(self):
         if (not isinstance(self.scanner_configuration, tuple) or len(self.scanner_configuration) > 13
@@ -46,9 +47,8 @@ class ProfileDocument:
         if interval is not None and (isinstance(interval, bool) or not isinstance(interval, (int, float))
                                      or not math.isfinite(interval) or not 0 < interval <= 60):
             raise ValueError('Invalid profile dispatch interval')
-        if self.passive_only and (self.max_parallelism != 1 or self.global_budget_seconds is not None
-                                  or interval is not None or self.scanner_configuration):
-            raise ValueError('Passive provider planner settings are unsupported')
+        if self.passive_only and (self.max_parallelism != 1 or self.scanner_configuration or self.dependencies):
+            raise ValueError('Passive profiles cannot configure active adapters or parallel providers')
         # Structural validation uses a placeholder scope, never a stored target.
         self.to_plan('profile-validation.invalid', active_consent=not self.passive_only)
 
@@ -59,7 +59,7 @@ class ProfileDocument:
             {item.scanner_key: item.timeout_seconds for item in self.scanner_configuration
              if item.timeout_seconds is not None},
             self.max_parallelism, self.global_budget_seconds, self.dispatch_interval_seconds,
-            scanner_configuration=self.scanner_configuration)
+            scanner_configuration=self.scanner_configuration, dependencies=self.dependencies)
         assert_valid_plan(plan)
         return plan
 
@@ -72,6 +72,7 @@ class ProfileDocument:
             'max_parallelism': self.max_parallelism,
             'global_budget_seconds': self.global_budget_seconds,
             'dispatch_interval_seconds': self.dispatch_interval_seconds,
+            'dependencies': [list(edge) for edge in self.dependencies],
         }
 
     @classmethod
@@ -79,7 +80,7 @@ class ProfileDocument:
         fields = {'schema_version', 'profile_id', 'profile_version', 'scanner_keys',
                   'passive_only', 'scanner_configuration', 'max_parallelism',
                   'global_budget_seconds', 'dispatch_interval_seconds'}
-        if not isinstance(value, dict) or set(value) != fields:
+        if not isinstance(value, dict) or set(value) - {'dependencies'} != fields:
             raise ValueError('Missing or unknown profile fields; targets, consent and secrets are forbidden')
         if type(value['schema_version']) is not int or value['schema_version'] != 1:
             raise ValueError('Unsupported profile schema version')
@@ -88,6 +89,11 @@ class ProfileDocument:
         if len(value['scanner_keys']) > 13 or len(value['scanner_configuration']) > 13:
             raise ValueError('Too many configured scanners')
         data = {key: item for key, item in value.items() if key != 'schema_version'}
+        if 'dependencies' in data:
+            if not isinstance(data['dependencies'], list) or len(data['dependencies']) > 169 or any(
+                    not isinstance(edge, list) for edge in data['dependencies']):
+                raise ValueError('Invalid profile dependency list')
+            data['dependencies'] = tuple(tuple(edge) for edge in data['dependencies'])
         data['scanner_keys'] = tuple(data['scanner_keys'])
         data['scanner_configuration'] = tuple(ScannerConfiguration.from_dict(item)
                                                for item in data['scanner_configuration'])

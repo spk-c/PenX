@@ -11,6 +11,7 @@ from dataclasses import dataclass
 
 from penx_app.domain.scan_models import ScanRequest
 from penx_app.domain.scanner_configuration import ScannerConfiguration
+from penx_app.domain.scanner_dependencies import valid_dependencies
 from penx_app.scanners.registry import CONSENT_KEYS, SCANNERS
 
 TIMEOUT_MIN_SECONDS = 30
@@ -36,6 +37,7 @@ class ScanPlan:
     global_budget_seconds: int | None
     dispatch_interval_seconds: float | None
     scanner_configuration: tuple[ScannerConfiguration, ...] = ()
+    dependencies: tuple[tuple[str, str], ...] = ()  # (dependent, prerequisite)
 
     def to_request(self) -> ScanRequest:
         """1:1 mapping to the existing ScanRequest contract.
@@ -58,6 +60,11 @@ def _is_strict_int(value: object) -> bool:
 def validate_plan(plan: ScanPlan) -> list[str]:
     """Return every structural violation (empty list means the plan is valid)."""
     errors: list[str] = []
+    if type(plan.passive_only) is not bool or type(plan.active_consent) is not bool:
+        errors.append('R4/R6: passive_only and active_consent must be booleans')
+    selected = plan.scanner_keys if isinstance(plan.scanner_keys, tuple) else ()
+    if not valid_dependencies(plan.dependencies, selected):
+        errors.append('R12: dependencies must form an acyclic graph of unique selected-key pairs')
     configuration = plan.scanner_configuration
     if (not isinstance(configuration, tuple)
             or any(not isinstance(item, ScannerConfiguration) for item in configuration)):

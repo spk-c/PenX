@@ -212,6 +212,8 @@ def format_report(report: PreflightReport) -> str:
         lines.append('  ' + ' | '.join(parts))
     for options in plan.scanner_configuration:
         lines.append('  Scanner configuration: ' + str(options.to_dict()))
+    for child, parent in plan.dependencies:
+        lines.append(f'  Dependency: {child} requires completed {parent}')
     consent_keys = [key for key in report.schedule if key in CONSENT_KEYS]
     if consent_keys:
         lines.append('Consent reminder: consent-gated active scanners selected: '

@@ -20,6 +20,12 @@ environment variables, headers, executable/template paths or raw command flags.
 The version-1 document contains exactly `schema_version`, `profile_id`,
 `profile_version`, `scanner_keys`, `passive_only`, `scanner_configuration`,
 `max_parallelism`, `global_budget_seconds`, and `dispatch_interval_seconds`.
+An optional `dependencies` array contains `[dependent_key, prerequisite_key]`
+pairs. Both keys must already be selected. Cycles, self-edges, duplicates and
+references outside the selection are rejected. Execution uses stable topological
+ordering and waits for prerequisite completion, including actual worker exit.
+Failed/partial prerequisites skip their descendants while independent work
+continues. Dependency snapshots appear in metadata, reports and comparisons.
 
 Example `scanner_configuration` (keys must also appear in `scanner_keys`):
 
@@ -45,7 +51,9 @@ host. Scanner discoveries are not automatically added to scope.
 
 Profiles/headless execution permit at most 8 workers and a global budget of
 30–3600 seconds (or null). Dispatch intervals must be finite, positive and at
-most 60 seconds. Passive providers do not support these planner overrides.
+most 60 seconds. Headless passive providers support budgets and dispatch
+intervals but run sequentially; active-adapter configuration/dependencies are
+not valid in a passive profile.
 
 Typed profile timeouts override environment/default timeouts for subprocesses
 and node scheduling. Explicit `ScanPlan.per_scanner_timeouts` take precedence

@@ -57,21 +57,17 @@ class PlannedNode:
 
 
 def build_schedule(plan: ScanPlan) -> tuple[str, ...]:
-    """Dispatch order for a validated plan.
-
-    Phase 1 keeps registry order filtered by the plan keys, deduplicated and
-    stable. Dependency-aware ordering is a later phase; the signature stays
-    stable.
-    """
+    """Stable topological order; dependencies never add scanners to scope."""
     errors = validate_plan(plan)
     if errors:
         raise PlanValidationError('; '.join(errors))
-    seen: set[str] = set()
     schedule: list[str] = []
-    for key in SCANNERS:
-        if key in plan.scanner_keys and key not in seen:
-            schedule.append(key)
-            seen.add(key)
+    pending = [key for key in SCANNERS if key in plan.scanner_keys]
+    while pending:
+        ready = next(key for key in pending if not any(
+            child == key and parent in pending for child, parent in plan.dependencies))
+        schedule.append(ready)
+        pending.remove(ready)
     return tuple(schedule)
 
 
@@ -139,7 +135,7 @@ def run_plan(plan: ScanPlan, *, menu: dict, emit=lambda *_: None,
         plan = replace(plan, per_scanner_timeouts=timeouts)
     if (plan.max_parallelism == 1
             and plan.global_budget_seconds is None
-            and plan.dispatch_interval_seconds is None):
+            and plan.dispatch_interval_seconds is None and not plan.dependencies):
         if configurations:
             result = _run_plan_scheduled(plan, menu=menu, emit=emit, cancel_event=cancel_event)
             return replace(result, scanner_configuration=tuple(configurations[key] for key in sorted(configurations)))
@@ -285,7 +281,12 @@ def _run_plan_scheduled(plan: ScanPlan, *, menu: dict, emit,
             if not pending and not in_flight:
                 break
             while pending and len(in_flight) < workers:
-                key = pending[0]
+                ready = [key for key in pending if not any(
+                    child == key and (parent not in rows or parent in in_flight)
+                    for child, parent in plan.dependencies)]
+                if not ready:
+                    break
+                key = ready[0]
                 name = names[key]
                 spec = SCANNERS[key]
                 now = time.monotonic()
@@ -293,7 +294,7 @@ def _run_plan_scheduled(plan: ScanPlan, *, menu: dict, emit,
                     note, output_row = _cancelled_row(name, ids[key])
                     safe_emit(note)
                     record(key, output_row)
-                    pending.pop(0)
+                    pending.remove(key)
                     continue
                 if deadline is not None and now >= deadline:
                     note = (f"[!] {name} was not started: global budget "
@@ -304,14 +305,22 @@ def _run_plan_scheduled(plan: ScanPlan, *, menu: dict, emit,
                         note, status="PARTIAL", evidence=False,
                         scanner_id=ids[key],
                         diagnostics="Not started: global budget exhausted"))
-                    pending.pop(0)
+                    pending.remove(key)
+                    continue
+                failed_dependencies = [parent for child, parent in plan.dependencies
+                                       if child == key and rows[parent].status != 'COMPLETE']
+                if failed_dependencies:
+                    record(key, ScannerOutput('Not started: prerequisite did not complete',
+                           status='PARTIAL', evidence=False, scanner_id=ids[key],
+                           diagnostics='Not started: failed prerequisite ' + ','.join(failed_dependencies)))
+                    pending.remove(key)
                     continue
                 if spec.resource_sensitive and _overload_observed(completed):
                     _, output_row = _overload_skip_row(name, ids[key])
                     safe_emit(f"\n[!] Skipping {name}: HTTP 508 resource "
                               "limit already observed.")
                     record(key, output_row)
-                    pending.pop(0)
+                    pending.remove(key)
                     continue
                 if (plan.dispatch_interval_seconds is not None
                         and last_start is not None):
@@ -332,7 +341,7 @@ def _run_plan_scheduled(plan: ScanPlan, *, menu: dict, emit,
                 in_flight[key] = pool.submit(
                     _run_adapter, name, menu[key][1], plan.target,
                     safe_emit, node_events[key], ids[key])
-                pending.pop(0)
+                pending.remove(key)
 
     ordered = []
     for key in schedule:
@@ -358,4 +367,4 @@ def _run_plan_scheduled(plan: ScanPlan, *, menu: dict, emit,
     plan_summary = PlanSummary(
         plan.profile_id, plan.profile_version, plan.max_parallelism,
         plan.global_budget_seconds)
-    return ScanResult(tuple(ordered), plan_summary=plan_summary)
+    return ScanResult(tuple(ordered), plan_summary=plan_summary, dependencies=plan.dependencies)

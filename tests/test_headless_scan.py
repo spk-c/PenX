@@ -75,7 +75,8 @@ class HeadlessScanTests(unittest.TestCase):
 
     def test_finding_limit_and_target_redaction(self):
         plan = build_custom_plan('example.test', ('7',), active_consent=True)
-        report = scan_report(plan, outcome(text=(outcome().results[0].text + '\n') * 1100), redact=True)
+        text = '\n'.join(outcome().results[0].text.replace('sample-id', 'sample-' + str(i)) for i in range(1100))
+        report = scan_report(plan, outcome(text=text), redact=True)
         self.assertEqual(len(report['findings']), 1000)
         self.assertNotIn('example.test', json.dumps(report))
 
@@ -89,11 +90,12 @@ class HeadlessScanTests(unittest.TestCase):
 
     def test_passive_profile_uses_no_active_adapter_and_keeps_coverage_uncertain(self):
         with tempfile.TemporaryDirectory() as root, \
-                patch('penx_app.scanners.passive_recon.passive_recon', return_value='Historical index') as passive:
+                patch('penx_app.application.passive_execution.run_passive_plan', return_value=outcome('PARTIAL')) as passive:
             code, runner = self.run_cli(['--target', 'example.test', '--authorized', '--profile', 'passive', '--output', root])
             self.assertEqual(code, 5)
             runner.assert_not_called()
-            passive.assert_called_once_with('example.test', include_paid=False)
+            passive.assert_called_once()
+            self.assertTrue(passive.call_args.args[0].passive_only)
 
     def test_report_failure_and_interrupt_have_documented_codes(self):
         with patch('penx_app.application.headless_scan.publish_unique', side_effect=OSError):
@@ -121,10 +123,10 @@ class HeadlessScanTests(unittest.TestCase):
             self.assertEqual(bootstrap(), 2)
             command.assert_called_once_with(['--target', 'example.test'])
 
-    def test_passive_unsupported_budgets_fail_before_collection(self):
-        with patch('penx_app.scanners.passive_recon.passive_recon') as passive:
+    def test_passive_parallelism_rejected_before_collection(self):
+        with patch('penx_app.application.passive_execution.run_passive_plan') as passive:
             code, runner = self.run_cli(['--target', 'example.test', '--authorized',
-                                         '--profile', 'passive', '--budget', '60'])
+                                         '--profile', 'passive', '--max-parallelism', '2'])
         self.assertEqual(code, 2)
         passive.assert_not_called()
         runner.assert_not_called()

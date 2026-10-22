@@ -7,6 +7,8 @@ import math
 from typing import TYPE_CHECKING
 from penx_app.domain.raw_artifact import RawArtifact
 from penx_app.domain.scanner_configuration import ScannerConfiguration
+from penx_app.domain.scanner_dependencies import valid_dependencies
+from penx_app.scanners.registry import SCANNERS
 
 from penx_app.domain.scan_diagnostics import (
     MAX_EVENTS_PER_ADAPTER,
@@ -75,8 +77,13 @@ class ScanResult:
     results: tuple[ScannerResult, ...]
     plan_summary: PlanSummary | None = None
     scanner_configuration: tuple[ScannerConfiguration, ...] = ()
+    dependencies: tuple[tuple[str, str], ...] = ()
 
     def __post_init__(self):
+        selected = tuple(key for key, spec in SCANNERS.items()
+                         if any(row.scanner_id == spec.id for row in self.results))
+        if not valid_dependencies(self.dependencies, selected):
+            raise ValueError('Invalid scan dependency snapshot')
         if (not isinstance(self.scanner_configuration, tuple) or len(self.scanner_configuration) > 100
                 or any(not isinstance(item, ScannerConfiguration) for item in self.scanner_configuration)
                 or len({item.scanner_key for item in self.scanner_configuration}) != len(self.scanner_configuration)):
@@ -111,7 +118,7 @@ class ScanResult:
                 version = 2
             rows.append(row)
         if any(result.run_events or result.raw_artifact for result in self.results) \
-                or self.plan_summary is not None or self.scanner_configuration:
+                or self.plan_summary is not None or self.scanner_configuration or self.dependencies:
             version = 3
         if version == 3:
             for row, result in zip(rows, self.results):
@@ -124,6 +131,8 @@ class ScanResult:
             payload['plan'] = asdict(self.plan_summary)
         if self.scanner_configuration:
             payload['configuration'] = [item.to_dict() for item in self.scanner_configuration]
+        if self.dependencies:
+            payload['dependencies'] = [list(edge) for edge in self.dependencies]
         encoded = json.dumps(payload, ensure_ascii=True)
         if len(encoded) > 100_000:
             raise ValueError('Scanner metadata exceeds its size limit')
@@ -138,6 +147,12 @@ class ScanResult:
                 or value['version'] not in (1, 2, 3):
             raise ValueError('Unsupported scanner metadata version')
         version = value['version']
+        dependencies = value.get('dependencies', [])
+        if (not isinstance(dependencies, list) or len(dependencies) > 169
+                or any(not isinstance(edge, list) for edge in dependencies)
+                or (version != 3 and 'dependencies' in value)):
+            raise ValueError('Invalid dependency metadata')
+        parsed_dependencies = tuple(tuple(edge) for edge in dependencies)
         configuration = value.get('configuration', [])
         if (not isinstance(configuration, list) or len(configuration) > 100
                 or (version != 3 and 'configuration' in value)):
@@ -226,7 +241,7 @@ class ScanResult:
                                          run_events=run_events,
                                          raw_artifact=raw_artifact))
         return cls(tuple(results), plan_summary=plan_summary,
-                   scanner_configuration=parsed_configuration)
+                   scanner_configuration=parsed_configuration, dependencies=parsed_dependencies)
 
     def evidence_records(self) -> tuple['EvidenceRecord', ...]:
         """In-memory provenance anchors attached at the adapter boundary."""

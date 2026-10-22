@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 import hashlib
 import json
 import os
+import time
 from pathlib import Path
 
 from penx_app.analysis.local_review_client import local_endpoint, request_review
@@ -65,29 +66,50 @@ def create_review(report: dict, *, endpoint: str, model: str, max_findings: int 
 
 def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(prog='penx review-scan', description=__doc__)
-    parser.add_argument('report')
+    parser.add_argument('report', nargs='+', help='One report or a bounded batch of up to 10 reports')
     parser.add_argument('--model', required=True)
     parser.add_argument('--endpoint', default='http://127.0.0.1:1234')
     parser.add_argument('--output', default='./reports')
     parser.add_argument('--max-findings', type=int, default=20)
     parser.add_argument('--timeout', type=int, default=60)
+    parser.add_argument('--batch-budget', type=int, default=600)
     try:
         args = parser.parse_args(argv)
     except SystemExit as exc:
         return exc.code if isinstance(exc.code, int) else 2
     try:
-        with Path(args.report).open('rb') as handle:
-            content = handle.read(MAX_INPUT_BYTES + 1)
-        if len(content) > MAX_INPUT_BYTES:
-            raise ValueError('Review source report exceeds 4 MiB')
-        report = strict_json(content.decode('utf-8'))
-        review = create_review(report, endpoint=args.endpoint, model=args.model,
-                               max_findings=args.max_findings, timeout=args.timeout)
-        review['source_sha256'] = hashlib.sha256(content).hexdigest()
-        path = publish_unique(args.output, 'penx_review', '.json',
-                              json.dumps(review, ensure_ascii=True, indent=2) + '\n')
-        print('Draft review: ' + str(path))
-        return 0
+        if len(args.report) > 10 or not 5 <= args.batch_budget <= 600:
+            raise ValueError('Batch limit: 10 reports and 5..600 seconds')
+        # Validate endpoint before opening a batch or invoking any client.
+        local_endpoint(args.endpoint)
+        deadline = time.monotonic() + args.batch_budget
+        outcomes = []
+        for index, filename in enumerate(args.report):
+            try:
+                remaining = int(deadline - time.monotonic())
+                if remaining < 5:
+                    raise ValueError('Review batch budget exhausted')
+                with Path(filename).open('rb') as handle:
+                    content = handle.read(MAX_INPUT_BYTES + 1)
+                if len(content) > MAX_INPUT_BYTES:
+                    raise ValueError('Review source report exceeds 4 MiB')
+                report = strict_json(content.decode('utf-8'))
+                review = create_review(report, endpoint=args.endpoint, model=args.model,
+                                       max_findings=args.max_findings, timeout=min(args.timeout, remaining))
+                review['source_sha256'] = hashlib.sha256(content).hexdigest()
+                path = publish_unique(args.output, 'penx_review', '.json',
+                                      json.dumps(review, ensure_ascii=True, indent=2) + '\n')
+                print('Draft review: ' + str(path))
+                outcomes.append({'index': index, 'status': 'draft', 'file': path.name,
+                                 'source_sha256': review['source_sha256']})
+            except Exception as exc:
+                outcomes.append({'index': index, 'status': 'failed', 'error': type(exc).__name__})
+                print(f'[!] Review {index + 1} failed: {type(exc).__name__}')
+        if len(args.report) > 1:
+            publish_unique(args.output, 'penx_review_batch', '.json',
+                           json.dumps({'schema': 'penx-review-batch-v1', 'state': 'draft-batch-unverified',
+                                       'outcomes': outcomes}, indent=2) + '\n')
+        return 1 if any(item['status'] == 'failed' for item in outcomes) else 0
     except Exception as exc:
         # Never echo provider bodies, credentials or imported source strings.
         print('[!] Local review rejected or unavailable: ' + type(exc).__name__)
