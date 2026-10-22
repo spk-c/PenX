@@ -32,6 +32,14 @@ def retain_artifacts(result: ScanResult, directory: str | Path) -> ScanResult:
             rows.append(row)
             continue
         digest = hashlib.sha256(encoded).hexdigest()
+        existing = RawArtifact(digest, len(encoded), digest + '.txt')
+        try:
+            validate_artifact(replace(row, raw_artifact=existing), directory)
+        except (OSError, ValueError):
+            pass
+        else:
+            rows.append(replace(row, raw_artifact=existing))
+            continue
         # Preserve adapter line endings on Windows as well as Linux.
         path = publish_unique(directory, digest, ".txt", row.text, newline="")
         rows.append(replace(row, raw_artifact=RawArtifact(digest, len(encoded), path.name)))

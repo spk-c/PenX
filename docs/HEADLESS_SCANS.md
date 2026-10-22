@@ -54,6 +54,11 @@ and partial outcomes; an emergency interrupt or report-write error can prevent
 publication. `--fail-on info|low|medium|high|critical` is opt-in and considers
 deterministic findings at or above the threshold. Findings remain in SARIF regardless
 of policy exit. Stable `partialFingerprints` support SARIF result correlation.
+Truncated native summaries or finding lists cannot produce a successful policy
+exit: they result in incomplete coverage (exit 5, unless a scanner failed).
+JSON exposes `findings_truncated`; SARIF preserves coverage, policy and exit
+metadata and marks incomplete scanner execution as unsuccessful. Duplicate
+Nuclei matches retain the highest observed severity.
 
 `.github/workflows/authorized-scan.yml` is an optional manual-only workflow,
 never a PR-triggered network scan. It requires an explicit authorization input,

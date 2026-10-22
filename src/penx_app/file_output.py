@@ -2,16 +2,18 @@
 from __future__ import annotations
 import os
 import tempfile
+import uuid
 from pathlib import Path
 
 
-def _stage(root: Path, text: str, *, newline: str | None = None) -> Path:
+def _stage(root: Path, text: str | bytes, *, newline: str | None = None) -> Path:
     root.mkdir(parents=True, exist_ok=True)
     pending = None
     try:
         with tempfile.NamedTemporaryFile(
-            "w", dir=root, prefix=".penx-stage-", suffix=".tmp",
-            encoding="utf-8", delete=False, newline=newline,
+            "wb" if isinstance(text, bytes) else "w", dir=root, prefix=".penx-stage-", suffix=".tmp",
+            encoding=None if isinstance(text, bytes) else "utf-8", delete=False,
+            newline=None if isinstance(text, bytes) else newline,
         ) as handle:
             pending = Path(handle.name)
             handle.write(text)
@@ -24,14 +26,21 @@ def _stage(root: Path, text: str, *, newline: str | None = None) -> Path:
         raise
 
 
-def publish_unique(directory: str | Path, stem: str, suffix: str, text: str,
+def publish_unique(directory: str | Path, stem: str, suffix: str, text: str | bytes,
                    *, newline: str | None = None) -> Path:
     """Atomic exclusive publication: existing files and links are never overwritten."""
+    if (not isinstance(stem, str) or not stem or stem in ('.', '..')
+            or not isinstance(suffix, str)
+            or any(char in stem + suffix for char in ('/', '\\', ':', '\0'))):
+        raise ValueError('Export filename must be a single safe path component')
     root = Path(directory)
     staged = _stage(root, text, newline=newline)
     try:
-        for index in range(101):
-            path = root / f"{stem}{('_' + str(index)) if index else ''}{suffix}"
+        for index in range(109):
+            tail = ('_' + str(index)) if index else ''
+            if index > 100:
+                tail = '_' + uuid.uuid4().hex
+            path = root / f"{stem}{tail}{suffix}"
             try:
                 os.link(staged, path)
                 return path

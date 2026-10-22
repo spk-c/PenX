@@ -168,7 +168,9 @@ class PlanExecutorConcurrencyTests(unittest.TestCase):
                              global_budget_seconds=2)
             result = run_plan(plan, menu=menu)
             rows = row_map(result)
-            self.assertEqual(rows['nmap'].status, 'COMPLETE')
+            self.assertEqual(rows['nmap'].status, 'PARTIAL')
+            self.assertFalse(rows['nmap'].evidence)
+            self.assertIn('budget exhausted', rows['nmap'].diagnostics.lower())
             self.assertEqual(rows['whois'].status, 'PARTIAL')
             self.assertEqual(
                 rows['whois'].diagnostics,

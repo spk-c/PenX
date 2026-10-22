@@ -589,22 +589,20 @@ def save_diff(diff: dict, directory: str | Path) -> Path:
 def export_diff_reports(diff: dict, directory: str | Path) -> dict[str, Path]:
     """Write JSON, self-contained HTML and PDF from the same verified diff."""
     from html import escape
+    from io import BytesIO
     from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
     from reportlab.lib.pagesizes import A4
     from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
 
-    json_file = save_diff(diff, directory)
-    base = json_file.with_suffix("")
     plain = report_text(diff)
-    html_file = base.with_suffix(".html")
-    html_file.write_text(
+    html_text = (
         '<!doctype html><html lang="en"><meta charset="utf-8">'
         '<title>PenX Scan Diff</title><style>body{background:#151823;color:#eee;'
         'font:15px/1.5 system-ui;padding:30px}pre{white-space:pre-wrap;'
         'overflow-wrap:anywhere}</style><h1>PenX Scan Diff</h1><pre>' +
-        escape(plain, quote=True) + "</pre></html>", encoding="utf-8")
-    pdf_file = base.with_suffix(".pdf")
-    doc = SimpleDocTemplate(str(pdf_file), pagesize=A4,
+        escape(plain, quote=True) + "</pre></html>")
+    pdf = BytesIO()
+    doc = SimpleDocTemplate(pdf, pagesize=A4,
                             leftMargin=40, rightMargin=40)
     style = ParagraphStyle("DiffLines", parent=getSampleStyleSheet()["BodyText"],
                            fontSize=8, leading=11, wordWrap="CJK")
@@ -614,4 +612,9 @@ def export_diff_reports(diff: dict, directory: str | Path) -> dict[str, Path]:
         story.append(Paragraph(escape(line, quote=True).replace(" ", "&nbsp;"),
                                style))
     doc.build(story)
+    # Finish rendering before publishing; companion files use the same
+    # exclusive publisher as JSON, including pre-existing files or symlinks.
+    json_file = save_diff(diff, directory)
+    html_file = publish_unique(directory, json_file.stem, '.html', html_text)
+    pdf_file = publish_unique(directory, json_file.stem, '.pdf', pdf.getvalue())
     return {"json": json_file, "html": html_file, "pdf": pdf_file}

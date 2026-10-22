@@ -186,6 +186,21 @@ def _run_plan_scheduled(plan: ScanPlan, *, menu: dict, emit,
     rows: dict[str, ScannerOutput] = {}
     completed: dict[str, ScannerOutput] = {}
     events: dict[str, list[ScannerRunEvent]] = {}
+    finished_at: dict[str, float] = {}
+
+    def enforce_deadline(key, output):
+        finished = finished_at.get(key)
+        if output.status == 'COMPLETE' and finished is not None:
+            note = None
+            if deadline is not None and finished >= deadline:
+                note = 'Global budget exhausted during scanner execution'
+            elif finished - started_at[key] >= node_timeout[key]:
+                note = f'Timed out after {node_timeout[key]} seconds'
+            if note:
+                return ScannerOutput(note, status='PARTIAL', evidence=False,
+                                     scanner_id=ids[key], diagnostics=note,
+                                     duration_seconds=output.duration_seconds, exit_code=output.exit_code)
+        return output
 
     def record(key: str, output: ScannerOutput) -> None:
         rows[key] = output
@@ -219,7 +234,20 @@ def _run_plan_scheduled(plan: ScanPlan, *, menu: dict, emit,
 
     node_events: dict[str, NodeCancellation] = {}
 
-    with concurrent.futures.ThreadPoolExecutor(
+    def execute_node(key):
+        try:
+            return _run_adapter(names[key], menu[key][1], plan.target,
+                                safe_emit, node_events[key], ids[key])
+        finally:
+            finished_at[key] = time.monotonic()
+
+    class CancellingPool(concurrent.futures.ThreadPoolExecutor):
+        def __exit__(self, exc_type, exc_value, traceback):
+            if exc_type is not None:
+                effective_cancel.set()
+            return super().__exit__(exc_type, exc_value, traceback)
+
+    with CancellingPool(
             max_workers=workers) as pool:
         while pending or in_flight:
             if deadline is not None and time.monotonic() >= deadline:
@@ -232,7 +260,7 @@ def _run_plan_scheduled(plan: ScanPlan, *, menu: dict, emit,
                     if key in rows:
                         continue
                     try:
-                        record(key, future.result())
+                        record(key, enforce_deadline(key, future.result()))
                     except Exception as exc:
                         detail = re.sub(r'[\x00-\x1f\x7f]+', ' ',
                                         str(exc))[:220]
@@ -268,7 +296,7 @@ def _run_plan_scheduled(plan: ScanPlan, *, menu: dict, emit,
                         if key in rows:
                             continue
                         try:
-                            record(key, future.result())
+                            record(key, enforce_deadline(key, future.result()))
                         except Exception as exc:
                             detail = re.sub(r'[\x00-\x1f\x7f]+', ' ',
                                             str(exc))[:220]
@@ -329,8 +357,8 @@ def _run_plan_scheduled(plan: ScanPlan, *, menu: dict, emit,
                     if wait > 0:
                         if deadline is not None:
                             wait = min(wait, max(0, deadline - time.monotonic()))
-                        effective_cancel.wait(wait)
-                        continue  # Recheck cancellation and budget before dispatch.
+                        effective_cancel.wait(min(wait, 0.05))
+                        break  # Reap results/deadlines before another dispatch.
                 last_start = time.monotonic()
                 started_at[key] = last_start
                 events.setdefault(key, []).append(ScannerRunEvent(
@@ -338,9 +366,7 @@ def _run_plan_scheduled(plan: ScanPlan, *, menu: dict, emit,
                     f"dispatched as node {schedule.index(key) + 1}/"
                     f"{len(schedule)}"[:200]))
                 node_events[key] = NodeCancellation()
-                in_flight[key] = pool.submit(
-                    _run_adapter, name, menu[key][1], plan.target,
-                    safe_emit, node_events[key], ids[key])
+                in_flight[key] = pool.submit(execute_node, key)
                 pending.remove(key)
 
     ordered = []

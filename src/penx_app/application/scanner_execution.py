@@ -102,6 +102,8 @@ def _run_adapter(name: str, runner, target: str, emit,
 
 def run_selected(request: ScanRequest, *, menu: dict, emit=lambda *_: None,
                  cancel_event: threading.Event | None = None) -> dict:
+    if type(request.passive_only) is not bool or type(request.active_consent) is not bool:
+        raise ValueError('Passive selection and active consent must be booleans.')
     if request.passive_only:
         raise ValueError('Passive collection cannot dispatch active scanner adapters.')
     if not request.scanner_ids or any(key not in menu or key not in SCANNERS for key in request.scanner_ids):

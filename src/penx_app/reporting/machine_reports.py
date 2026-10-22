@@ -184,7 +184,7 @@ def sarif_from_report(report: dict) -> dict:
                 "port": finding["port"],
             },
         })
-    return {
+    payload: dict = {
         "version": "2.1.0",
         "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
         "runs": [{
@@ -200,6 +200,25 @@ def sarif_from_report(report: dict) -> dict:
             },
         }],
     }
+    if report.get('schema') == 'penx-scan-v1':
+        run = payload['runs'][0]
+        run['properties'].update({
+            'coverage': report['coverage'], 'profile': report.get('profile'),
+            'scannerConfiguration': report.get('scanner_configuration', []),
+            'dependencies': report.get('dependencies', []),
+            'policy': report.get('policy'), 'exitCode': report.get('exit_code'),
+            'findingsTruncated': report.get('findings_truncated', False),
+        })
+        complete = report['coverage']['status'] == 'COMPLETE' and not report.get('findings_truncated')
+        run['invocations'] = [{
+            'executionSuccessful': bool(complete),
+            'toolExecutionNotifications': [
+                {'level': 'error' if row['status'] == 'FAILED' else 'warning',
+                 'message': {'text': row['id'] + ': ' + (row.get('diagnostics') or row['status'])}}
+                for row in report.get('adapters', []) if row['status'] != 'COMPLETE'
+            ],
+        }]
+    return payload
 
 
 def write_machine_report(data: dict, output_dir: str | Path, *, fmt: str = "json",

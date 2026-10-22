@@ -5,6 +5,7 @@ import argparse
 from datetime import datetime, timezone
 import hashlib
 import json
+import math
 import os
 import time
 from pathlib import Path
@@ -86,7 +87,7 @@ def main(argv: list[str]) -> int:
         outcomes = []
         for index, filename in enumerate(args.report):
             try:
-                remaining = int(deadline - time.monotonic())
+                remaining = math.ceil(deadline - time.monotonic())
                 if remaining < 5:
                     raise ValueError('Review batch budget exhausted')
                 with Path(filename).open('rb') as handle:

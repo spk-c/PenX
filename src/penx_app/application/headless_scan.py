@@ -28,21 +28,27 @@ def scan_report(plan, result: ScanResult, *, redact: bool = False) -> dict:
     A template match still requires independent human applicability review.
     """
     findings: list[dict] = []
-    seen_nuclei = set()
+    seen_nuclei: dict[str, int] = {}
+    findings_truncated = False
     for adapter in result.results:
         if adapter.scanner_id != 'nuclei' or not adapter.evidence or adapter.status == 'FAILED':
             continue
+        findings_truncated = findings_truncated or len(adapter.text) > 1_048_576
         for line in adapter.text[:1_048_576].splitlines():
             match = _TEMPLATE.fullmatch(line)
             if not match:
                 continue
             template, severity, name, location = (part.strip() for part in match.groups())
             fingerprint = finding_fingerprint(template, location, 'nuclei', target=plan.target)
-            if fingerprint in seen_nuclei:
+            existing = seen_nuclei.get(fingerprint)
+            if existing is not None and SEVERITIES[severity] <= SEVERITIES[findings[existing]['severity']]:
                 continue
-            seen_nuclei.add(fingerprint)
-            findings.append({
-                'id': len(findings) + 1, 'rule': 'PENX-NUCLEI-' + template,
+            if existing is None and len(findings) >= 1000:
+                findings_truncated = True
+                continue
+            finding = {
+                'id': existing + 1 if existing is not None else len(findings) + 1,
+                'rule': _mask('PENX-NUCLEI-' + template, plan.target, redact),
                 'fingerprint': fingerprint, 'name': _mask(name, plan.target, redact),
                 'description': 'Nuclei template match; applicability requires independent review.',
                 'severity': severity, 'confidence': 'possible', 'status': 'scanner-quote-matched',
@@ -53,15 +59,21 @@ def scan_report(plan, result: ScanResult, *, redact: bool = False) -> dict:
                 'evidence_ref': fingerprint,
                 'raw_artifact': asdict(adapter.raw_artifact) if adapter.raw_artifact else None,
                 'artifact_status': 'stored-reference-not-revalidated' if adapter.raw_artifact else 'not-retained',
-            })
-            if len(findings) >= 1000:
-                break
+            }
+            if existing is None:
+                seen_nuclei[fingerprint] = len(findings)
+                findings.append(finding)
+            else:
+                findings[existing] = finding
     from penx_app.application.scanner_observations import observations
     seen = {item['fingerprint'] for item in findings}
     for adapter in result.results:
         for rule, name, severity, quote, location in observations(adapter):
             fingerprint = finding_fingerprint(rule, location, adapter.scanner_id, target=plan.target)
-            if fingerprint in seen or len(findings) >= 1000:
+            if fingerprint in seen:
+                continue
+            if len(findings) >= 1000:
+                findings_truncated = True
                 continue
             seen.add(fingerprint)
             findings.append({
@@ -88,7 +100,7 @@ def scan_report(plan, result: ScanResult, *, redact: bool = False) -> dict:
                       'diagnostics': _mask(row.diagnostics, plan.target, redact),
                       'raw_artifact': asdict(row.raw_artifact) if row.raw_artifact else None}
                      for row in result.results],
-        'findings': findings, 'php2shell': None,
+        'findings': findings, 'findings_truncated': findings_truncated, 'php2shell': None,
         'limitations': [
             'Headless collection runs without AI and creates no saved assessment session.',
             'Deterministic rules cover Nuclei, selected HTTP/TLS checks and Nmap/Nikto observations; other adapters supply coverage only.',
@@ -98,11 +110,12 @@ def scan_report(plan, result: ScanResult, *, redact: bool = False) -> dict:
     }
 
 
-def policy_exit(result: ScanResult, findings: list[dict], threshold: str | None) -> int:
+def policy_exit(result: ScanResult, findings: list[dict], threshold: str | None,
+                *, findings_truncated: bool = False) -> int:
     """Error > incomplete coverage > finding policy > successful collection."""
     if any(row.status == 'FAILED' for row in result.results):
         return 4
-    if not result.results or any(row.status != 'COMPLETE' for row in result.results):
+    if findings_truncated or not result.results or any(row.status != 'COMPLETE' for row in result.results):
         return 5
     if threshold and any(SEVERITIES.get(row['severity'], -1) >= SEVERITIES[threshold]
                          for row in findings):
@@ -171,7 +184,8 @@ def main(argv: list[str]) -> int:
             from penx_app.storage.raw_artifacts import retain_artifacts
             result = retain_artifacts(result, args.raw_artifacts)
         report = scan_report(plan, result, redact=args.redact)
-        report['exit_code'] = policy_exit(result, report['findings'], args.fail_on)
+        report['exit_code'] = policy_exit(result, report['findings'], args.fail_on,
+                                         findings_truncated=report['findings_truncated'])
         report['policy'] = {'fail_on': args.fail_on}
         formats = ('json', 'sarif') if args.format == 'both' else (args.format,)
         for fmt in formats:

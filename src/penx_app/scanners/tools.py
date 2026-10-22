@@ -596,7 +596,9 @@ def _summarize_native_run(scanner: str, result: str) -> ScannerOutput:
             "unstructured tool output omitted (may include confidential URLs).",
             status="FAILED", evidence=False,
         )
-    return ScannerOutput(summary, status="COMPLETE", evidence=True)
+    capped = summary.endswith('[Results capped for display]')
+    return ScannerOutput(summary, status="PARTIAL" if capped else "COMPLETE", evidence=True,
+                         diagnostics='Native results truncated for display' if capped else '')
 
 
 def run_nuclei(target: str, *, cancel_event=None) -> ScannerOutput:

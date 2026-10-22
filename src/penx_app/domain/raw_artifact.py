@@ -18,7 +18,7 @@ class RawArtifact:
         if type(self.size_bytes) is not int or not 0 <= self.size_bytes <= MAX_ARTIFACT_BYTES:
             raise ValueError("Invalid raw artifact size")
         if (not isinstance(self.filename, str) or not re.fullmatch(
-                re.escape(self.sha256) + r"(?:_\d{1,3})?\.txt", self.filename)):
+                re.escape(self.sha256) + r"(?:_(?:\d{1,3}|[a-f0-9]{32}))?\.txt", self.filename)):
             raise ValueError("Invalid raw artifact filename")
         if self.validator != "sha256-utf8-v1":
             raise ValueError("Unknown raw artifact validator")
