@@ -93,8 +93,11 @@ class PortTests(unittest.TestCase):
             self.assertTrue(Path(training).is_file())
             records = [json.loads(line) for line in Path(training).read_text(encoding='utf8').splitlines()]
             self.assertTrue(records)
-            self.assertEqual(records[0]['metadata']['target'], 'http://localhost:4444')
-            self.assertIn('PORT: 443', records[0]['messages'][1]['content'])
+            # Scope to this test's own session: with other test files sharing
+            # the same in-process DB, records[0] may belong to a foreign session.
+            own = next(r for r in records if r['metadata']['sl_no'] == sl)
+            self.assertEqual(own['metadata']['target'], 'http://localhost:4444')
+            self.assertIn('PORT: 443', own['messages'][1]['content'])
         db.delete_full_session(sl)
         self.assertIsNone(db.get_session(sl)['history'])
 

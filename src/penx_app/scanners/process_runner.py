@@ -325,6 +325,23 @@ def _run_tool_live(command: list[str], timeout: int, cwd: str | None,
     )
 
 
+def _child_env(env: dict[str, str] | None) -> dict[str, str]:
+    """Prepare the environment for a child process.
+
+    On Windows the default console/ANSI codepage (cp1252) cannot represent
+    non-ASCII scanner output. Helper processes that write UTF-8 text would
+    otherwise crash with UnicodeEncodeError, which run_tool would surface as a
+    spurious "tool failed". Pinning the Python I/O encoding keeps output
+    decodable and does not affect native tools, which ignore the PYTHON*
+    variables. Explicit user settings win (setdefault), so tests and
+    operators can still override.
+    """
+    base = dict(os.environ) if env is None else dict(env)
+    base.setdefault("PYTHONUTF8", "1")
+    base.setdefault("PYTHONIOENCODING", "utf-8")
+    return base
+
+
 def run_tool(command: list[str], timeout: int = 120, *, cwd: str | None = None,
              env: dict[str, str] | None = None,
              cancel_event: threading.Event | None = None) -> ScannerOutput:
@@ -344,10 +361,11 @@ def run_tool(command: list[str], timeout: int = 120, *, cwd: str | None = None,
                              status="FAILED", evidence=False)
     if cancel_event is not None and cancel_event.is_set():
         return _cancelled_result(command)
+    child_env = _child_env(env)
     try:
         if live_output():
-            return _run_tool_live(command, timeout, cwd, env, cancel_event)
-        return _run_tool_quiet(command, timeout, cwd, env, cancel_event)
+            return _run_tool_live(command, timeout, cwd, child_env, cancel_event)
+        return _run_tool_quiet(command, timeout, cwd, child_env, cancel_event)
     except FileNotFoundError:
         return ScannerOutput(f"[!] Executable not found: {command[0]}",
                              status="FAILED", evidence=False)

@@ -151,7 +151,10 @@ OVERALL_RISK_LEVEL: LOW
             path = export_training_data(out)
             rows = [json.loads(l) for l in Path(path).read_text(encoding='utf-8').splitlines()]
             self.assertTrue(rows)
-            self.assertEqual(rows[0]['metadata']['sl_no'], self.sl)
+            # Scope to this test's own session: with other test files sharing
+            # the same in-process DB, rows[0] may belong to a foreign session.
+            own = next(r for r in rows if r['metadata']['sl_no'] == self.sl)
+            self.assertEqual(own['metadata']['target'], 'example.test')
             self.assertTrue(Path(path.replace('.jsonl', '_stats.json')).is_file())
 
     def test_13_learned_rules(self):

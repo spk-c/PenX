@@ -67,7 +67,14 @@ def normalize_host(target: str, *, max_addresses: int = MAX_CIDR_ADDRESSES) -> s
                     or parsed.netloc.endswith(':') or port == 0):
                 raise ValueError('Invalid host or port.')
             if value.startswith('['):
-                if not value.casefold().startswith('[' + host.casefold() + ']'):
+                # urlsplit does not terminate a bracketed netloc at "]"; it
+                # reports the whole "[host]suffix" as the netloc, so the
+                # netloc != value check above is blind to trailing junk like
+                # "[::1]evil". Rebuild the expected netloc from the parsed
+                # host/port and require an exact match; any leftover text after
+                # "]" is rejected instead of silently scanning "[::1]".
+                expected_netloc = f"[{host}]" + (f":{port}" if port is not None else "")
+                if value.casefold() != expected_netloc.casefold():
                     raise ValueError('Invalid bracketed IPv6 address.')
                 try:
                     ipaddress.IPv6Address(host)

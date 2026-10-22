@@ -75,5 +75,40 @@ class LiveLineEmissionTests(unittest.TestCase):
         self.assertIn("✓ done".encode("utf-8"), data)
 
 
+class ChildProcessUtf8Tests(unittest.TestCase):
+    """_child_env pins PYTHONUTF8/PYTHONIOENCODING onto child processes so a
+    non-Latin scanner/model output never crashes a Windows helper running on a
+    cp1252/cp936 console (otherwise print() raises UnicodeEncodeError and
+    run_tool surfaces a spurious tool failure)."""
+
+    def test_child_env_pins_utf8_by_default(self):
+        from penx_app.scanners.process_runner import _child_env
+        env = _child_env({})
+        self.assertEqual(env["PYTHONUTF8"], "1")
+        self.assertEqual(env["PYTHONIOENCODING"], "utf-8")
+
+    def test_child_env_respects_operator_overrides_and_does_not_mutate_input(self):
+        from penx_app.scanners.process_runner import _child_env
+        input_env = {"PYTHONUTF8": "0", "PYTHONIOENCODING": "latin-1"}
+        env = _child_env(input_env)
+        self.assertEqual(env["PYTHONUTF8"], "0")
+        self.assertEqual(env["PYTHONIOENCODING"], "latin-1")
+        self.assertEqual(input_env["PYTHONUTF8"], "0")
+        self.assertEqual(input_env["PYTHONIOENCODING"], "latin-1")
+
+    def test_non_ascii_child_round_trips_on_windows(self):
+        # CJK guarantees a crash under any cp1252/cp936 console if the child's
+        # I/O encoding is not forced to UTF-8. With the pinned env the child's
+        # UTF-8 bytes round-trip and the tool completes.
+        from penx_app.scanners.tools import run_tool
+        payload = "Héllo, wörld — æøæ — 日本語 / ✓"
+        code = f"print({payload!r});"
+        result = run_tool([sys.executable, "-c", code], timeout=30)
+        self.assertEqual(result.status, "COMPLETE")
+        self.assertEqual(result.exit_code, 0)
+        self.assertIn("Héllo", str(result))
+        self.assertNotIn("UnicodeEncodeError", str(result))
+
+
 if __name__ == "__main__":
     unittest.main()
