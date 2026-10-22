@@ -168,17 +168,28 @@ $requiredChecks = @(
     'tests (ubuntu-latest)',
     'tests (windows-latest)',
     'Windows packaged app & installer',
-    'Gitleaks history and change scan',
-    'package'
+    'Gitleaks history and change scan'
 )
 foreach ($name in $requiredChecks) {
     $passed = @($checks.check_runs | Where-Object {
         $_.name -eq $name -and $_.status -eq 'completed' -and
-        $_.conclusion -eq 'success' -and $_.head_sha -eq $reviewSha
+        $_.conclusion -eq 'success' -and $_.head_sha -ceq $reviewSha
     })
     if ($passed.Count -lt 1) {
         throw "Cannot publish: release PR required check not green: $name"
     }
+}
+# package-checks.yml has path filters: a script-only release hotfix PR
+# legitimately has no 'package' check. A missing optional check is not a
+# failure, but if GitHub actually ran one it MUST have succeeded.
+$packageChecks = @($checks.check_runs | Where-Object {
+    $_.name -eq 'package' -and $_.head_sha -ceq $reviewSha
+})
+if ($packageChecks.Count -gt 0 -and
+    @($packageChecks | Where-Object {
+        $_.status -eq 'completed' -and $_.conclusion -eq 'success'
+    }).Count -ne $packageChecks.Count) {
+    throw "Cannot publish: package check ran but did not succeed"
 }
 
 # Verify the exact merged commit, rather than relying on an unreliable
