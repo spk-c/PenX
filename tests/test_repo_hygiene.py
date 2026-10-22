@@ -77,7 +77,7 @@ class RepositoryHygieneTests(unittest.TestCase):
         self.assertIn(".env", ignored)
 
     def test_developer_guide_mentions_canonical_build_and_labels(self):
-        guide = (ROOT / "docs/DEVELOPMENT.md").read_text()
+        guide = (ROOT / "docs/DEVELOPMENT.md").read_text(encoding="utf-8")
         self.assertIn("scripts/build_windows.py", guide)
         self.assertIn("triage:partially-supported", guide)
         self.assertIn("triage:audit", guide)

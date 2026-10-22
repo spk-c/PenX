@@ -24,9 +24,13 @@ from penx_app.scanners.tools import run_tool
 
 class AssessmentTests(unittest.TestCase):
     def setUp(self):
+        import uuid
+        # Unique target per test so shared-DB trend history cannot be
+        # polluted by sessions other test files create for "example.test".
+        self.target = f"trend-{uuid.uuid4().hex}"
         self.tmp = tempfile.TemporaryDirectory()
-        self.old = db.create_session("example.test")
-        self.new = db.create_session("example.test")
+        self.old = db.create_session(self.target)
+        self.new = db.create_session(self.target)
 
     def tearDown(self):
         db.delete_full_session(self.new)
@@ -71,7 +75,7 @@ class AssessmentTests(unittest.TestCase):
         self.assertEqual(len(delta["not_observed_findings"]), 1)
         self.assertEqual(len(delta["severity_changes"]), 1)
         self.assertIn("not confirmed fixed", report_text(delta))
-        self.assertEqual(len(history_trend("example.test")), 2)
+        self.assertEqual(len(history_trend(self.target)), 2)
         self.assertTrue(save_diff(delta, self.tmp.name).is_file())
         files = export_diff_reports(delta, self.tmp.name)
         self.assertEqual(set(files), {"json", "html", "pdf"})
