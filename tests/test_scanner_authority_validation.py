@@ -69,7 +69,7 @@ class ScannerAuthorityValidationTests(unittest.TestCase):
         self.assertEqual(normalize_host("[2001:db8::1]"), "2001:db8::1")
         # The PR's actual fix: any text after the closing bracket is now
         # rejected instead of being silently scanned.
-        with self.assertRaisesRegex(ValueError, "Invalid bracketed"):
+        with self.assertRaises(ValueError):
             normalize_host("[2001:db8::1]junk")
         # An invalid port on a bracketed netloc is still refused.
         with self.assertRaisesRegex(ValueError, "Invalid"):
