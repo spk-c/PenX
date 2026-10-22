@@ -1,9 +1,12 @@
 name: Offline tests
 
 on:
-  # Automatic Linux validation on PRs; no duplicated post-merge main runs.
-  # No PR paths filter so required checks are always reported.
+  # Always validate proposed changes and the exact merged main tip.
+  # Concurrency below cancels superseded main runs to bound CI usage.
+  # Keep PRs unfiltered so required checks are always reported.
   pull_request:
+  push:
+    branches: [main]
   workflow_dispatch:
 
 # Expensive Windows jobs run by manual dispatch, or in the tagged release
