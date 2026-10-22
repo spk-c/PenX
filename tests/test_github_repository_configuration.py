@@ -66,7 +66,15 @@ class GitHubRepositoryConfigurationTests(unittest.TestCase):
         self.assertIn("[switch]$PublishRelease", script)
         self.assertIn("Windows packaged app & installer", script)
         self.assertIn("repos/$repo/git/refs", script)
-        self.assertIn("commits/$sha/pulls?per_page=100", script)
+        # The commits/<sha>/pulls endpoint intermittently fails in GitHub CLI.
+        # Resolve an exact PR from the squash title then verify its merged SHA.
+        self.assertIn('repos/$repo/commits/$sha"', script)
+        self.assertIn("repos/$repo/pulls/$prNumber", script)
+        self.assertIn("merge_commit_sha -cne $sha", script)
+        self.assertNotIn('commits/$sha/pulls?per_page=100', script)
+        self.assertNotIn('actions/runs?head_sha=$sha', script)
+        self.assertIn('commits/$sha/check-runs?per_page=100', script)
+        self.assertIn('incomplete JSON after 3 attempts', script)
         self.assertIn("commits/$reviewSha/check-runs?per_page=100", script)
         self.assertIn("tests (windows-latest)", script)
         self.assertIn("Gitleaks history and change scan", script)
