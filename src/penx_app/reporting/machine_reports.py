@@ -93,7 +93,7 @@ def _finding(row, raw_scan: str, target: str, redact: bool, *, session: dict | N
     from penx_app.reporting.finding_trace import finding_trace
     trace = finding_trace(row, session) if session is not None else {}
     return {
-        "fingerprint": finding_fingerprint(name, row[5], row[6], target=target.strip().lower().rstrip('/')),
+        "fingerprint": finding_fingerprint(name, row[5], row[6], target=target),
         "raw_artifact": trace.get("raw_artifact"),
         "artifact_status": trace.get("artifact_status", "not-retained"),
         "raw_evidence": _mask(trace.get("raw_evidence") or "", target, redact),

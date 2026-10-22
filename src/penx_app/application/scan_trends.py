@@ -11,38 +11,19 @@ import re
 from dataclasses import asdict
 from difflib import SequenceMatcher
 from pathlib import Path
-from urllib.parse import urlsplit, urlunsplit
 from penx_app.file_output import publish_unique
 from defusedxml import ElementTree as ET
 from defusedxml.common import DefusedXmlException
 
 from penx_app.storage.db import get_all_history, get_session
 from penx_app.domain.finding_policy import active_vulnerabilities
-from penx_app.domain.finding_identity import finding_fingerprint
+from penx_app.domain.finding_identity import finding_fingerprint, canonical_target
 from penx_app.reporting.finding_trace import finding_trace, missing_finding_status, scanner_coverage
 from penx_app.reporting.scan_coverage import HEAD, FAIL
 
 
 _PORT = re.compile(r"^\s*(\d{1,5})/(tcp|udp)\s+open\s+(\S+)(?:\s+([^\r\n]+))?", re.I | re.M)
 _RISK = {"UNKNOWN": 0, "LOW": 1, "MEDIUM": 2, "HIGH": 3, "CRITICAL": 4}
-
-
-def canonical_target(target: str) -> str:
-    """Compare a user-entered target conservatively; avoid DNS resolution."""
-    value = str(target).strip()
-    if '://' in value:
-        try:
-            parts = urlsplit(value)
-        except ValueError:
-            return value  # Malformed historical targets must not gain aliases.
-        # DNS names and schemes are case-insensitive; URL paths and query
-        # values are not. Only an empty root path and '/' are equivalent.
-        userinfo, delimiter, authority = parts.netloc.rpartition('@')
-        return urlunsplit((parts.scheme.lower(), userinfo + delimiter + authority.lower(),
-                           '' if parts.path == '/' else parts.path,
-                           parts.query, parts.fragment))
-    host, separator, path = value.partition('/')
-    return host.lower() + (separator + path if path else '')
 
 
 def _needs_host_identity(data: dict) -> bool:

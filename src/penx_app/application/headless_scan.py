@@ -39,7 +39,8 @@ def scan_report(plan, result: ScanResult, *, redact: bool = False) -> dict:
             if not match:
                 continue
             template, severity, name, location = (part.strip() for part in match.groups())
-            fingerprint = finding_fingerprint(template, location, 'nuclei', target=plan.target)
+            fingerprint = finding_fingerprint(template, location, 'nuclei', target=plan.target,
+                                              case_sensitive_name=True)
             existing = seen_nuclei.get(fingerprint)
             if existing is not None and SEVERITIES[severity] <= SEVERITIES[findings[existing]['severity']]:
                 continue

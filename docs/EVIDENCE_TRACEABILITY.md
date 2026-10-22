@@ -2,7 +2,12 @@
 
 Findings carry a `penx-finding-v1:<sha256>` fingerprint in comparison JSON and
 JSON/SARIF exports. The identity includes target, name, port and service after
-Unicode NFC, case and whitespace normalization. Session IDs, dates, confidence,
+Unicode NFC, case and whitespace normalization for human-readable labels.
+URL scopes preserve path/query case and non-root trailing slashes; Nuclei
+template IDs are case-sensitive. Target normalization is shared by comparison
+and machine exports. Fingerprints previously affected by URL case folding or
+inconsistent root normalization can change when reports are regenerated;
+ordinary label/port identities remain compatible. Session IDs, dates, confidence,
 severity and changing evidence wording are excluded. Renamed vulnerability
 claims remain distinct; existing narrowly scoped recommendation matching is
 reported separately. A matching fingerprint establishes identity, not proof.
