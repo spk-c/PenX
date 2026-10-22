@@ -1,7 +1,7 @@
 # Optional local-AI draft review
 
-Phases 1–5 run without AI. To request an additional bounded review of a headless
-collection report, explicitly invoke:
+Scanning, profiles and guided collection work without AI. To request an
+additional bounded review of a headless collection report, explicitly invoke:
 
 ```text
 python penx.py review-scan reports/penx_scan.json --model your-loaded-model --endpoint http://127.0.0.1:1234 --output ./reports

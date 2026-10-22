@@ -69,7 +69,7 @@
 
 ## Quick start
 
-Source-branch roadmap additions: [guided beginner collection](docs/GUIDED_MODE.md),
+Additional CLI features: [guided beginner collection](docs/GUIDED_MODE.md),
 [headless JSON/SARIF scans and CI policy](docs/HEADLESS_SCANS.md),
 [typed scanner profiles](docs/SCANNER_CONFIGURATION.md),
 [evidence and comparison](docs/EVIDENCE_TRACEABILITY.md), and optional
