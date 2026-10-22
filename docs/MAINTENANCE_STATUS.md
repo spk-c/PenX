@@ -32,7 +32,7 @@ Release preparation updated **22 October 2026**. Latest published Windows binari
 
 1. Ensure all required Windows/Ubuntu installer, dependency and CodeQL checks pass on the exact release commit.
 2. Complete the operator-owned [Windows field scenarios](FIELD_ACCEPTANCE.md) or explicitly identify any NOT RUN criteria in release notes; never claim complete field certification from CI alone.
-3. For v0.4.11, verify `src/penx_app/version.py`, `pyproject.toml` and `installer/penx.iss` are aligned, and release CI passes for the exact commit. Create immutable tag `v0.4.11` once on the reviewed commit; never reuse or move an existing tag.
+3. For v0.4.11, verify `src/penx_app/version.py`, `pyproject.toml` and `installer/penx.iss` are aligned. A protected `release/*` PR must pass Linux, real Windows tests, packaged installer smoke, Gitleaks and package checks, then merge. Confirm green CI on the exact resulting `main` commit. From an up-to-date local checkout, run `pwsh -NoProfile -File scripts/configure_github.ps1 -PublishRelease` once as an authenticated repository administrator. Its release gate validates the reviewed PR and post-merge checks, and creates unique immutable tag `v0.4.11`. **Do not run it while PR checks are pending.** Never reuse or move existing tags.
 4. Publish Windows assets via the reviewed release workflow, then update README, download instructions and draft manifests to match verified release asset digests. Never move an existing tag.
 
 No production scanner targets, private credentials or customer databases are required for documentation/CI maintenance.
