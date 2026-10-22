@@ -33,6 +33,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass, field
 import errno
 import json
+import math
 import os
 from pathlib import Path
 import stat
@@ -55,8 +56,9 @@ def publication_lock(folder: Path, session: int, *, timeout: float = 30.0):
     two processes to lock different files under the same pathname. The OS
     releases the byte-range/file lock after a crash or an orderly exit.
     """
-    if timeout < 0:
-        raise ValueError("Report publication lock timeout must not be negative")
+    if (not isinstance(timeout, (int, float)) or isinstance(timeout, bool)
+            or not math.isfinite(timeout) or timeout < 0):
+        raise ValueError("Report publication lock timeout must be finite and non-negative")
     folder = Path(folder)
     folder.mkdir(parents=True, exist_ok=True)
     lock_path = folder / f".penx-publication_SL{int(session)}.lock"

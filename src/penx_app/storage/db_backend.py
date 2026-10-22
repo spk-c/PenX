@@ -53,11 +53,6 @@ def _sqlite_sql(query: str) -> str:
                         idx += 1
                     else:
                         break
-                elif part == "\\" and idx < length and end != "]":
-                    # Preserve escaped characters where an adapter's SQL
-                    # dialect happens to accept a backslash-quoted string.
-                    out.append(query[idx])
-                    idx += 1
             continue
         if query.startswith("--", idx):
             stop_idx = query.find("\n", idx)

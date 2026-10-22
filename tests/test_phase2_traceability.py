@@ -99,7 +99,7 @@ class Phase2TraceabilityTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as root:
             stored = retain_artifacts(session()['scan_result'], root).results[0]
             path = Path(root) / stored.raw_artifact.filename
-            with patch('pathlib.Path.open', side_effect=FileNotFoundError):
+            with patch('os.open', side_effect=FileNotFoundError):
                 with self.assertRaises(FileNotFoundError):
                     validate_artifact(stored, root)
             for content in (b'changed', b'x' * (MAX_ARTIFACT_BYTES + 1)):

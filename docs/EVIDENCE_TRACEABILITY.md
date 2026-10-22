@@ -43,6 +43,11 @@ Artifact-free metadata v1/v2/v3 serialization remains compatible.
 `penx_app.storage.raw_artifacts.validate_artifact(adapter, directory)` loads at
 most 1 MiB plus one byte, rejects unsafe paths/links, verifies length and hash,
 and rechecks persisted evidence offsets and quotes against the loaded text.
+The opened descriptor must match the named regular file; no-follow and
+non-blocking open flags are used where available to guard file/link swaps.
+If current output is too large to retain, any stale capture reference is
+cleared rather than attached to the new output. Existing capture files remain
+untouched.
 Metadata parsing alone never revalidates an artifact. Reports label references
 `stored-reference-not-revalidated`; missing captures stay unavailable. Hashes
 attest integrity relative to a trusted reference, not origin, target identity,
