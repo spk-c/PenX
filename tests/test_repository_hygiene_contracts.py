@@ -34,6 +34,12 @@ class RepositoryHygieneContracts(unittest.TestCase):
         self.assertIn('gh api -X DELETE', script)
         self.assertNotIn("git push --delete", script)
 
+    def test_main_ruleset_setup_checks_remote_enforcement(self):
+        script = (ROOT / "scripts/configure_github.ps1").read_text(encoding="utf-8")
+        self.assertIn("repos/$repo/rulesets/$rulesetId", script)
+        self.assertIn("remote.enforcement -ne 'active'", script)
+        self.assertIn("one active PenX main ruleset", script)
+
 
 if __name__ == "__main__":
     unittest.main()
