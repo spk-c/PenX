@@ -12,7 +12,7 @@ USAGE = ('Usage: PenX.exe [--version | --check | --setup-status | --setup | '
          '[--consent] | scan --target HOST --authorized [--profile ID] '
          '[--output DIR] [--format json|sarif|both] | '
          'profiles --validate FILE | profiles --export ID | '
-         'guided [--target HOST] [--output DIR]]')
+         'guided [--target HOST] [--output DIR] | review-scan FILE --model ID]')
 
 
 def _force_utf8_text_streams(streams) -> None:
@@ -75,6 +75,9 @@ def main() -> int:
         if command == 'guided':
             from penx_app.cli.guided_scan import main as guided_main
             return guided_main(args[1:])
+        if command == 'review-scan':
+            from penx_app.application.local_review import main as review_main
+            return review_main(args[1:])
         print(USAGE)
         return 2
 

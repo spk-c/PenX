@@ -1,5 +1,24 @@
 # PenX Roadmap Progress
 
+## Phase 6 completion — 2026-10-22
+
+- Added explicit `penx review-scan` for bounded draft triage of existing headless
+  collection reports. Core collection/profile/guidance paths still require no AI.
+- Added schema, source identity and exact evidence citation validation; unknown
+  fields, new scanner selections and confirmed/resolved states are rejected.
+- Added loopback-only transport with no environment proxies, redirects, model
+  discovery, retries or tool capability. No action dispatcher is present.
+- Separate drafts retain the source file SHA-256 and unverified state; original
+  findings, coverage, severity and CI policy are never rewritten.
+- Added 12 offline local-AI/input/transport/publication boundary tests.
+- Verification: **all 212 offline suites passed**, exit 0. Full-tree fatal Ruff,
+  application F401 and Linux-platform mypy passed (118 source files).
+- No live target, model endpoint or authorized-scan CI job was invoked. Actual
+  model/backend behavior and Windows field acceptance remain outside these
+  offline claims. Bounds and limitations are documented in `LOCAL_REVIEW.md`.
+- Phases 0–6 are now implemented and regression-tested on the continuation
+  branch. Release packaging and merging this branch are separate operations.
+
 ## Phase 5 completion — 2026-10-22
 
 - Added `penx guided` and main-menu [g], with goal-based profiles and a

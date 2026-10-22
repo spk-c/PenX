@@ -69,6 +69,13 @@
 
 ## Quick start
 
+Source-branch roadmap additions: [guided beginner collection](docs/GUIDED_MODE.md),
+[headless JSON/SARIF scans and CI policy](docs/HEADLESS_SCANS.md),
+[typed scanner profiles](docs/SCANNER_CONFIGURATION.md),
+[evidence and comparison](docs/EVIDENCE_TRACEABILITY.md), and optional
+[local-AI draft review](docs/LOCAL_REVIEW.md). These additions require a build
+from the current source; existing published Windows packages are unchanged.
+
 ### Installer or portable ZIP
 
 1. [Download PenX](#download) and verify its checksum.

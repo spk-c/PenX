@@ -8,7 +8,7 @@ Canonical phase plan for the modular security-orchestration program.
 
 Status values: `NOT STARTED`, `IN PROGRESS`, `IMPLEMENTED`, `TESTED`, `READY FOR REVIEW`, `COMPLETE`, `BLOCKED`.
 
-| Phase | Scope | Priority | Status (2026-10-21) |
+| Phase | Scope | Priority | Status (2026-10-22) |
 | --- | --- | --- | --- |
 | 0 | Repository audit and development baseline | prerequisite | COMPLETE |
 | 1 | Scanner orchestration and flexible scan profiles | very high | COMPLETE |
@@ -16,7 +16,7 @@ Status values: `NOT STARTED`, `IN PROGRESS`, `IMPLEMENTED`, `TESTED`, `READY FOR
 | 3 | JSON/SARIF reporting and CI/CD integration | high | COMPLETE |
 | 4 | Typed per-scanner configuration | high | COMPLETE |
 | 5 | Guided mode for beginners | medium | COMPLETE |
-| 6 | Extended local AI automation | later | NOT STARTED |
+| 6 | Extended local AI automation | later | COMPLETE |
 
 ## Phase 0 — Repository audit and development baseline
 
@@ -146,7 +146,7 @@ available. See `GUIDED_MODE.md`.
 
 ## Phase 6 — Extended local AI automation
 
-**Priority: later (after Phases 1–5 stabilize). Status: NOT STARTED.**
+**Priority: later (after Phases 1–5 stabilize). Status: COMPLETE (2026-10-22).**
 
 Existing: OpenAI-compatible local endpoint support, AI tool protocol
 (`analysis/ai_tool_protocol.py`), schema-validated structured output, bounded
@@ -155,6 +155,13 @@ prompts, hallucination corrections (`domain/corrections.py`).
 Constraints (brief §6): core orchestration must work fully without AI; no
 unattended scope expansion; no AI-driven shell commands; no cloud dependency
 for base features.
+
+Implemented after green Phase 1–5 regression gates: explicit `penx review-scan`
+performs bounded local-only draft triage of existing headless reports. Exact
+citations and source fingerprints are checked; suggested scanners stay within
+recorded selection. Drafts never modify findings/policy or dispatch actions.
+Loopback-only transport disables redirects, environment proxies, discovery and
+retries. See `LOCAL_REVIEW.md` for bounds and human-review limitations.
 
 ## Cross-cutting engineering standards
 
