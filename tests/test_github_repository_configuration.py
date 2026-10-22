@@ -87,7 +87,7 @@ class GitHubRepositoryConfigurationTests(unittest.TestCase):
 
         # package-checks.yml is path-filtered. A script-only release hotfix
         # does not get this check, whereas changes to packaging trigger it.
-        required_block = script.split("$requiredChecks = @(", 1)[1].split(")", 1)[0]
+        required_block = script.split("$requiredChecks = @(", 1)[1].split("\n)\n", 1)[0]
         self.assertNotIn("'package'", required_block)
         self.assertIn("'tests (ubuntu-latest)'", required_block)
         self.assertIn("'tests (windows-latest)'", required_block)
