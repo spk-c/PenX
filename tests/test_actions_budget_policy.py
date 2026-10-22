@@ -19,7 +19,9 @@ class ActionsBudgetTests(unittest.TestCase):
         self.assertIn("cancel-in-progress: true", s)
         self.assertIn("name: tests (ubuntu-latest)", s)
         self.assertIn("name: tests (windows-latest)", s)
-        self.assertIn("if: github.event_name == 'workflow_dispatch'", s)
+        # Only release PRs or manual runs consume Windows minutes.
+        self.assertIn("startsWith(github.head_ref, 'release/')", s)
+        self.assertIn("if: github.event_name == 'workflow_dispatch' ||", s)
         self.assertIn("name: Windows packaged app & installer", s)
         self.assertIn("python offline_tests.py", s)
 
