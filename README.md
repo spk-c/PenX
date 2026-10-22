@@ -37,7 +37,7 @@
 > [!IMPORTANT]
 > **Authorized targets only.** PenX makes real network requests. Use it only on systems you own or are explicitly permitted to assess. AI-generated findings and CVE matches are **not proof of a vulnerability**—always review the underlying evidence.
 >
-> **Release status (21 October 2026):** [v0.4.10](https://github.com/spk-c/PenX/releases/tag/v0.4.10) has published Windows installer, portable ZIP and SHA-256 checksums. Independent Windows/scanner and historical-database [field acceptance](docs/MAINTENANCE_STATUS.md) remains **not signed off**.
+> **Release availability:** Use the [latest official PenX release](https://github.com/spk-c/PenX/releases/latest) for published Windows installer, portable ZIP and SHA-256 checksums. Features in the current source may be newer than the latest published binaries. Independent Windows/scanner and database [field acceptance](docs/MAINTENANCE_STATUS.md) remains **NOT SIGNED OFF**.
 
 ## Download
 
@@ -73,8 +73,8 @@ Additional CLI features: [guided beginner collection](docs/GUIDED_MODE.md),
 [headless JSON/SARIF scans and CI policy](docs/HEADLESS_SCANS.md),
 [typed scanner profiles](docs/SCANNER_CONFIGURATION.md),
 [evidence and comparison](docs/EVIDENCE_TRACEABILITY.md), and optional
-[local-AI draft review](docs/LOCAL_REVIEW.md). These additions require a build
-from the current source; existing published Windows packages are unchanged.
+[local-AI draft review](docs/LOCAL_REVIEW.md). Check the tagged release for
+packaged features; source changes can precede published Windows builds.
 
 ### Installer or portable ZIP
 
