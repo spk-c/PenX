@@ -23,11 +23,22 @@ $rulesetPath = Join-Path $root ".github/rulesets/protect-main.json"
 
 function Invoke-GhJson {
     param([Parameter(Mandatory = $true)][string]$Endpoint)
-    $output = & gh api $Endpoint
-    if ($LASTEXITCODE -ne 0) { throw "GitHub API request failed: $Endpoint" }
-    $raw = $output -join [Environment]::NewLine
-    if (-not $raw.Trim()) { return $null }
-    return ConvertFrom-Json -InputObject $raw
+    # Retry read-only GitHub GETs if the CLI returns truncated JSON.
+    # The tag-creating POST below is intentionally never retried.
+    for ($attempt = 1; $attempt -le 3; $attempt++) {
+        $output = & gh api $Endpoint
+        $exitCode = $LASTEXITCODE
+        $raw = $output -join [Environment]::NewLine
+        if ($exitCode -eq 0 -and $raw.Trim()) {
+            try { return ConvertFrom-Json -InputObject $raw -ErrorAction Stop }
+            catch { Write-Warning "Invalid GitHub JSON (attempt $attempt/3): $Endpoint" }
+        }
+        elseif ($exitCode -ne 0) {
+            Write-Warning "GitHub API GET failed (attempt $attempt/3): $Endpoint"
+        }
+        if ($attempt -lt 3) { Start-Sleep -Milliseconds (300 * $attempt) }
+    }
+    throw "GitHub API GET failed or returned incomplete JSON after 3 attempts: $Endpoint"
 }
 
 if (-not (Get-Command gh -ErrorAction SilentlyContinue)) {
@@ -129,16 +140,23 @@ Write-Host "Preparing $tag from main commit $sha"
 
 # A protected, reviewed release PR must be the exact current main commit.
 # CI on main runs Linux checks; real Windows + security checks run on release/* PRs.
-$associated = @(Invoke-GhJson "repos/$repo/commits/$sha/pulls?per_page=100")
-$releasePR = @($associated | Where-Object {
-    $_.merged_at -and $_.merge_commit_sha -eq $sha -and
-    $_.base.ref -eq 'main' -and $_.head.ref -like 'release/*' -and
-    $_.head.repo.full_name -eq $repo
-})
-if ($releasePR.Count -ne 1) {
-    throw "Cannot publish: main HEAD must be the squash/merge commit of a reviewed release/* PR"
+# Read the PR number from the exact main commit's squash-merge subject.
+# Direct commits/<sha>/pulls is unreliable in some GitHub CLI environments.
+$mainCommit = Invoke-GhJson "repos/$repo/commits/$sha"
+$subject = [string](($mainCommit.commit.message -split '\r?\n')[0])
+$prMatch = [regex]::Match($subject, '\(#([0-9]+)\)\s*$')
+if (-not $prMatch.Success) {
+    throw "Cannot publish: main HEAD has no PR number in its squash-merge subject"
 }
-$reviewSha = [string]$releasePR[0].head.sha
+$prNumber = [int]$prMatch.Groups[1].Value
+$releasePR = Invoke-GhJson "repos/$repo/pulls/$prNumber"
+if (-not $releasePR.merged_at -or $releasePR.merge_commit_sha -cne $sha -or
+    $releasePR.base.ref -cne 'main' -or
+    $releasePR.head.ref -notlike 'release/*' -or
+    $releasePR.head.repo.full_name -cne $repo) {
+    throw "Cannot publish: main HEAD is not an exact merged release/* PR (#$prNumber)"
+}
+$reviewSha = [string]$releasePR.head.sha
 if ($reviewSha -notmatch '^[0-9a-f]{40}$') {
     throw "Cannot publish: release PR head SHA is missing or invalid"
 }
@@ -163,10 +181,16 @@ foreach ($name in $requiredChecks) {
     }
 }
 
-$runs = Invoke-GhJson "repos/$repo/actions/runs?head_sha=$sha&per_page=100"
-$mainPassed = @($runs.workflow_runs | Where-Object {
-    $_.name -eq 'Offline tests' -and $_.event -eq 'push' -and
-    $_.head_sha -eq $sha -and $_.conclusion -eq 'success'
+# Verify the exact merged commit, rather than relying on an unreliable
+# actions/runs?head_sha filter that can return no runs for valid commits.
+$mainChecks = Invoke-GhJson "repos/$repo/commits/$sha/check-runs?per_page=100"
+if ($mainChecks.total_count -ge 100) {
+    throw "Cannot publish: main check results may be paginated"
+}
+$mainPassed = @($mainChecks.check_runs | Where-Object {
+    $_.name -eq 'tests (ubuntu-latest)' -and
+    $_.status -eq 'completed' -and $_.conclusion -eq 'success' -and
+    $_.head_sha -ceq $sha
 })
 if ($mainPassed.Count -lt 1) {
     throw "Cannot publish: exact main commit does not have a passing post-merge CI run"
