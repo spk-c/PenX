@@ -141,7 +141,21 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "Could not generate GitHub release notes" }
           $guide = Get-Content ".github/RELEASE_DOWNLOAD_GUIDE.md" -Raw -Encoding UTF8
           if (-not $guide.Contains("penx-download-options-v1")) { throw "Release download guide missing" }
-          $body = $guide.TrimEnd() + [Environment]::NewLine + [Environment]::NewLine + ($generated -join [Environment]::NewLine)
+          $notesFile = "docs/RELEASE_$($env:TAG.Substring(1))_NOTES.md"
+          if (Test-Path -LiteralPath $notesFile) {
+            $highlights = (Get-Content -LiteralPath $notesFile -Raw -Encoding UTF8).Trim()
+            if (-not $highlights.Contains("NOT SIGNED OFF")) {
+              throw "Version-specific release notes must state field acceptance limits"
+            }
+            $body = $guide.TrimEnd() + [Environment]::NewLine + [Environment]::NewLine +
+                    $highlights + [Environment]::NewLine + [Environment]::NewLine +
+                    "## Automatically generated change list" + [Environment]::NewLine +
+                    ($generated -join [Environment]::NewLine)
+          }
+          else {
+            $body = $guide.TrimEnd() + [Environment]::NewLine + [Environment]::NewLine +
+                    ($generated -join [Environment]::NewLine)
+          }
           [System.IO.File]::WriteAllText((Join-Path (Get-Location) "RELEASE-NOTES.md"), $body, [System.Text.UTF8Encoding]::new($false))
           gh release create "$env:TAG" PenX-Windows-x64.zip PenX-Setup-x64.exe SHA256SUMS.txt CVE-QUALITY.json --verify-tag --title "PenX $env:TAG" --notes-file RELEASE-NOTES.md
           if ($LASTEXITCODE -ne 0) { throw "GitHub release publication failed" }

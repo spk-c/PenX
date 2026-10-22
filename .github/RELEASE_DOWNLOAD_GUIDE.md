@@ -25,4 +25,6 @@
 
 You can verify either download using **`SHA256SUMS.txt`** from the same release. See the [Windows installation and migration guide](https://github.com/spk-c/PenX/blob/main/WINDOWS.md) before switching from the portable version to the installer.
 
+> **Independent field acceptance: NOT SIGNED OFF.** Green CI checks validate automated contracts and packaged application smoke tests; they do **not** establish real Windows/Npcap behavior for all 12 scanners, installer upgrade/rollback, restored SQLite/MariaDB backups, or visual report quality. These checks remain tracked by [#81](https://github.com/spk-c/PenX/issues/81) and [#82](https://github.com/spk-c/PenX/issues/82). PHP2Shell version/header findings are not proof of RCE exploitation.
+
 ---

@@ -52,7 +52,7 @@ class BranchCleanupContracts(unittest.TestCase):
             cwd=SCRIPT.parents[1],
         )
         self.assertEqual(run.returncode, 0, run.stdout + "\n" + run.stderr)
-        self.assertIn("PASS: PowerShell 5.1 JSON record enumeration", run.stdout)
+        self.assertIn("PASS: PowerShell 5.1 mocked merged/ancestor proof", run.stdout)
 
 
 if __name__ == "__main__":

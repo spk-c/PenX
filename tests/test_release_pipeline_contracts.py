@@ -6,6 +6,7 @@ workflows and duplicate release-note files are not runtime dependencies.
 from __future__ import annotations
 
 import importlib
+import json
 from pathlib import Path
 import unittest
 
@@ -45,6 +46,7 @@ class ReleasePipelineContracts(unittest.TestCase):
         self.assertIn("pull_request:", workflow)
         self.assertIn("windows-latest", workflow)
         self.assertIn("ubuntu-latest", workflow)
+        self.assertIn("startsWith(github.head_ref, 'release/')", workflow)
         self.assertIn("Windows packaged app & installer", workflow)
         self.assertIn("python offline_tests.py", workflow)
         security = (ROOT / ".github/workflows/security.yml").read_text(encoding="utf-8")
@@ -54,10 +56,21 @@ class ReleasePipelineContracts(unittest.TestCase):
         status = (ROOT / "docs/MAINTENANCE_STATUS.md").read_text(encoding="utf-8")
         packaging = (ROOT / "docs/PACKAGING.md").read_text(encoding="utf-8")
         version = importlib.import_module("penx_app.version").VERSION
-        self.assertIn(f"/releases/tag/v{version}", status)
+        # Version may advance in source before a publishable Windows build exists.
+        published = json.loads((ROOT / "packaging/scoop/penx.json").read_text())
+        published_version = published["version"]
+        self.assertIn(f"/releases/tag/v{published_version}", status)
+        self.assertIn(f"v{version}", status)
         self.assertIn("NOT SIGNED OFF", status)
         self.assertIn(f"v{version}", packaging)
         self.assertIn("draft", packaging.lower())
+        self.assertIn(f'#define MyAppVersion "{version}"',
+                      (ROOT / "installer/penx.iss").read_text())
+        guide = (ROOT / ".github/RELEASE_DOWNLOAD_GUIDE.md").read_text()
+        self.assertIn("NOT SIGNED OFF", guide)
+        if published_version != version:
+            self.assertIn("source-only release candidate", packaging)
+            self.assertIn("publication is pending", status)
 
 
 if __name__ == "__main__":

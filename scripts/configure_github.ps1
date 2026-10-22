@@ -123,38 +123,72 @@ $source = [Text.Encoding]::UTF8.GetString($bytes)
 if ($source -notmatch '(?m)^VERSION\s*=\s*"(\d+\.\d+\.\d+)"') {
     throw "Could not determine the current application version"
 }
-$tag = "v" + $Matches[1]
+$version = $Matches[1]
+$tag = "v" + $version
 Write-Host "Preparing $tag from main commit $sha"
 
-$runs = Invoke-GhJson "repos/$repo/actions/runs?head_sha=$sha&per_page=100"
-foreach ($name in @("Offline tests", "Python compatibility contracts", "Security audit")) {
-    $passed = @($runs.workflow_runs | Where-Object {
-        $_.name -eq $name -and $_.conclusion -eq "success"
-    })
-    if ($passed.Count -lt 1) { throw "Cannot publish: $name has not passed for $sha" }
+# A protected, reviewed release PR must be the exact current main commit.
+# CI on main runs Linux checks; real Windows + security checks run on release/* PRs.
+$associated = @(Invoke-GhJson "repos/$repo/commits/$sha/pulls?per_page=100")
+$releasePR = @($associated | Where-Object {
+    $_.merged_at -and $_.merge_commit_sha -eq $sha -and
+    $_.base.ref -eq 'main' -and $_.head.ref -like 'release/*' -and
+    $_.head.repo.full_name -eq $repo
+})
+if ($releasePR.Count -ne 1) {
+    throw "Cannot publish: main HEAD must be the squash/merge commit of a reviewed release/* PR"
 }
-
-$offline = @($runs.workflow_runs | Where-Object {
-    $_.name -eq "Offline tests" -and $_.conclusion -eq "success"
-} | Select-Object -First 1)
-$jobs = Invoke-GhJson "repos/$repo/actions/runs/$($offline[0].id)/jobs?per_page=100"
-foreach ($name in @("tests (ubuntu-latest)", "tests (windows-latest)",
-                    "Windows packaged app & installer")) {
-    if (@($jobs.jobs | Where-Object {
-        $_.name -eq $name -and $_.conclusion -eq "success"
-    }).Count -ne 1) {
-        throw "Cannot publish: required Windows/Linux packaging check not green: $name"
+$reviewSha = [string]$releasePR[0].head.sha
+if ($reviewSha -notmatch '^[0-9a-f]{40}$') {
+    throw "Cannot publish: release PR head SHA is missing or invalid"
+}
+$checks = Invoke-GhJson "repos/$repo/commits/$reviewSha/check-runs?per_page=100"
+if ($checks.total_count -ge 100) {
+    throw "Cannot publish: check results may be paginated"
+}
+$requiredChecks = @(
+    'tests (ubuntu-latest)',
+    'tests (windows-latest)',
+    'Windows packaged app & installer',
+    'Gitleaks history and change scan',
+    'package'
+)
+foreach ($name in $requiredChecks) {
+    $passed = @($checks.check_runs | Where-Object {
+        $_.name -eq $name -and $_.status -eq 'completed' -and
+        $_.conclusion -eq 'success' -and $_.head_sha -eq $reviewSha
+    })
+    if ($passed.Count -lt 1) {
+        throw "Cannot publish: release PR required check not green: $name"
     }
 }
 
+$runs = Invoke-GhJson "repos/$repo/actions/runs?head_sha=$sha&per_page=100"
+$mainPassed = @($runs.workflow_runs | Where-Object {
+    $_.name -eq 'Offline tests' -and $_.event -eq 'push' -and
+    $_.head_sha -eq $sha -and $_.conclusion -eq 'success'
+})
+if ($mainPassed.Count -lt 1) {
+    throw "Cannot publish: exact main commit does not have a passing post-merge CI run"
+}
+$manifest = Invoke-GhJson "repos/$repo/contents/pyproject.toml?ref=main"
+$pyproject = [Text.Encoding]::UTF8.GetString(
+    [Convert]::FromBase64String(($manifest.content -replace "\s", ""))
+)
+if ($pyproject -notmatch ('(?m)^version\s*=\s*"' + [regex]::Escape($version) + '"')) {
+    throw "Cannot publish: Python package and CLI versions differ"
+}
+
+# Existing tags are immutable: never move or replace them.
 $matchingTags = @(Invoke-GhJson "repos/$repo/git/matching-refs/tags/$tag")
 $prior = @($matchingTags | Where-Object { $_.ref -eq "refs/tags/$tag" })
 if ($prior.Count -gt 0) {
-    Write-Host "[INFO] Tag $tag already exists. No tag was modified."
-    Write-Host "Check https://github.com/spk-c/PenX/actions/workflows/release.yml"
+    Write-Host "[INFO] Tag $tag already exists. No tag was changed."
+    Write-Host "Review https://github.com/spk-c/PenX/releases/tag/$tag"
     exit 0
 }
+# GitHub user-authenticated tag creation triggers the checked-in tagged-release workflow.
 & gh api -X POST "repos/$repo/git/refs" -f "ref=refs/tags/$tag" -f "sha=$sha" | Out-Null
 if ($LASTEXITCODE -ne 0) { throw "Could not create release tag $tag" }
-Write-Host "[OK] Created $tag. The Windows Release workflow will build and publish binaries after verification."
+Write-Host "[OK] Created immutable tag $tag at $sha; Windows Release will verify assets before publication."
 Write-Host "Follow: https://github.com/spk-c/PenX/actions/workflows/release.yml"

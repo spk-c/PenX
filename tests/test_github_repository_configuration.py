@@ -66,6 +66,14 @@ class GitHubRepositoryConfigurationTests(unittest.TestCase):
         self.assertIn("[switch]$PublishRelease", script)
         self.assertIn("Windows packaged app & installer", script)
         self.assertIn("repos/$repo/git/refs", script)
+        self.assertIn("commits/$sha/pulls?per_page=100", script)
+        self.assertIn("commits/$reviewSha/check-runs?per_page=100", script)
+        self.assertIn("tests (windows-latest)", script)
+        self.assertIn("Gitleaks history and change scan", script)
+        self.assertIn("Windows packaged app & installer", script)
+        self.assertIn("post-merge CI run", script)
+        self.assertIn("release PR required check not green", script)
+
 
 
 if __name__ == "__main__":

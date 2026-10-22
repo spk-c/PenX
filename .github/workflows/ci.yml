@@ -9,8 +9,8 @@ on:
     branches: [main]
   workflow_dispatch:
 
-# Expensive Windows jobs run by manual dispatch, or in the tagged release
-# workflow. PRs still run the complete Linux offline/test/lint gate.
+# Windows checks run on manual dispatch and release/* PRs, plus tagged builds.
+# Ordinary PRs run only the complete Linux offline/test/lint gate.
 concurrency:
   group: offline-tests-${{ github.workflow }}-${{ github.event.pull_request.head.repo.full_name || github.repository }}-${{ github.head_ref || github.ref_name }}
   cancel-in-progress: true
@@ -86,9 +86,9 @@ jobs:
 
   tests-windows:
     name: tests (windows-latest)
-    # This required check reports skipped for ordinary PRs, consuming no
-    # Windows runner minutes. Run manually before sensitive releases.
-    if: github.event_name == 'workflow_dispatch'
+    # Normal PRs skip Windows; release/* PRs run real Windows regression tests.
+    # Independent physical field acceptance is tracked separately.
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && startsWith(github.head_ref, 'release/'))
     runs-on: windows-latest
     timeout-minutes: 25
     steps:
@@ -126,11 +126,11 @@ jobs:
       - name: Generate CVE fixture quality report (Windows)
         run: python cve_quality.py --json > cve-quality-report.json
 
-  # Windows package/installer smoke is manual here, and mandatory on tagged
-  # releases. The job name remains available as a required PR check.
+  # Windows packaged smoke runs only on release/* PRs or manual dispatch,
+  # and again during tagged builds. Normal PRs conserve Windows minutes.
   windows-package-smoke:
     name: Windows packaged app & installer
-    if: github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && startsWith(github.head_ref, 'release/'))
     runs-on: windows-latest
     timeout-minutes: 20
     steps:
@@ -158,8 +158,8 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "Packaged EXE import/version smoke failed" }
           & .\dist\PenX\PenX.exe --setup-status
           if ($LASTEXITCODE -ne 0) { throw "Packaged EXE setup-status smoke failed" }
-      - name: Windows installer build and installed EXE smoke test (manual)
-        if: github.event_name == 'workflow_dispatch'
+      - name: Windows installer build and installed EXE smoke test (manual) or release PR
+        if: github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && startsWith(github.head_ref, 'release/'))
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
