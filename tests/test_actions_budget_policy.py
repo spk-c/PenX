@@ -13,7 +13,10 @@ class ActionsBudgetTests(unittest.TestCase):
     def test_pr_linux_checks_and_manual_windows(self):
         s = read("ci.yml")
         self.assertIn("  pull_request:", s)
-        self.assertNotIn("  push:\n    branches: [main]", s)
+        # Merged main commits need verification; superseded runs are cancelled
+        # rather than doubling the Windows or scheduled security budget.
+        self.assertIn("  push:\n    branches: [main]", s)
+        self.assertIn("cancel-in-progress: true", s)
         self.assertIn("name: tests (ubuntu-latest)", s)
         self.assertIn("name: tests (windows-latest)", s)
         self.assertIn("if: github.event_name == 'workflow_dispatch'", s)
