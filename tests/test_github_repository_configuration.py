@@ -85,6 +85,19 @@ class GitHubRepositoryConfigurationTests(unittest.TestCase):
         self.assertIn("post-merge CI run", script)
         self.assertIn("release PR required check not green", script)
 
+        # package-checks.yml is path-filtered. A script-only release hotfix
+        # does not get this check, whereas changes to packaging trigger it.
+        required_block = script.split("$requiredChecks = @(", 1)[1].split("\n)\n", 1)[0]
+        self.assertNotIn("'package'", required_block)
+        self.assertIn("'tests (ubuntu-latest)'", required_block)
+        self.assertIn("'tests (windows-latest)'", required_block)
+        self.assertIn("'Windows packaged app & installer'", required_block)
+        self.assertIn("'Gitleaks history and change scan'", required_block)
+        self.assertIn("$packageChecks.Count -gt 0", script)
+        self.assertIn("package check ran but did not succeed", script)
+        self.assertIn("$packageChecks.Count", script)
+
+
 
 
 if __name__ == "__main__":
