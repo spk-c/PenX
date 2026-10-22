@@ -46,6 +46,7 @@ class ReleasePipelineContracts(unittest.TestCase):
         self.assertIn("pull_request:", workflow)
         self.assertIn("windows-latest", workflow)
         self.assertIn("ubuntu-latest", workflow)
+        self.assertIn("startsWith(github.head_ref, 'release/')", workflow)
         self.assertIn("Windows packaged app & installer", workflow)
         self.assertIn("python offline_tests.py", workflow)
         security = (ROOT / ".github/workflows/security.yml").read_text(encoding="utf-8")
