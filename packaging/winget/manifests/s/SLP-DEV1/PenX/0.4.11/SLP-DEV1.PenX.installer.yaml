@@ -1,0 +1,15 @@
+# yaml-language-server: $schema=https://aka.ms/winget-manifest.installer.1.10.0.schema.json
+PackageIdentifier: SLP-DEV1.PenX
+PackageVersion: 0.4.11
+InstallerType: zip
+NestedInstallerType: portable
+Scope: user
+Installers:
+  - Architecture: x64
+    InstallerUrl: https://github.com/spk-c/PenX/releases/download/v0.4.11/PenX-Windows-x64.zip
+    InstallerSha256: 80AA869343A6DC21E1778AE0DB6028A4DB9F74EB5DA243FAC49F412D7749AA3B
+    NestedInstallerFiles:
+      - RelativeFilePath: PenX/PenX.exe
+        PortableCommandAlias: penx
+ManifestType: installer
+ManifestVersion: 1.10.0
