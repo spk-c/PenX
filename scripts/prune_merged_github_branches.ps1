@@ -55,9 +55,10 @@ function Get-GhPages {
 
 function Get-Comparison {
     param([string]$Ref)
+    # Compare main (base) to candidate (head): strict ancestors have status=behind and ahead_by=0.
     # URL-encode each branch ref; slash-containing topic names are supported.
     $encoded = [Uri]::EscapeDataString($Ref)
-    return Invoke-GhJson "repos/$repo/compare/$encoded...$main"
+    return Invoke-GhJson "repos/$repo/compare/$main...$encoded"
 }
 
 if (-not (Get-Command gh -ErrorAction SilentlyContinue)) {

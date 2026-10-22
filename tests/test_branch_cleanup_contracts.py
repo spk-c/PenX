@@ -26,6 +26,8 @@ class BranchCleanupContracts(unittest.TestCase):
         self.assertIn("-X DELETE", source)
         self.assertIn("Get-GhPages", source)
         self.assertIn("Get-Comparison", source)
+        self.assertIn('compare/$main...$encoded', source)
+        self.assertNotIn('compare/$encoded...$main', source)
         self.assertIn("Pagination limit reached", source)
         self.assertIn('Dry run only; no branches deleted.', source)
 

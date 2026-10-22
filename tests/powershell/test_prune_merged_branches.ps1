@@ -37,8 +37,8 @@ $global:Fixtures = @{
     'repos/spk-c/PenX/branches?per_page=100&page=1' = (ConvertTo-Json -InputObject $branches -Depth 10 -Compress)
     'repos/spk-c/PenX/pulls?state=open&per_page=100&page=1' = (ConvertTo-Json -InputObject $open -Depth 10 -Compress)
     'repos/spk-c/PenX/pulls?state=closed&per_page=100&page=1' = (ConvertTo-Json -InputObject $closed -Depth 10 -Compress)
-    'repos/spk-c/PenX/compare/release%2Fstale...main' = '{"status":"diverged","ahead_by":2}'
-    'repos/spk-c/PenX/compare/feature%2Fancestor...main' = '{"status":"behind","ahead_by":0}'
+    'repos/spk-c/PenX/compare/main...release%2Fstale' = '{"status":"diverged","ahead_by":2}'
+    'repos/spk-c/PenX/compare/main...feature%2Fancestor' = '{"status":"behind","ahead_by":0}'
 }
 $expected = @(
     @{Name='refactor/merged'; Sha=$live1}
