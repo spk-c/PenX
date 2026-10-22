@@ -1,124 +1,162 @@
 <#
 .SYNOPSIS
-  Preview or delete only provably merged PenX topic branches on GitHub.
+  Preview or prune verified merged/ancestor PenX topic branches.
 .DESCRIPTION
-  Requires GitHub CLI (gh) authenticated to spk-c with repository access.
-  Default is a dry run. -Apply is explicit and only deletes refs whose SHA
-  still equals the head commit of a MERGED pull request in this repository.
-  Never deletes main, unrecognized branch names, branches with open PRs, or
-  branches with new commits since their PR was merged. Refuses potentially
-  paginated API responses instead of silently checking incomplete data.
+  Requires an authenticated GitHub CLI with spk-c/PenX administration rights.
+  The default is a read-only dry run. -Apply opts into deletion.
+  Eligible branches are either:
+    (1) exact head SHA of a merged pull request in spk-c/PenX; or
+    (2) strict ancestors of main (zero commits ahead).
+  Refuses open pull requests, protected branches, changed ref SHAs, unknown
+  prefixes, API pagination errors and incomplete comparison results.
+  Branches/tags in releases and main are never targeted.
+  This cannot make deletion atomic: GitHub's DELETE ref API has no SHA lease.
 .EXAMPLE
-  powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\prune_merged_github_branches.ps1
+  pwsh -NoProfile -File .\scripts\prune_merged_github_branches.ps1
 .EXAMPLE
-  powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\prune_merged_github_branches.ps1 -Apply
+  pwsh -NoProfile -File .\scripts\prune_merged_github_branches.ps1 -Apply
 #>
 [CmdletBinding()]
 param([switch]$Apply)
 
-$ErrorActionPreference = "Stop"
-$repo = "spk-c/PenX"
+$ErrorActionPreference = 'Stop'
+$repo = 'spk-c/PenX'
+$eligiblePrefix = '^(?:chore|docs|feat|feature|fix|maintenance|quality|refactor|release)/'
+$main = 'main'
 
 function Invoke-GhJson {
-    param([Parameter(Mandatory = $true)][string]$Endpoint)
-    $output = & gh api $Endpoint
+    param([Parameter(Mandatory=$true)][string]$Endpoint)
+    $raw = & gh api $Endpoint
     if ($LASTEXITCODE -ne 0) { throw "GitHub API failed: $Endpoint" }
-    $decoded = ConvertFrom-Json -InputObject ($output -join [Environment]::NewLine)
-    # Windows PowerShell 5.1 may emit an entire JSON array as one pipeline
-    # item. Explicitly emit records, otherwise @(...), foreach and property
-    # access treat every branch/PR as a single combined object.
-    if ($decoded -is [System.Array]) {
-        foreach ($record in $decoded) {
-            Write-Output -NoEnumerate $record
+    $joined = $raw -join [Environment]::NewLine
+    if (-not $joined.Trim()) { throw "Empty API result: $Endpoint" }
+    return ConvertFrom-Json -InputObject $joined
+}
+
+function Get-GhPages {
+    param([Parameter(Mandatory=$true)][string]$Endpoint)
+    $items = [Collections.Generic.List[object]]::new()
+    for ($page = 1; $page -le 50; $page++) {
+        $separator = if ($Endpoint.Contains('?')) { '&' } else { '?' }
+        $records = @(Invoke-GhJson "$Endpoint${separator}per_page=100&page=$page")
+        if ($records.Count -eq 1 -and $records[0] -is [System.Array]) {
+            $records = @($records[0])
         }
+        foreach ($item in $records) {
+            if ($null -eq $item -or $item -is [System.Array]) {
+                throw "Unexpected paged response for $Endpoint"
+            }
+            $items.Add($item)
+        }
+        if ($records.Count -lt 100) { return $items.ToArray() }
     }
-    else {
-        Write-Output -NoEnumerate $decoded
-    }
+    throw "Pagination limit reached for $Endpoint; refusing cleanup"
+}
+
+function Get-Comparison {
+    param([string]$Ref)
+    # URL-encode each branch ref; slash-containing topic names are supported.
+    $encoded = [Uri]::EscapeDataString($Ref)
+    return Invoke-GhJson "repos/$repo/compare/$encoded...$main"
 }
 
 if (-not (Get-Command gh -ErrorAction SilentlyContinue)) {
-    throw "Install GitHub CLI first: winget install -e --id GitHub.cli"
+    throw 'Install GitHub CLI first: winget install -e --id GitHub.cli'
 }
 & gh auth status
-if ($LASTEXITCODE -ne 0) { throw "Run gh auth login with your spk-c account" }
-
+if ($LASTEXITCODE -ne 0) { throw 'Run gh auth login with repo admin access' }
 $metadata = Invoke-GhJson "repos/$repo"
-if ($metadata.full_name -cne $repo -or $metadata.default_branch -ne "main") {
-    throw "Wrong repository or default branch. No references changed."
+if ($metadata.full_name -cne $repo -or $metadata.default_branch -ne $main) {
+    throw 'Unexpected repository/default branch; no refs changed'
 }
-$branches = @(Invoke-GhJson "repos/$repo/branches?per_page=100")
-$openPRs = @(Invoke-GhJson "repos/$repo/pulls?state=open&per_page=100")
-$closedPRs = @(Invoke-GhJson "repos/$repo/pulls?state=closed&per_page=100")
-# The script intentionally inspects only one REST page. Refuse to delete if
-# the result may be truncated; a missing open PR or merge record is unsafe.
-if ($branches.Count -ge 100 -or $openPRs.Count -ge 100 -or $closedPRs.Count -ge 100) {
-    throw "Branch or PR result reaches 100 records; paginate before branch deletion."
-}
+$branches = @(Get-GhPages "repos/$repo/branches")
+$openPRs = @(Get-GhPages "repos/$repo/pulls?state=open")
+$closedPRs = @(Get-GhPages "repos/$repo/pulls?state=closed")
 
 $candidates = @()
-foreach ($branch in $branches) {
-    if ($branch -is [System.Array]) {
-        throw "GitHub returned nested branch records; refusing cleanup."
-    }
-    $name = [string]$branch.name
-    # Deliberately narrow scope: never delete main, dependabot, arbitrary
-    # maintainer names or a newly created release tag/branch.
-    # Merged maintenance/ topics are eligible too; protected refs are never touched.
-    if ($name -eq "main" -or $branch.protected -or $name -notmatch '^(?:fix|refactor|release|maintenance|docs|quality)/') {
+foreach ($b in $branches) {
+    $name = [string]$b.name
+    if ($name -eq $main -or $b.protected -or $name -cnotmatch $eligiblePrefix) {
         continue
     }
-    $used = @($openPRs | Where-Object {
-        $_.head.ref -eq $name -and $_.head.repo -and
-        $_.head.repo.full_name -eq $repo
+    if ($name -notmatch '^[a-zA-Z0-9._/-]+$') {
+        Write-Host "[SKIP] Unsupported branch characters: $name"
+        continue
+    }
+    $open = @($openPRs | Where-Object {
+        $_.head.ref -ceq $name -and $_.head.repo.full_name -ceq $repo
     })
-    if ($used.Count -gt 0) {
-        Write-Host "[SKIP] $name : used by an open pull request"
+    if ($open.Count -gt 0) {
+        Write-Host "[SKIP] $name has an open PR"
         continue
     }
+
     $merged = @($closedPRs | Where-Object {
-        $_.merged_at -and $_.head.repo -and
-        $_.head.repo.full_name -eq $repo -and
-        $_.head.ref -eq $name -and
-        $_.head.sha -eq $branch.commit.sha
+        $_.merged_at -and $_.head.ref -ceq $name -and
+        $_.head.repo.full_name -ceq $repo -and
+        $_.head.sha -ceq $b.commit.sha
     })
-    if ($merged.Count -eq 0) {
-        Write-Host "[SKIP] $name : no matching merged PR at its current SHA"
+    $reason = $null
+    if ($merged.Count -gt 0) {
+        $reason = "merged PR #$($merged[0].number) at exact head SHA"
+    }
+    else {
+        $comparison = Get-Comparison $name
+        if ($comparison.status -in @('behind','identical') -and
+            $null -ne $comparison.ahead_by -and
+            [int]$comparison.ahead_by -eq 0) {
+            $reason = 'ancestor of main (zero commits ahead)'
+        }
+    }
+    if (-not $reason) {
+        Write-Host "[KEEP] $name has unverified/unmerged commits"
         continue
     }
     $candidates += [PSCustomObject]@{
         Name = $name
-        Sha = [string]$branch.commit.sha
-        PR = $merged[0].number
+        Sha = [string]$b.commit.sha
+        Reason = $reason
+        HasMergedPr = ($merged.Count -gt 0)
     }
 }
 
 foreach ($candidate in $candidates) {
     if (-not $Apply) {
-        Write-Host "[DRY RUN] $($candidate.Name) - merged PR #$($candidate.PR)"
+        Write-Host "[DRY RUN] $($candidate.Name) - $($candidate.Reason)"
         continue
     }
-    # Revalidate that nobody pushed since the preview and that this branch
-    # did not become the head of a newly opened pull request.
-    $latestOpen = @(Invoke-GhJson "repos/$repo/pulls?state=open&per_page=100")
-    if (@($latestOpen | Where-Object {
-        $_.head.ref -eq $candidate.Name -and $_.head.repo -and
-        $_.head.repo.full_name -eq $repo
-    }).Count -ne 0) {
-        throw "Refusing to delete a branch used by a new PR: $($candidate.Name)"
+    # Revalidate open PRs, SHA, protection and merge/ancestor evidence.
+    $currentOpen = @(Get-GhPages "repos/$repo/pulls?state=open")
+    if (@($currentOpen | Where-Object {
+        $_.head.ref -ceq $candidate.Name -and $_.head.repo.full_name -ceq $repo
+    }).Count -gt 0) {
+        throw "New open PR for $($candidate.Name); stopping"
     }
-    $current = Invoke-GhJson "repos/$repo/git/ref/heads/$($candidate.Name)"
-    if ($current.object.sha -ne $candidate.Sha) {
-        throw "Branch SHA changed. Refusing delete: $($candidate.Name)"
+    $encoded = [Uri]::EscapeDataString($candidate.Name)
+    $current = Invoke-GhJson "repos/$repo/branches/$encoded"
+    if ($current.commit.sha -cne $candidate.Sha -or $current.protected) {
+        throw "Branch moved or became protected: $($candidate.Name); stopping"
     }
-    & gh api -X DELETE "repos/$repo/git/refs/heads/$($candidate.Name)" | Out-Null
-    if ($LASTEXITCODE -ne 0) {
-        throw "GitHub refused branch deletion: $($candidate.Name)"
+    if ($candidate.HasMergedPr) {
+        $nowClosed = @(Get-GhPages "repos/$repo/pulls?state=closed")
+        $exact = @($nowClosed | Where-Object {
+            $_.merged_at -and $_.head.ref -ceq $candidate.Name -and
+            $_.head.repo.full_name -ceq $repo -and
+            $_.head.sha -ceq $candidate.Sha
+        })
+        if ($exact.Count -eq 0) { throw "Merge proof disappeared: $($candidate.Name)" }
     }
-    Write-Host "[DELETED] $($candidate.Name) (merged PR #$($candidate.PR))"
+    else {
+        $comparison = Get-Comparison $candidate.Name
+        if ($comparison.status -notin @('behind','identical') -or
+            $null -eq $comparison.ahead_by -or
+            [int]$comparison.ahead_by -ne 0) {
+            throw "Ancestor proof no longer valid: $($candidate.Name)"
+        }
+    }
+    & gh api -X DELETE "repos/$repo/git/refs/heads/$encoded" | Out-Null
+    if ($LASTEXITCODE -ne 0) { throw "Deletion failed: $($candidate.Name)" }
+    Write-Host "[DELETED] $($candidate.Name) - $($candidate.Reason)"
 }
-
-Write-Host "Candidates: $($candidates.Count)."
-if (-not $Apply) {
-    Write-Host "Dry run only; no branches deleted. Re-run with -Apply to delete verified candidates."
-}
+Write-Host "Verified candidates: $($candidates.Count) / $($branches.Count - 1) topic branches."
+if (-not $Apply) { Write-Host 'Dry run only; no branches deleted. Use -Apply to prune verified candidates.' }
