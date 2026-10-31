@@ -590,7 +590,7 @@ def discover(raw_scan: str, *, enabled: bool = True,
                 package_futures[("gh", index)] = pool.submit(
                     isolated, github_client, pkg, source="GitHub Advisories",
                     token=github_token, limit=max_results)
-            # NVD shares one public rate limit (5 requests / 5 s without an
+            # NVD shares one public rate limit (5 requests / 30 s without an
             # API key), so its queries stay on the calling thread, one at a
             # time. They overlap with the pool's OSV/GitHub work instead of
             # serializing it.
