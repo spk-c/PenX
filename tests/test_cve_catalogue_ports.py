@@ -61,7 +61,7 @@ class CataloguePortsTests(unittest.TestCase):
         self.assertEqual(client.call_count, 2)
         self.assertTrue(all(call.kwargs["allow_redirects"] is False
                             for call in client.call_args_list))
-        sleep.assert_called_once_with(1)
+        sleep.assert_called_once_with(30.0)
 
     def test_injected_osv_post_and_github_get_preserve_request_bounds(self):
         pkg = parse_explicit_packages("pkg:pypi/requests@2.31.0")[0]

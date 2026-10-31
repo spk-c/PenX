@@ -118,7 +118,7 @@ PENX_CVE_MAX_RESULTS=15
 
 All discovery happens against public catalog APIs, not by scanning unrelated hosts. **NVD receives CPE vendor/product/version, OSV receives explicit package URLs, and GitHub receives package/version.** No scan target, credentials or raw scanner text is sent by the engine. Internet access and API availability are required; offline failures are called out as unavailable, not interpreted as no vulnerabilities. Set `PENX_CVE_DISCOVERY=off` to disable it.
 
-NVD catalogue responses are cached locally under `data/nvd_cache` keyed by CPE (never by API key), bounded to 4 MiB / 100 records per entry with a 24-hour TTL. The cache is **on by default** and is disabled with `PENX_NVD_DISK_CACHE=0`.
+NVD catalogue responses are cached locally under `data/nvd_cache` keyed by CPE (never by API key), bounded to 4 MiB / 100 records per entry with a 24-hour TTL. The cache is **on by default** and is disabled with `PENX_NVD_DISK_CACHE=0`. Cache misses use a process-wide sliding-window NVD request budget (5 requests / 30 seconds without an API key, 50 / 30 seconds with a key). Source API errors are reported as unavailable; catalogue pages and display limits produce explicit warnings when CVE research may be incomplete. A 16 MiB maximum applies to individual NVD/OSV/GitHub Advisory JSON responses.
 
 CPE strings can be incorrect, NVD CPE criteria can have complex platform relationships, and many Linux distributions backport fixes. These limitations require **manual verification** against vendor and distribution advisories. The engine limits API requests to avoid excessive latency and rate limiting.
 

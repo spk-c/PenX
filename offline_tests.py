@@ -12,6 +12,9 @@ from __future__ import annotations
 import argparse
 import concurrent.futures
 import os
+import signal
+import threading
+import time
 from pathlib import Path
 import subprocess
 import sys
@@ -21,6 +24,8 @@ TEST_ROOT = ROOT / "tests"
 SRC_ROOT = ROOT / "src"
 # A hung suite must not block the whole run; real suites finish far sooner.
 SUITE_TIMEOUT_SECONDS = 300
+MAX_SUITE_OUTPUT_BYTES = 128 * 1024
+
 
 
 def discover_tests() -> list[Path]:
@@ -38,29 +43,93 @@ def _default_workers() -> int:
     return max(1, min(limit, cores))
 
 
-def _run_suite(suite: Path, env: dict) -> tuple[int, bytes, bytes, str | None]:
-    """Run one suite in its own process. Returns (rc, out, err, error)."""
+def _terminate_tree(proc: subprocess.Popen) -> None:
+    """Kill the entire test process group on timeout or fail-fast."""
+    if os.name == "nt":
+        try:
+            subprocess.run(["taskkill", "/PID", str(proc.pid), "/T", "/F"],
+                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                           timeout=5, check=False)
+        except (OSError, subprocess.TimeoutExpired):
+            pass
+    else:
+        try:
+            os.killpg(proc.pid, signal.SIGKILL)
+        except (ProcessLookupError, PermissionError):
+            pass
+    if proc.poll() is None:
+        try:
+            proc.kill()
+        except ProcessLookupError:
+            pass
+
+
+def _run_suite(suite: Path, env: dict,
+               cancel_event: threading.Event | None = None) -> tuple[int, bytes, bytes, str | None]:
+    """Capture bounded output and stop descendant processes on timeout/cancel."""
+    proc = None
+    buffers = [bytearray(), bytearray()]
+    workers: list[threading.Thread] = []
+
+    def drain(stream, buffer: bytearray) -> None:
+        try:
+            while True:
+                chunk = stream.read(65536)
+                if not chunk:
+                    return
+                room = MAX_SUITE_OUTPUT_BYTES - len(buffer)
+                if room > 0:
+                    buffer.extend(chunk[:room])
+        except (OSError, ValueError):
+            return
+
     try:
-        # Never let offline suites inherit an interactive console. Otherwise
-        # the native Windows Esc key reader can bypass patched input() calls
-        # and block waiting for a real key (CI's non-TTY environment masks it).
-        # Tests still receive deterministic mocked input() as usual; an
-        # accidental unmocked read fails with EOF rather than hanging.
-        result = subprocess.run([sys.executable, str(suite)], cwd=ROOT, env=env,
-                                stdin=subprocess.DEVNULL,
-                                stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                                timeout=SUITE_TIMEOUT_SECONDS, check=False)
-        return result.returncode, result.stdout or b"", result.stderr or b"", None
-    except subprocess.TimeoutExpired as exc:
-        out = exc.stdout or b""
-        err = exc.stderr or b""
-        if isinstance(out, str):
-            out = out.encode("utf-8", "replace")
-        if isinstance(err, str):
-            err = err.encode("utf-8", "replace")
-        return 124, out, err, f"timed out after {SUITE_TIMEOUT_SECONDS} s"
+        # A new session/process group allows reliable cancellation of children.
+        options = ({"creationflags": getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)}
+                   if os.name == "nt" else {"start_new_session": True})
+        proc = subprocess.Popen(
+            [sys.executable, str(suite)], cwd=ROOT, env=env,
+            stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            bufsize=0, **options,
+        )
+        for index, stream in enumerate((proc.stdout, proc.stderr)):
+            worker = threading.Thread(target=drain, args=(stream, buffers[index]),
+                                      daemon=True)
+            worker.start()
+            workers.append(worker)
+        deadline = time.monotonic() + SUITE_TIMEOUT_SECONDS
+        while True:
+            if cancel_event is not None and cancel_event.is_set():
+                _terminate_tree(proc)
+                proc.wait(timeout=5)
+                return 125, bytes(buffers[0]), bytes(buffers[1]), "cancelled after another suite failed"
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                _terminate_tree(proc)
+                proc.wait(timeout=5)
+                return 124, bytes(buffers[0]), bytes(buffers[1]), (
+                    f"timed out after {SUITE_TIMEOUT_SECONDS} s"
+                )
+            try:
+                proc.wait(timeout=min(0.1, remaining))
+                return proc.returncode, bytes(buffers[0]), bytes(buffers[1]), None
+            except subprocess.TimeoutExpired:
+                continue
     except OSError as exc:
-        return 1, b"", b"", f"Could not start {suite.name}: {exc}"
+        return 1, bytes(buffers[0]), bytes(buffers[1]), f"Could not start {suite.name}: {exc}"
+    finally:
+        if proc is not None and proc.poll() is None:
+            _terminate_tree(proc)
+            try:
+                proc.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+        for worker in workers:
+            worker.join(timeout=1)
+        if proc is not None:
+            for stream in (proc.stdout, proc.stderr):
+                if stream is not None:
+                    stream.close()
 
 
 def _decode(data: bytes) -> str:
@@ -115,6 +184,7 @@ def main(argv: list[str] | None = None) -> int:
     pending = list(tests)
     inflight: dict[concurrent.futures.Future, Path] = {}
     fail_fast = not args.keep_going
+    abort = threading.Event()
 
     def _result_of(future: concurrent.futures.Future) -> tuple[int, bytes, bytes, str | None]:
         try:
@@ -127,21 +197,16 @@ def main(argv: list[str] | None = None) -> int:
         while pending or inflight:
             while pending and len(inflight) < workers:
                 suite = pending.pop(0)
-                inflight[pool.submit(_run_suite, suite, env)] = suite
+                inflight[pool.submit(_run_suite, suite, env, abort)] = suite
             done, _ = concurrent.futures.wait(list(inflight),
                                              return_when=concurrent.futures.FIRST_COMPLETED)
             for future in done:
                 suite = inflight.pop(future)
                 _report_result(suite, *_result_of(future), failed=failed)
             if failed and fail_fast:
-                # Fail-fast: drop everything not started; already-finished
-                # suites still report, so one failure never hides another.
-                for future, suite in list(inflight.items()):
-                    if future.done():
-                        _report_result(suite, *_result_of(future), failed=failed)
-                    else:
-                        future.cancel()
-                inflight.clear()
+                # Already running children receive a cooperative event and
+                # terminate their whole process group; do not abandon futures.
+                abort.set()
                 pending.clear()
     if failed:
         failed.sort(key=order.get)

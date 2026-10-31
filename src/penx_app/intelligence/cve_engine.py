@@ -7,6 +7,12 @@ research candidates, never proof of target exploitability.
 from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
+from collections import deque
+import threading
+import json
+import math
+from email.utils import parsedate_to_datetime
+from datetime import datetime, timezone
 from functools import lru_cache
 from collections.abc import Callable
 from penx_app.intelligence.nvd_disk_cache import load as load_nvd_cache, store as store_nvd_cache
@@ -30,6 +36,10 @@ USER_AGENT = {"User-Agent": "PenX-CVE-Discovery/0.1 (authorized research)"}
 MAX_PAGES = 2
 PAGE_SIZE = 50
 MAX_RESULTS = 15
+MAX_CATALOGUE_RESPONSE_BYTES = 16 * 1024 * 1024
+NVD_WINDOW_SECONDS = 30.0
+_NVD_REQUESTS: dict[bool, deque[float]] = {False: deque(), True: deque()}
+_NVD_RATE_LOCK = threading.Lock()
 CVE_ID = re.compile(r"CVE-\d{4}-\d{4,8}\Z", re.ASCII | re.IGNORECASE)
 GHSA_ID = re.compile(r"GHSA-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{4}\Z", re.ASCII | re.IGNORECASE)
 OSV_ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{2,127}\Z", re.ASCII)
@@ -178,30 +188,79 @@ def applicability(cve: dict, product: Product) -> str:
         return "version-or-configuration-uncertain"
     return "conditional-platform-match" if complex_expression else "version-or-configuration-uncertain"
 
-def _get(url: str, *, params: dict, headers: dict, timeout: int = 9,
-         http_get: Callable | None = None) -> dict | list:
-    """Bounded catalogue HTTP GET with optional call-local transport."""
-    client = requests.get if http_get is None else http_get
-    response = client(url, params=params, headers=headers,
-                      timeout=(3, timeout), allow_redirects=False)
-    if response.status_code == 429:
-        # Close the throttled response before backing off and issuing the
-        # single bounded retry, including when the delay is malformed.
+def _nvd_before_request(*, has_key: bool) -> None:
+    """Reserve an NVD API request in a sliding 30-second window."""
+    budget = 50 if has_key else 5
+    with _NVD_RATE_LOCK:
+        history = _NVD_REQUESTS[has_key]
+        while True:
+            now = time.monotonic()
+            while history and now - history[0] >= NVD_WINDOW_SECONDS:
+                history.popleft()
+            if len(history) < budget:
+                history.append(now)
+                return
+            time.sleep(max(0.001, NVD_WINDOW_SECONDS - (now - history[0])))
+
+
+def _bounded_json(response) -> dict | list:
+    """Read real streamed responses with a strict byte cap; accept mock clients."""
+    if not isinstance(response, requests.Response):
+        return response.json()
+    length = response.headers.get("Content-Length")
+    if length:
         try:
-            retry_after = response.headers.get("Retry-After", "1")
+            size = int(length)
+        except (ValueError, TypeError):
+            size = 0
+        if size > MAX_CATALOGUE_RESPONSE_BYTES:
+            raise ValueError("Catalogue response exceeds size limit")
+    payload = bytearray()
+    for chunk in response.iter_content(chunk_size=65536):
+        payload.extend(chunk)
+        if len(payload) > MAX_CATALOGUE_RESPONSE_BYTES:
+            raise ValueError("Catalogue response exceeds size limit")
+    return json.loads(payload)
+
+
+def _retry_after_seconds(raw: str) -> float:
+    """Honor numeric and HTTP-date Retry-After values, with a bounded delay."""
+    try:
+        value = float(raw)
+    except (TypeError, ValueError):
+        try:
+            value = (parsedate_to_datetime(raw) - datetime.now(timezone.utc)).total_seconds()
+        except (TypeError, ValueError, OverflowError):
+            return 6.0
+    if not math.isfinite(value):
+        return 6.0
+    return min(30.0, max(0.0, value))
+
+
+def _get(url: str, *, params: dict, headers: dict, timeout: int = 9,
+         http_get: Callable | None = None, before_request: Callable | None = None) -> dict | list:
+    """Bounded catalogue HTTP GET with optional request pacing."""
+    client = requests.get if http_get is None else http_get
+    if before_request is not None:
+        before_request()
+    response = client(url, params=params, headers=headers,
+                      timeout=(3, timeout), allow_redirects=False, stream=True)
+    if response.status_code == 429:
+        try:
+            retry_after = response.headers.get("Retry-After", "6")
         finally:
             response.close()
-        try:
-            time.sleep(min(max(float(retry_after), 0), 1))
-        except ValueError:
-            time.sleep(1)
+        time.sleep(_retry_after_seconds(retry_after))
+        if before_request is not None:
+            before_request()
         response = client(url, params=params, headers=headers,
-                          timeout=(3, timeout), allow_redirects=False)
+                          timeout=(3, timeout), allow_redirects=False, stream=True)
     try:
         response.raise_for_status()
-        return response.json()
+        return _bounded_json(response)
     finally:
         response.close()
+
 
 def _fetch_nvd(cpe: str, api_key: str, *,
                http_get: Callable | None = None) -> tuple[dict, ...]:
@@ -213,7 +272,9 @@ def _fetch_nvd(cpe: str, api_key: str, *,
     for page in range(MAX_PAGES):
         data = _get(NVD, params={"cpeName": cpe, "resultsPerPage": PAGE_SIZE,
                                  "startIndex": page * PAGE_SIZE}, headers=headers,
-                    http_get=http_get)
+                    http_get=http_get,
+                                 before_request=(None if http_get is not None else
+                                                 lambda: _nvd_before_request(has_key=bool(api_key))))
         if not isinstance(data, dict):
             raise ValueError("Invalid NVD response shape")
         items = data.get("vulnerabilities", [])
@@ -342,7 +403,14 @@ def nvd_candidates(product: Product, *, api_key: str = "",
         })
         if len(candidates) >= limit:
             break
-    return candidates, ("NVD returned malformed candidate records" if malformed else "")
+    notices = []
+    if malformed:
+        notices.append("NVD returned malformed candidate records")
+    if len(results) >= MAX_PAGES * PAGE_SIZE:
+        notices.append("NVD catalogue page cap reached; more matching CVEs may exist")
+    if len(candidates) >= limit:
+        notices.append("NVD candidate display limit reached; additional matches may be omitted")
+    return candidates, "; ".join(notices)
 
 def osv_candidates(package: Package, *, limit: int = MAX_RESULTS,
                    http_post: Callable | None = None) -> tuple[list[dict], str]:
@@ -356,10 +424,10 @@ def osv_candidates(package: Package, *, limit: int = MAX_RESULTS,
             if token:
                 payload["page_token"] = token
             response = post(OSV, json=payload, headers=USER_AGENT,
-                            timeout=(3, 9), allow_redirects=False)
+                            timeout=(3, 9), allow_redirects=False, stream=True)
             try:
                 response.raise_for_status()
-                obj = response.json()
+                obj = _bounded_json(response)
             finally:
                 response.close()
             if not isinstance(obj, dict) or not isinstance(obj.get("vulns", []), list):
@@ -487,12 +555,18 @@ def discover(raw_scan: str, *, enabled: bool = True,
             warnings.append("Package inventory unavailable/invalid: " + str(exc)[:120])
     observations = [p.evidence for p in products] + [p.purl for p in packages]
     seen = set()
+    omitted = False
     def absorb(records):
+        nonlocal omitted
         for result in records:
             key = (result["id"], result["product"], result["version"])
-            if key not in seen and len(candidates) < max_results:
-                seen.add(key)
+            if key in seen:
+                continue
+            seen.add(key)
+            if len(candidates) < max_results:
                 candidates.append(result)
+            else:
+                omitted = True
     # Scoped research ports preserve legacy defaults for production callers.
     nvd_client = nvd_candidates if nvd_lookup is None else nvd_lookup
     osv_client = osv_candidates if osv_lookup is None else osv_lookup
@@ -502,19 +576,27 @@ def discover(raw_scan: str, *, enabled: bool = True,
     nvd_results: list = [None] * len(products)
     osv_results: list = [None] * len(packages)
     gh_results: list = [None] * len(packages)
+    def isolated(lookup, subject, *, source: str, **kwargs):
+        try:
+            return lookup(subject, **kwargs)
+        except Exception:
+            return [], f"{source} unavailable for {getattr(subject, 'purl', getattr(subject, 'cpe', 'identifier'))}"
+
     if products or packages:
         with ThreadPoolExecutor(max_workers=3, thread_name_prefix="penx-cve") as pool:
             package_futures = {}
             for index, pkg in enumerate(packages):
-                package_futures[("osv", index)] = pool.submit(osv_client, pkg, limit=max_results)
+                package_futures[("osv", index)] = pool.submit(isolated, osv_client, pkg, source="OSV", limit=max_results)
                 package_futures[("gh", index)] = pool.submit(
-                    github_client, pkg, token=github_token, limit=max_results)
-            # NVD shares one public rate limit (5 requests / 5 s without an
+                    isolated, github_client, pkg, source="GitHub Advisories",
+                    token=github_token, limit=max_results)
+            # NVD shares one public rate limit (5 requests / 30 s without an
             # API key), so its queries stay on the calling thread, one at a
             # time. They overlap with the pool's OSV/GitHub work instead of
             # serializing it.
             for prod_index, prod in enumerate(products):
-                nvd_results[prod_index] = nvd_client(prod, api_key=nvd_api_key, limit=max_results)
+                nvd_results[prod_index] = isolated(
+                    nvd_client, prod, source="NVD", api_key=nvd_api_key, limit=max_results)
             for (kind, index), future in package_futures.items():
                 fetched = future.result()
                 if kind == "osv":
@@ -533,6 +615,8 @@ def discover(raw_scan: str, *, enabled: bool = True,
         absorb(gh_hits)
         if gh_warn:
             warnings.append(gh_warn)
+    if omitted or len(candidates) >= max_results:
+        warnings.append("CVE research result limit reached; additional candidates may be omitted.")
     if candidates and priority:
         candidates, issues = priority_client(candidates)
         warnings.extend(issues)
