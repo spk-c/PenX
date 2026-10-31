@@ -11,7 +11,7 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 
-EVENT_NAMES = ('started', 'completed', 'failed', 'skipped', 'cancelled')
+EVENT_NAMES = ('started', 'completed', 'partial', 'failed', 'skipped', 'cancelled')
 MAX_EVENTS_PER_ADAPTER = 8
 MAX_NOTE_LENGTH = 200
 
