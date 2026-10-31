@@ -462,15 +462,18 @@ def code_context(root: Path, issue: dict) -> tuple[str, dict[str, dict[int, str]
         included: dict[int, str] = {}
         section = header
 
-        def include_line(i: int, ceiling: int) -> None:
+        # Default arguments bind this iteration's lines/included so the
+        # closure cannot observe a later loop iteration's values.
+        def include_line(i: int, ceiling: int,
+                         _lines=lines, _included=included) -> None:
             nonlocal section
-            if i < 0 or i >= len(lines) or i + 1 in included:
+            if i < 0 or i >= len(_lines) or i + 1 in _included:
                 return
-            content = lines[i][:230]
+            content = _lines[i][:230]
             piece = f"L{i + 1}: {content}\n"
             if len(section) + len(piece) <= ceiling:
                 section += piece
-                included[i + 1] = content
+                _included[i + 1] = content
 
         # Include state-flag writers and readers and intent comments in context.
         # Only local checked-out source is indexed; issue text is never executed.

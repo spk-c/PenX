@@ -100,7 +100,7 @@ def build_custom_plan(target: str, keys: tuple[str, ...], *,
         overrides.get('max_parallelism', 1),
         overrides.get('global_budget_seconds'),
         overrides.get('dispatch_interval_seconds'),
-    )))
+    ), strict=True))
     unknown = set(overrides) - set(_CUSTOM_PLAN_FIELDS)
     if unknown:
         raise TypeError('Unknown plan overrides: ' + ', '.join(sorted(unknown)))

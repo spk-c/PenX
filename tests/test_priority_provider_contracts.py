@@ -16,6 +16,13 @@ def response(data):
     return res
 
 
+def _bound(response):
+    """Build a transport that ignores all arguments and returns ``response``."""
+    def _get(*_args, **_kwargs):
+        return response
+    return _get
+
+
 class PriorityProviderContracts(unittest.TestCase):
     CVE = "CVE-2026-12345"
 
@@ -63,7 +70,8 @@ class PriorityProviderContracts(unittest.TestCase):
         for payload in (None, [], "invalid", {}, {"data": "bad"}):
             with self.subTest(payload=payload):
                 found, warning = priority.fetch_epss(
-                    [self.CVE], http_get=lambda *_a, **_kw: response(payload))
+                    [self.CVE],
+                    http_get=_bound(response(payload)))
                 self.assertEqual(found, {})
                 self.assertIn("unavailable", warning)
 
@@ -125,8 +133,8 @@ class PriorityProviderContracts(unittest.TestCase):
                 data = [{"id": self.CVE, "cvss_score": 4.0}]
                 updated, warnings = priority.enrich_priority(
                     data,
-                    epss_lookup=lambda ids: ({
-                        self.CVE: {"epss": bad, "epss_percentile": 0.9}
+                    epss_lookup=lambda ids, _bad=bad: ({
+                        self.CVE: {"epss": _bad, "epss_percentile": 0.9}
                     }, ""),
                     kev_lookup=lambda: None,
                 )

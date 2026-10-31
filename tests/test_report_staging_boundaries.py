@@ -86,8 +86,8 @@ class ReportStagingBoundaries(unittest.TestCase):
     def test_machine_export_rejects_outside_path_or_symlink(self):
         for output in ("outside", "symlink"):
             with self.subTest(output=output):
-                def wrong_machine(_data, _folder, *, fmt):
-                    if output == "outside":
+                def wrong_machine(_data, _folder, *, fmt, _output=output):
+                    if _output == "outside":
                         return self.outside
                     link = self.folder / "machine.json"
                     try:

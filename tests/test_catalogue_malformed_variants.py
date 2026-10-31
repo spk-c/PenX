@@ -6,6 +6,13 @@ from penx_app.intelligence.cve_engine import osv_candidates, github_candidates
 from penx_app.intelligence.cve_observations import parse_explicit_packages
 
 
+def _bound(response):
+    """Build a transport that ignores all arguments and returns ``response``."""
+    def _get(*_args, **_kwargs):
+        return response
+    return _get
+
+
 class CatalogueParsingRegressions(unittest.TestCase):
     def setUp(self):
         self.package = parse_explicit_packages("pkg:pypi/requests@2.31.0")[0]
@@ -41,7 +48,8 @@ class CatalogueParsingRegressions(unittest.TestCase):
             with self.subTest(record=record):
                 response = self.response([record])
                 results, warning = github_candidates(
-                    self.package, http_get=lambda *args, **kwargs: response)
+                    self.package,
+                    http_get=_bound(response))
                 self.assertEqual(results, [])
                 self.assertIn("malformed records", warning)
                 response.close.assert_called_once()

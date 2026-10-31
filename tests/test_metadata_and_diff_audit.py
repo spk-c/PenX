@@ -17,8 +17,8 @@ class MetadataAndDiffAuditTests(unittest.TestCase):
     def test_evidence_flags_must_be_boolean(self):
         for flag in ('false', 'true', 0, 1, None, [], {}):
             for constructor in (
-                    lambda: ScannerResult('nmap', '80/tcp open http', 'COMPLETE', flag),
-                    lambda: ScannerOutput('80/tcp open http', evidence=flag)):
+                    lambda _f=flag: ScannerResult('nmap', '80/tcp open http', 'COMPLETE', _f),
+                    lambda _f=flag: ScannerOutput('80/tcp open http', evidence=_f)):
                 with self.subTest(flag=flag, constructor=constructor):
                     with self.assertRaises(ValueError):
                         constructor()

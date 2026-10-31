@@ -88,7 +88,7 @@ class MultiFindingTriageTests(unittest.TestCase):
         self.assertIn("FILE src/penx_app/scanners/scanner_targets.py:", excerpt)
         self.assertIn("port = parsed.port", excerpt)
         self.assertLessEqual(len(excerpt), it.MAX_FILE_CHARS)
-        for filename, indexed in lines.items():
+        for _filename, indexed in lines.items():
             for number, value in indexed.items():
                 self.assertIn(f"L{number}: {value}", excerpt)
 

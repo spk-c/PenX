@@ -241,7 +241,7 @@ class SL11PresentationRegressions(unittest.TestCase):
         from penx_app.reporting.report_design import export_html
         with tempfile.TemporaryDirectory() as folder:
             html = Path(export_html(sample(), folder)).read_text(encoding="utf-8")
-        for index, heading, link in (
+        for index, _heading, link in (
             ("04", "Historical AI exploit proposals", "AI proposals"),
             ("05", "Corrections", "Review"),
             ("06", "Original AI output", "AI appendix"),

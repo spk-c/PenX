@@ -168,7 +168,7 @@ def export_distillation_package(output_dir: str | None = None) -> str:
     lines.append("---")
     lines.append("## RAW CORRECTIONS")
     lines.append("")
-    for status, reason, vuln_name, severity, target, corrected_at in corrections:
+    for status, reason, vuln_name, severity, target, _ in corrections:
         lines.append(f"[{status.upper()}] {vuln_name} ({severity}) — target: {target}")
         lines.append(f"  Reason: {reason}")
         lines.append("")

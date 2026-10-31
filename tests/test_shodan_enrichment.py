@@ -36,7 +36,8 @@ class ShodanTests(unittest.TestCase):
     def test_rejects_private_reserved_ipv6_and_subnet(self):
         for address in ("127.0.0.1", "192.168.1.1", "198.51.100.42", "::1", "fe80::1"):
             urls = []
-            result = enrich_target(address, lambda url, **kw: urls.append(url))
+            result = enrich_target(address,
+                                   lambda url, _urls=urls, **kw: _urls.append(url))
             self.assertEqual(urls, [])
             self.assertTrue(result and "skipped" in result[0])
         with patch("dns.resolver.resolve", return_value=["192.168.0.2"]):

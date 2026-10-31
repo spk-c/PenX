@@ -78,7 +78,7 @@ def publication_lock(folder: Path, session: int, *, timeout: float = 30.0):
                     msvcrt.locking(stream.fileno(), msvcrt.LK_NBLCK, 1)  # type: ignore[attr-defined]
                 else:
                     import fcntl
-                    fcntl.flock(stream.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+                    fcntl.flock(stream.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)  # type: ignore[attr-defined]
                 break
             except OSError as exc:
                 # EACCES/EAGAIN are the busy-lock errors on POSIX and MSVCRT.
@@ -98,7 +98,7 @@ def publication_lock(folder: Path, session: int, *, timeout: float = 30.0):
                 msvcrt.locking(stream.fileno(), msvcrt.LK_UNLCK, 1)  # type: ignore[attr-defined]
             else:
                 import fcntl
-                fcntl.flock(stream.fileno(), fcntl.LOCK_UN)
+                fcntl.flock(stream.fileno(), fcntl.LOCK_UN)  # type: ignore[attr-defined]
 
 
 def validate_staged_report(path: str | Path, directory: str | Path) -> Path:

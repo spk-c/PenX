@@ -45,8 +45,10 @@ def edit_delete_menu(sl_no: int, *, divider, show_back, prompt, is_back, warn, e
                 error("Invalid vulnerability field.")
                 continue
             value = prompt(f"New value for '{field}': ")
-            _apply_edit("Vulnerability", lambda: edit_vulnerability(
-                int(vid), field, value, sl_no=sl_no))
+            _apply_edit(
+                "Vulnerability",
+                lambda _id=int(vid), _field=field, _value=value: edit_vulnerability(
+                    _id, _field, _value, sl_no=sl_no))
 
         # ── EDIT FIX ──────────────────────────
         elif choice == "2":
@@ -65,7 +67,9 @@ def edit_delete_menu(sl_no: int, *, divider, show_back, prompt, is_back, warn, e
                 continue
 
             new_text = prompt("New fix text: ")
-            _apply_edit("Fix", lambda: edit_fix(int(fid), new_text, sl_no=sl_no))
+            _apply_edit("Fix",
+                        lambda _id=int(fid), _text=new_text: edit_fix(
+                            _id, _text, sl_no=sl_no))
 
         # ── EDIT EXPLOIT ──────────────────────
         elif choice == "3":
@@ -89,8 +93,10 @@ def edit_delete_menu(sl_no: int, *, divider, show_back, prompt, is_back, warn, e
                 error("Invalid exploit field.")
                 continue
             value = prompt(f"New value for '{field}': ")
-            _apply_edit("Exploit", lambda: edit_exploit(
-                int(eid), field, value, sl_no=sl_no))
+            _apply_edit(
+                "Exploit",
+                lambda _id=int(eid), _field=field, _value=value: edit_exploit(
+                    _id, _field, _value, sl_no=sl_no))
 
         # ── EDIT RISK LEVEL ───────────────────
         elif choice == "4":
@@ -99,7 +105,8 @@ def edit_delete_menu(sl_no: int, *, divider, show_back, prompt, is_back, warn, e
             if risk not in RISK_LEVELS:
                 error("Invalid risk level.")
                 continue
-            _apply_edit("Risk level", lambda: edit_summary_risk(sl_no, risk))
+            _apply_edit("Risk level",
+                        lambda _risk=risk: edit_summary_risk(sl_no, _risk))
 
         # ── DELETE VULNERABILITY ──────────────
         elif choice == "5":
@@ -118,8 +125,10 @@ def edit_delete_menu(sl_no: int, *, divider, show_back, prompt, is_back, warn, e
                 continue
 
             if confirm(f"Delete vulnerability id={vid} and linked fixes, corrections and evaluations?"):
-                _apply_delete("Vulnerability", lambda: delete_vulnerability(
-                    int(vid), sl_no=sl_no))
+                _apply_delete(
+                    "Vulnerability",
+                    lambda _id=int(vid): delete_vulnerability(
+                        _id, sl_no=sl_no))
 
         # ── DELETE FIX ────────────────────────
         elif choice == "6":
@@ -138,7 +147,8 @@ def edit_delete_menu(sl_no: int, *, divider, show_back, prompt, is_back, warn, e
                 continue
 
             if confirm(f"Delete fix id={fid}?"):
-                _apply_delete("Fix", lambda: delete_fix(int(fid), sl_no=sl_no))
+                _apply_delete("Fix",
+                              lambda _id=int(fid): delete_fix(_id, sl_no=sl_no))
 
         # ── DELETE EXPLOIT ────────────────────
         elif choice == "7":
@@ -157,8 +167,9 @@ def edit_delete_menu(sl_no: int, *, divider, show_back, prompt, is_back, warn, e
                 continue
 
             if confirm(f"Delete exploit id={eid}?"):
-                _apply_delete("Exploit", lambda: delete_exploit(
-                    int(eid), sl_no=sl_no))
+                _apply_delete(
+                    "Exploit",
+                    lambda _id=int(eid): delete_exploit(_id, sl_no=sl_no))
 
         # ── ADD CORRECTION ────────────────────
         elif choice == "8":
@@ -222,8 +233,10 @@ def edit_delete_menu(sl_no: int, *, divider, show_back, prompt, is_back, warn, e
                 error("Invalid correction field.")
                 continue
             value = prompt(f"New value for '{field}': ")
-            _apply_edit("Correction", lambda: edit_correction(
-                int(cid), field, value, sl_no=sl_no))
+            _apply_edit(
+                "Correction",
+                lambda _id=int(cid), _field=field, _value=value: edit_correction(
+                    _id, _field, _value, sl_no=sl_no))
 
         # ── DELETE CORRECTION ────────────────
         elif choice == "10":
@@ -242,8 +255,9 @@ def edit_delete_menu(sl_no: int, *, divider, show_back, prompt, is_back, warn, e
                 continue
 
             if confirm(f"Delete correction id={cid}?"):
-                _apply_delete("Correction", lambda: delete_correction(
-                    int(cid), sl_no=sl_no))
+                _apply_delete(
+                    "Correction",
+                    lambda _id=int(cid): delete_correction(_id, sl_no=sl_no))
 
         # ── DELETE FULL SESSION ───────────────
         elif choice == "11":
