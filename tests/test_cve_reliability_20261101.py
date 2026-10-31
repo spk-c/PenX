@@ -89,6 +89,28 @@ class CveReliabilityTests(unittest.TestCase):
         self.assertTrue(any("NVD unavailable" in w for w in output["warnings"]))
         self.assertTrue(any("GitHub Advisories unavailable" in w for w in output["warnings"]))
 
+    def test_source_verification_uses_same_pacing_gate(self):
+        from penx_app.intelligence import source_verification as source
+        client = Mock(return_value=response({"vulnerabilities": []}))
+        with patch.object(cve, "_nvd_before_request") as pace, \
+             patch.object(source.requests, "get", client):
+            self.assertEqual(
+                source._nvd_json("CVE-2024-12345", "", None),
+                {"vulnerabilities": []},
+            )
+        pace.assert_called_once_with(has_key=False)
+
+    def test_injected_source_lookup_bypasses_production_rate_gate(self):
+        from penx_app.intelligence import source_verification as source
+        client = Mock(return_value=response({"vulnerabilities": []}))
+        with patch.object(cve, "_nvd_before_request",
+                          side_effect=AssertionError("unexpected production limiter")):
+            self.assertEqual(
+                source._nvd_json("CVE-2024-12345", "", client),
+                {"vulnerabilities": []},
+            )
+        self.assertEqual(client.call_count, 1)
+
     def test_candidate_display_limit_is_visible(self):
         product = parse_nmap_services(XML)[0]
         rows = [{"id": "CVE-2024-0001", "product": product.label,
