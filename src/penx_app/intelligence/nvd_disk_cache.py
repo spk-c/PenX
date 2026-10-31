@@ -25,7 +25,7 @@ MAX_RECORDS = 100
 # Bound the entire directory, not just the size of individual cached CPEs.
 MAX_CACHE_FILES = 128
 MAX_TOTAL_CACHE_BYTES = 64 * 1024 * 1024
-_CACHE_FILENAME = re.compile(r"[0-9a-f]{64}\.json\\Z", re.ASCII)
+_CACHE_FILENAME = re.compile(r"[0-9a-f]{64}\.json\Z", re.ASCII)
 
 
 def _safe_unlink(path: Path, info: os.stat_result) -> bool:
