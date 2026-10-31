@@ -59,7 +59,8 @@ class ExpiringReferenceCachesTests(unittest.TestCase):
                  100.0, 101.0,
                  100.0 + verify.SOURCE_CACHE_TTL_SECONDS + 2,
                  100.0 + verify.SOURCE_CACHE_TTL_SECONDS + 2,
-             ]):
+             ]), \
+             patch("penx_app.intelligence.cve_engine._nvd_before_request"):
             self.assertEqual(verify.lookup_nvd(CVE), "listed")
             self.assertEqual(verify.lookup_nvd(CVE.lower()), "listed")
             self.assertEqual(verify.lookup_nvd(CVE), "not-listed")
@@ -74,7 +75,8 @@ class ExpiringReferenceCachesTests(unittest.TestCase):
              patch.object(verify.time, "monotonic", side_effect=[
                  10.0,
                  10.0 + verify.SOURCE_CACHE_TTL_SECONDS + 10,
-             ]):
+             ]), \
+             patch("penx_app.intelligence.cve_engine._nvd_before_request"):
             self.assertEqual(verify.lookup_nvd(CVE), "listed")
             self.assertEqual(verify.lookup_nvd(CVE), "unavailable")
         self.assertEqual(provider.call_count, 2)
