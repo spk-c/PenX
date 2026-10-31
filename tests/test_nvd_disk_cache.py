@@ -76,6 +76,33 @@ class LocalNvdCacheTests(unittest.TestCase):
         path.write_text("{not valid json")
         self.assertIsNone(cache.load(PRODUCT.cpe))
 
+    def test_prune_bounds_total_cache_directory(self):
+        unrelated = Path(self.temp.name) / "do-not-remove.json"
+        unrelated.write_text("keep", encoding="utf-8")
+        with patch.object(cache, "MAX_CACHE_FILES", 3):
+            for index in range(9):
+                cpe = f"cpe:2.3:a:vendor:product:{index}:*:*:*:*:*:*:*"
+                self.assertTrue(cache.store(cpe, ()))
+        self.assertEqual(len(list(Path(self.temp.name).glob("*.json"))), 4)
+        self.assertEqual(unrelated.read_text(encoding="utf-8"), "keep")
+
+    def test_prune_caps_aggregate_bytes(self):
+        with patch.object(cache, 'MAX_TOTAL_CACHE_BYTES', 400):
+            for index in range(8):
+                cpe = f'cpe:2.3:a:vendor:fixture:{index}:*:*:*:*:*:*:*'
+                self.assertTrue(cache.store(cpe, ({'cve': {'id': 'CVE-2026-12345'}},)))
+        total = sum(path.stat().st_size for path in Path(self.temp.name).glob('*.json'))
+        self.assertLessEqual(total, 400)
+
+    def test_prune_discards_expired_entry(self):
+        cpe = "cpe:2.3:a:vendor:obsolete:1:*:*:*:*:*:*:*"
+        self.assertTrue(cache.store(cpe, ()))
+        path = cache.cache_path(cpe)
+        old = cache.time.time() - cache.TTL_SECONDS - 100
+        os.utime(path, (old, old))
+        self.assertTrue(cache.store("cpe:2.3:a:vendor:new:1:*:*:*:*:*:*:*", ()))
+        self.assertFalse(path.exists())
+
     def test_disabled_cache_never_writes(self):
         with patch.dict("os.environ", {"PENX_NVD_DISK_CACHE": "0"}):
             self.assertFalse(cache.store(PRODUCT.cpe, ()))

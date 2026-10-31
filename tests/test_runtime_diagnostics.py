@@ -293,7 +293,7 @@ class TerminalEventMappingTests(unittest.TestCase):
         self.assertEqual(_terminal_event(self._row('COMPLETE', '')),
                          'completed')
         self.assertEqual(_terminal_event(self._row('PARTIAL', '')),
-                         'completed')
+                         'partial')
 
     def test_failed_and_timeout(self):
         self.assertEqual(_terminal_event(self._row('FAILED', 'boom')),
@@ -301,7 +301,7 @@ class TerminalEventMappingTests(unittest.TestCase):
         self.assertEqual(_terminal_event(self._row(
             'PARTIAL',
             'Timed out after 300 seconds (cooperative stop requested)')),
-            'failed')
+            'partial')
 
     def test_cancelled(self):
         self.assertEqual(_terminal_event(self._row(

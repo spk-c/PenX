@@ -65,6 +65,34 @@ class OfflineHarnessTests(unittest.TestCase):
         self.assertEqual((rc, err, failure), (0, b"", None))
         self.assertEqual(len(out), 1024)
 
+    def test_large_output_keeps_tail_with_final_error(self):
+        from offline_tests import _BoundedOutput
+        output = _BoundedOutput(1024)
+        output.append(b"START\\n" + b"x" * 100000)
+        output.append(b"\\nFINAL TRACEBACK MARKER\\n")
+        captured = output.output()
+        self.assertEqual(len(captured), 1024)
+        self.assertIn(b"START", captured)
+        self.assertIn(b"middle test output omitted", captured)
+        self.assertIn(b"FINAL TRACEBACK MARKER", captured)
+
+    def test_normal_output_keeps_exact_bytes(self):
+        from offline_tests import _BoundedOutput
+        output = _BoundedOutput(1024)
+        output.append(b"first")
+        output.append(b" second\\n")
+        self.assertEqual(output.output(), b"first second\\n")
+
+    def test_trailing_process_output_is_available_on_return(self):
+        with tempfile.TemporaryDirectory() as directory:
+            child = Path(directory) / 'test_tail.py'
+            child.write_text("import sys\nsys.stderr.write('X' * 100000)\nsys.stderr.write('TAIL_ERROR_MARKER\\\\n')\nsys.stderr.flush()\nraise SystemExit(3)", encoding='utf-8')
+            with patch.object(offline_tests, 'MAX_SUITE_OUTPUT_BYTES', 2048):
+                rc, out, err, note = offline_tests._run_suite(child, os.environ.copy())
+        self.assertEqual((rc, out, note), (3, b'', None))
+        self.assertIn(b'TAIL_ERROR_MARKER', err)
+        self.assertLessEqual(len(err), 2048)
+
     def test_hung_suite_times_out_and_fails(self):
         with tempfile.TemporaryDirectory() as directory:
             child = Path(directory) / "test_sleep.py"

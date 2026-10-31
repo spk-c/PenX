@@ -64,27 +64,60 @@ def _terminate_tree(proc: subprocess.Popen) -> None:
             pass
 
 
+class _BoundedOutput:
+    """Keep the first and last bytes, preserving final failure tracebacks."""
+
+    _MARKER = b"\n[... middle test output omitted ...]\n"
+
+    def __init__(self, limit: int):
+        self.limit = max(0, limit)
+        self.data = bytearray()
+        self.truncated = False
+        self.marker = self._MARKER[:self.limit]
+        self.head_size = (self.limit - len(self.marker)) // 2
+        self.tail_size = self.limit - len(self.marker) - self.head_size
+
+    def append(self, chunk: bytes) -> None:
+        if not chunk or not self.limit:
+            return
+        if not self.truncated and len(self.data) + len(chunk) <= self.limit:
+            self.data.extend(chunk)
+            return
+        if not self.truncated:
+            combined = self.data + chunk
+            head = combined[:self.head_size]
+            self.truncated = True
+        else:
+            head = self.data[:self.head_size]
+            combined = self.data[self.head_size + len(self.marker):] + chunk
+        tail = combined[-self.tail_size:] if self.tail_size else b""
+        self.data = bytearray(head + self.marker + tail)
+
+    def output(self) -> bytes:
+        return bytes(self.data)
+
+
 def _run_suite(suite: Path, env: dict,
                cancel_event: threading.Event | None = None) -> tuple[int, bytes, bytes, str | None]:
-    """Capture bounded output and stop descendant processes on timeout/cancel."""
+    """Bounded first/tail logs; return only after pipe readers are joined."""
     proc = None
-    buffers = [bytearray(), bytearray()]
+    buffers = [_BoundedOutput(MAX_SUITE_OUTPUT_BYTES),
+               _BoundedOutput(MAX_SUITE_OUTPUT_BYTES)]
     workers: list[threading.Thread] = []
+    code = 1
+    error: str | None = None
 
-    def drain(stream, buffer: bytearray) -> None:
+    def drain(stream, buffer: _BoundedOutput) -> None:
         try:
             while True:
                 chunk = stream.read(65536)
                 if not chunk:
                     return
-                room = MAX_SUITE_OUTPUT_BYTES - len(buffer)
-                if room > 0:
-                    buffer.extend(chunk[:room])
+                buffer.append(chunk)
         except (OSError, ValueError):
             return
 
     try:
-        # A new session/process group allows reliable cancellation of children.
         options = ({"creationflags": getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0)}
                    if os.name == "nt" else {"start_new_session": True})
         proc = subprocess.Popen(
@@ -100,36 +133,48 @@ def _run_suite(suite: Path, env: dict,
         deadline = time.monotonic() + SUITE_TIMEOUT_SECONDS
         while True:
             if cancel_event is not None and cancel_event.is_set():
+                code = 125
+                error = "cancelled after another suite failed"
                 _terminate_tree(proc)
-                proc.wait(timeout=5)
-                return 125, bytes(buffers[0]), bytes(buffers[1]), "cancelled after another suite failed"
+                break
             remaining = deadline - time.monotonic()
             if remaining <= 0:
+                code = 124
+                error = f"timed out after {SUITE_TIMEOUT_SECONDS} s"
                 _terminate_tree(proc)
-                proc.wait(timeout=5)
-                return 124, bytes(buffers[0]), bytes(buffers[1]), (
-                    f"timed out after {SUITE_TIMEOUT_SECONDS} s"
-                )
+                break
             try:
                 proc.wait(timeout=min(0.1, remaining))
-                return proc.returncode, bytes(buffers[0]), bytes(buffers[1]), None
+                code = proc.returncode
+                break
             except subprocess.TimeoutExpired:
                 continue
     except OSError as exc:
-        return 1, bytes(buffers[0]), bytes(buffers[1]), f"Could not start {suite.name}: {exc}"
+        code = 1
+        error = f"Could not start {suite.name}: {exc}"
     finally:
-        if proc is not None and proc.poll() is None:
-            _terminate_tree(proc)
+        if proc is not None:
+            if proc.poll() is None:
+                _terminate_tree(proc)
             try:
                 proc.wait(timeout=5)
             except subprocess.TimeoutExpired:
-                proc.kill()
-        for worker in workers:
-            worker.join(timeout=1)
-        if proc is not None:
+                _terminate_tree(proc)
+            # The child can exit before pipe-reader threads finish receiving
+            # buffered output. Joining after wait fixes that race.
+            for worker in workers:
+                worker.join(timeout=3)
+            if any(worker.is_alive() for worker in workers):
+                _terminate_tree(proc)  # Also kills descendants holding inherited pipes.
+                for worker in workers:
+                    worker.join(timeout=1)
+            if any(worker.is_alive() for worker in workers):
+                code = 1
+                error = "test output pipe did not close"
             for stream in (proc.stdout, proc.stderr):
-                if stream is not None:
+                if stream is not None and not any(w.is_alive() for w in workers):
                     stream.close()
+    return code, buffers[0].output(), buffers[1].output(), error
 
 
 def _decode(data: bytes) -> str:

@@ -418,6 +418,7 @@ def osv_candidates(package: Package, *, limit: int = MAX_RESULTS,
     post = requests.post if http_post is None else http_post
     token = ""
     malformed_ids = False
+    truncated = False
     try:
         for _ in range(MAX_PAGES):
             payload: dict[str, object] = {"package": {"purl": package.purl}}
@@ -453,18 +454,27 @@ def osv_candidates(package: Package, *, limit: int = MAX_RESULTS,
                     "vendor_advisories": [],
                 })
                 if len(results) >= limit:
-                    return results, ("OSV returned malformed candidate IDs; results may be incomplete."
-                                     if malformed_ids else "")
+                    notices = []
+                    if malformed_ids:
+                        notices.append("OSV returned malformed candidate IDs; results may be incomplete.")
+                    notices.append("OSV candidate display limit reached; additional matches may be omitted.")
+                    return results, "; ".join(notices)
             next_token = obj.get("next_page_token")
             if next_token is not None and not isinstance(next_token, str):
                 return results, "OSV returned a malformed pagination token for " + package.purl
             token = next_token or ""
             if not token:
                 break
+        else:
+            truncated = bool(token)
     except (requests.RequestException, ValueError, KeyError, TypeError):
         return results, "OSV unavailable/incomplete for " + package.purl
-    return results, ("OSV returned malformed candidate IDs; results may be incomplete."
-                     if malformed_ids else "")
+    notices = []
+    if malformed_ids:
+        notices.append("OSV returned malformed candidate IDs; results may be incomplete.")
+    if truncated:
+        notices.append("OSV catalogue page cap reached; additional vulnerabilities may exist.")
+    return results, "; ".join(notices)
 
 def github_candidates(package: Package, *, token: str = "",
                       limit: int = MAX_RESULTS,
