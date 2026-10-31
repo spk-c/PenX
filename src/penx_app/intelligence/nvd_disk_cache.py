@@ -10,6 +10,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 import stat
 from pathlib import Path
 import tempfile
@@ -21,6 +22,66 @@ CACHE_DIR = APP_ROOT / "data" / "nvd_cache"
 TTL_SECONDS = 24 * 3600
 MAX_CACHE_SIZE = 4 * 1024 * 1024
 MAX_RECORDS = 100
+# Bound the entire directory, not just the size of individual cached CPEs.
+MAX_CACHE_FILES = 128
+MAX_TOTAL_CACHE_BYTES = 64 * 1024 * 1024
+_CACHE_FILENAME = re.compile(r"[0-9a-f]{64}\.json\\Z", re.ASCII)
+
+
+def _safe_unlink(path: Path, info: os.stat_result) -> bool:
+    """Never remove changed entries or arbitrary/symlinked user files."""
+    try:
+        current = path.lstat()
+        if (not stat.S_ISREG(current.st_mode)
+                or (current.st_dev, current.st_ino) != (info.st_dev, info.st_ino)):
+            return False
+        path.unlink()
+        return True
+    except OSError:
+        return False
+
+
+def prune(*, now: float | None = None) -> None:
+    """Best-effort TTL and LRU-like age pruning after a cache write.
+
+    Only regular SHA-256-named cache entries are managed. A concurrently
+    replaced entry is never deleted based on stale metadata. Filesystem mtime
+    is used rather than opening/parsing every (potentially corrupt) JSON file.
+    """
+    try:
+        if CACHE_DIR.is_symlink():
+            return
+        current_time = time.time() if now is None else now
+        entries: list[tuple[float, Path, os.stat_result]] = []
+        with os.scandir(CACHE_DIR) as listing:
+            for candidate in listing:
+                if not _CACHE_FILENAME.fullmatch(candidate.name):
+                    continue
+                try:
+                    info = candidate.stat(follow_symlinks=False)
+                except OSError:
+                    continue
+                if not stat.S_ISREG(info.st_mode):
+                    continue
+                path = CACHE_DIR / candidate.name
+                if (info.st_size > MAX_CACHE_SIZE
+                        or (0 <= current_time - info.st_mtime > TTL_SECONDS)):
+                    _safe_unlink(path, info)
+                    continue
+                entries.append((info.st_mtime, path, info))
+        entries.sort(key=lambda item: (item[0], item[1].name))
+        count = len(entries)
+        total = sum(info.st_size for _, _, info in entries)
+        for _, path, info in entries:
+            if count <= MAX_CACHE_FILES and total <= MAX_TOTAL_CACHE_BYTES:
+                break
+            if _safe_unlink(path, info):
+                count -= 1
+                total -= info.st_size
+    except OSError:
+        # Cache cleanup is optional: source research must still work offline.
+        return
+
 
 
 def enabled() -> bool:
@@ -99,6 +160,8 @@ def store(cpe: str, records: tuple[dict, ...], *, now: float | None = None) -> b
     temp = None
     try:
         CACHE_DIR.mkdir(parents=True, exist_ok=True)
+        if CACHE_DIR.is_symlink():
+            return False
         path = cache_path(cpe)
         if path.is_symlink():
             return False
@@ -107,6 +170,7 @@ def store(cpe: str, records: tuple[dict, ...], *, now: float | None = None) -> b
             temp = Path(handle.name)
             handle.write(encoded)
         os.replace(temp, path)
+        prune()
         return True
     except OSError:
         return False
