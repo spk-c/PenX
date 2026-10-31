@@ -104,7 +104,7 @@ class IssueTriageTests(unittest.TestCase):
         excerpt, evidence = it.code_context(
             self.root, {"title": "important()", "body": "Inspect penx.py return paths"}
         )
-        for path, indexed in evidence.items():
+        for _path, indexed in evidence.items():
             for line_no, line in indexed.items():
                 self.assertIn(f"L{line_no}: {line[:230]}", excerpt)
         self.assertLessEqual(len(excerpt), it.MAX_FILE_CHARS)

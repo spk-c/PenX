@@ -9,6 +9,13 @@ import requests
 from penx_app.intelligence.wordpress_advisories import research_plugins
 
 
+def _bound(response):
+    """Build a transport that ignores all arguments and returns ``response``."""
+    def _get(*_args, **_kwargs):
+        return response
+    return _get
+
+
 FINGERPRINT = "MetaGenerator[Elementor 4.3.5]"
 
 
@@ -43,7 +50,8 @@ class WordpressAdvisoryResponseLifetimeTests(unittest.TestCase):
                 else:
                     response.json.return_value = bad_json
                 result = research_plugins(
-                    FINGERPRINT, http_get=lambda *args, **kwargs: response)
+                    FINGERPRINT,
+                    http_get=_bound(response))
                 self.assertEqual(result["checks"][0]["status"], "unavailable")
                 response.close.assert_called_once()
 

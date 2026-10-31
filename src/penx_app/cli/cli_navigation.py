@@ -75,9 +75,8 @@ def _read_chars(prompt: str, getch, *, posix_fd: int | None = None) -> str:
 
 def _read_windows(prompt: str) -> str:
     import msvcrt
-    # Resolve this Windows-only API dynamically: the Linux type stub for
-    # msvcrt cannot expose getwch, but native Windows consoles provide it.
-    return _read_chars(prompt, getattr(msvcrt, "getwch"))
+    # Windows-only API; this branch only runs on native Windows consoles.
+    return _read_chars(prompt, msvcrt.getwch)  # type: ignore[attr-defined]
 
 
 def _read_posix(prompt: str) -> str:
@@ -87,7 +86,7 @@ def _read_posix(prompt: str) -> str:
     import tty
 
     fd = sys.stdin.fileno()
-    old = termios.tcgetattr(fd)
+    old = termios.tcgetattr(fd)  # type: ignore[attr-defined]
     decoder = codecs.getincrementaldecoder(sys.stdin.encoding or "utf-8")("replace")
 
     def getch() -> str:
@@ -100,13 +99,13 @@ def _read_posix(prompt: str) -> str:
                 return char
 
     try:
-        tty.setcbreak(fd)
-        mode = termios.tcgetattr(fd)
-        mode[3] &= ~termios.ECHO
-        termios.tcsetattr(fd, termios.TCSADRAIN, mode)
+        tty.setcbreak(fd)  # type: ignore[attr-defined]
+        mode = termios.tcgetattr(fd)  # type: ignore[attr-defined]
+        mode[3] &= ~termios.ECHO  # type: ignore[attr-defined]
+        termios.tcsetattr(fd, termios.TCSADRAIN, mode)  # type: ignore[attr-defined]
         return _read_chars(prompt, getch, posix_fd=fd)
     finally:
-        termios.tcsetattr(fd, termios.TCSADRAIN, old)
+        termios.tcsetattr(fd, termios.TCSADRAIN, old)  # type: ignore[attr-defined]
 
 
 def navigation_input(prompt: str) -> str:

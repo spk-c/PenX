@@ -11,6 +11,13 @@ from penx_app.storage import db_backend
 import penx
 
 
+def _answer_source(answers):
+    """Build a prompt side effect that consumes ``answers`` in order."""
+    def _prompt(*_args, **_kwargs):
+        return answers.__next__()
+    return _prompt
+
+
 class AssessmentStorageTests(unittest.TestCase):
     def setUp(self):
         self.folder = tempfile.TemporaryDirectory()
@@ -89,7 +96,8 @@ class EditMenuTests(unittest.TestCase):
     def test_both_picker_views_use_same_formatter(self):
         for which in ("1", "8"):
             answers = iter([which, "invalid", "12"])
-            with patch.object(penx, "prompt", side_effect=lambda *a, **kw: next(answers)), \
+            with patch.object(penx, "prompt",
+                              side_effect=_answer_source(answers)), \
                  patch.object(penx, "get_vulnerabilities", return_value=[self.ROW]), \
                  patch.object(penx, "divider"), patch.object(penx, "show_back"), \
                  patch.object(penx, "is_back", return_value=False), \

@@ -123,7 +123,7 @@ class ScanResult:
                 or self.plan_summary is not None or self.scanner_configuration or self.dependencies:
             version = 3
         if version == 3:
-            for row, result in zip(rows, self.results):
+            for row, result in zip(rows, self.results, strict=True):
                 row['events'] = [event.to_dict()
                                  for event in result.run_events]
                 if result.raw_artifact is not None:

@@ -6,6 +6,8 @@ GitHub published [PenX v0.4.11](https://github.com/spk-c/PenX/releases/tag/v0.4.
 
 **v0.4.11 distribution status:** Scoop and WinGet draft manifests reference the genuine released ZIP and its GitHub-reported SHA-256 digest (`80aa869343a6dc21e1778ae0db6028a4db9f74eb5da243fac49f412d7749aa3b`). The Windows release pipeline passed packaging smoke tests, **not** community-registry validation or native Scoop/WinGet install, upgrade and rollback acceptance.
 
+**v0.5.0 status:** The source tree has advanced to **v0.5.0** (post-v0.4.11 optimization roadmap: parallel CVE enrichment, NVD disk cache on by default, parallel offline test runner, Python 3.10–3.13 compatibility matrix, Ruff W/B + mypy gates, legacy shim retirement). It is a **source-only release candidate**: no published v0.5.0 ZIP, installer, or verified SHA-256 exists yet, and the draft manifests below continue to pin the published v0.4.11 ZIP until the tagged Windows Release workflow publishes the v0.5.0 assets.
+
 ## Release/version warning
 
 Both current draft manifests reference the **published v0.4.11 ZIP** under `spk-c/PenX`, pinned to SHA-256 `80aa869343a6dc21e1778ae0db6028a4db9f74eb5da243fac49f412d7749aa3b`.

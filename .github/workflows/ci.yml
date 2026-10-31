@@ -48,7 +48,7 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           python -m pip install --disable-pip-version-check "ruff>=0.13,<1"
-          python -m ruff check --select E9,F63,F7,F82 penx.py src scripts tests
+          python -m ruff check --select E9,F63,F7,F82,W,B penx.py src scripts tests
       # One full-tree Ruff and one mypy pass replace duplicated subset checks.
       - name: Full-tree Ruff unused-import gate
         if: runner.os == 'Linux'

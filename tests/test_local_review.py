@@ -116,7 +116,7 @@ class LocalReviewTests(unittest.TestCase):
             session = Session(response)
             with self.assertRaises(ValueError):
                 request_review([], endpoint='http://127.0.0.1', model='local', schema=REVIEW_SCHEMA,
-                               session_factory=lambda: session)
+                               session_factory=lambda _session=session: _session)
             self.assertTrue(response.closed and session.closed)
             self.assertEqual(len(session.calls), 1)
 

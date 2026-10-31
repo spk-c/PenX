@@ -20,7 +20,7 @@ from penx_app.storage import db
 from penx_app.storage.db_evals import save_evaluation, get_evaluations, save_learned_rule
 from penx_app.storage.db_training import export_training_data
 from penx_app.reporting.export import fetch_session, export_html, export_pdf
-from llm import load_correction_rules
+from penx_app.analysis.llm import load_correction_rules
 from penx_app.scanners.tools import (_host, run_tool_by_command, run_curl_headers, run_whatweb,
                    run_nikto, run_dig)
 
@@ -59,7 +59,7 @@ class PortTests(unittest.TestCase):
         self.assertIn('PenX Windows', result.stdout)
 
     def test_path_for_source_mode(self):
-        from app_paths import APP_ROOT
+        from penx_app.app_paths import APP_ROOT
         self.assertEqual(APP_ROOT, Path(__file__).resolve().parent.parent)
 
     def test_sqlite_crud_exports_and_training(self):

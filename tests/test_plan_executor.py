@@ -195,7 +195,8 @@ class PlanExecutorConcurrencyTests(unittest.TestCase):
         self.assertEqual([row.status for row in result.results],
                          ['COMPLETE', 'COMPLETE', 'COMPLETE'])
         self.assertEqual(len(starts), 3)
-        for first, second in zip(starts, starts[1:]):
+        # strict=False: starts[1:] is intentionally one element shorter.
+        for first, second in zip(starts, starts[1:], strict=False):
             self.assertGreaterEqual(second - first, 0.45)
 
 

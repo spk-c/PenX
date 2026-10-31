@@ -73,7 +73,7 @@ class AdvancedCveTests(unittest.TestCase):
             {"id":"CVE-2024-6387"},distro_hint="debian:bookworm")[0]["url"])
 
     def test_llm_refreshes_discovery_after_new_tool_output(self):
-        import llm
+        from penx_app.analysis import llm
         calls=[]
         def lookup(scan, **kwargs):
             calls.append(scan)
@@ -83,14 +83,14 @@ class AdvancedCveTests(unittest.TestCase):
             raw_collector.append(XML)
             return "Nmap reported additional data"
         responses=["[TOOL: nmap example.test]", "RISK_LEVEL: LOW\nSUMMARY: Verified nothing"]
-        with patch("llm.discover",side_effect=lookup), \
-             patch("llm.run_tool_calls",side_effect=fake_run), \
-             patch("llm.ask_llm",side_effect=responses), \
-             patch("llm.self_review",return_value={"review":"","adjusted_risk":"","flags":[]}), \
-             patch("llm.load_correction_rules",return_value=""), \
-             patch("llm.STRUCTURED_MODE","off"), \
-             patch("llm.VERIFY_SOURCES",False), \
-             patch("llm.verify_findings",side_effect=lambda v,*a,**k:v):
+        with patch("penx_app.analysis.llm.discover",side_effect=lookup), \
+             patch("penx_app.analysis.llm.run_tool_calls",side_effect=fake_run), \
+             patch("penx_app.analysis.llm.ask_llm",side_effect=responses), \
+             patch("penx_app.analysis.llm.self_review",return_value={"review":"","adjusted_risk":"","flags":[]}), \
+             patch("penx_app.analysis.llm.load_correction_rules",return_value=""), \
+             patch("penx_app.analysis.llm.STRUCTURED_MODE","off"), \
+             patch("penx_app.analysis.llm.VERIFY_SOURCES",False), \
+             patch("penx_app.analysis.llm.verify_findings",side_effect=lambda v,*a,**k:v):
             result=llm.analyse_target("example.test","Initial evidence")
         self.assertEqual(len(calls),2)
         self.assertIn("<nmaprun", result["raw_scan"])

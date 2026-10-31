@@ -253,7 +253,7 @@ def verify_findings(findings: list[dict], raw_scan: str, *,
                 finding["source_checks"].append(
                     f"{cve}: CISA KEV {status} ({CISA_PAGE})"
                 )
-    for finding, base in zip(findings, base_descriptions):
+    for finding, base in zip(findings, base_descriptions, strict=True):
         finding.pop("_checked_cves", None)
         finding["description"] = (
             base.rstrip() + "\n\n" + "\n".join(finding["source_checks"])

@@ -14,7 +14,7 @@ os.environ["PENX_DB_ENGINE"] = "sqlite"
 os.environ["PENX_DB_PATH"] = str(Path(_TEMP.name) / "assessment.db")
 
 from penx_app.storage import db
-import llm
+from penx_app.analysis import llm
 from penx_app.analysis.llm_client import complete_chat
 from penx_app.scanners.passive_recon import passive_recon
 from penx_app.application.risk_assessment import (assessment_for_session, assess_finding, save_override)
@@ -128,17 +128,17 @@ class AssessmentTests(unittest.TestCase):
             passive_recon("192.0.2.0/24")
 
     def test_passive_llm_never_dispatches_model_requested_scans(self):
-        with patch("llm.discover", return_value={"candidates": []}), \
-             patch("llm.format_report", return_value=""), \
-             patch("llm.load_correction_rules", return_value=""), \
-             patch("llm.ask_llm", return_value=
+        with patch("penx_app.analysis.llm.discover", return_value={"candidates": []}), \
+             patch("penx_app.analysis.llm.format_report", return_value=""), \
+             patch("penx_app.analysis.llm.load_correction_rules", return_value=""), \
+             patch("penx_app.analysis.llm.ask_llm", return_value=
                    "[TOOL: nmap example.test]\nRISK_LEVEL: LOW\nSUMMARY: Passive only"), \
-             patch("llm.self_review", return_value={
+             patch("penx_app.analysis.llm.self_review", return_value={
                    "review": "", "adjusted_risk": "", "flags": []}), \
-             patch("llm.STRUCTURED_MODE", "off"), \
-             patch("llm.VERIFY_SOURCES", False), \
-             patch("llm.verify_findings", side_effect=lambda items, *_a, **_k: items), \
-             patch("llm.run_tool_calls", side_effect=AssertionError("Tool run")):
+             patch("penx_app.analysis.llm.STRUCTURED_MODE", "off"), \
+             patch("penx_app.analysis.llm.VERIFY_SOURCES", False), \
+             patch("penx_app.analysis.llm.verify_findings", side_effect=lambda items, *_a, **_k: items), \
+             patch("penx_app.analysis.llm.run_tool_calls", side_effect=AssertionError("Tool run")):
             result = llm.analyse_target("example.test", "[RDAP] example", passive_only=True)
         self.assertEqual(result["risk_level"], "LOW")
 
@@ -178,7 +178,7 @@ class LlmAuthRecoveryTests(unittest.TestCase):
     def test_auth_errors_are_actionable_without_leaking_secrets(self):
         import requests
         from penx_app.analysis.llm_client import explain_http_error
-        import llm
+        from penx_app.analysis import llm
 
         for status in (401, 403):
             response = requests.Response()
@@ -188,7 +188,7 @@ class LlmAuthRecoveryTests(unittest.TestCase):
             self.assertIn(f"HTTP {status}", message)
             self.assertIn("PENX_LLM_API_KEY", message)
             self.assertNotIn("secret-key-should-not-appear", message)
-            with patch("llm.complete_chat", side_effect=error):
+            with patch("penx_app.analysis.llm.complete_chat", side_effect=error):
                 self.assertIn(f"HTTP {status}", llm.ask_llm([{"role": "user", "content": "test"}]))
 
     def test_auth_preflight_prevents_running_scanners(self):

@@ -7,7 +7,7 @@ import unittest
 from unittest.mock import Mock, MagicMock, patch
 
 from penx_app.analysis.llm_client import EmptyModelResponse, complete_chat, extract_chat_text
-from llm import ask_llm
+from penx_app.analysis.llm import ask_llm
 
 
 class StreamResponse:
@@ -112,7 +112,7 @@ class LLMEmptyResponseTests(unittest.TestCase):
         with patch.dict(os.environ, {"PENX_LIVE_OUTPUT": "1",
                                      "PENX_LLM_RETRY_EMPTY": "on",
                                      "PENX_LLM_RETRY_TOKENS": "16384"}), \
-             patch("llm.complete_chat", side_effect=[
+             patch("penx_app.analysis.llm.complete_chat", side_effect=[
                  failed, ("local-qwen", "RISK_LEVEL: LOW\nSUMMARY: No verified CVEs")
              ]) as complete:
             result = ask_llm(msgs)
@@ -128,7 +128,7 @@ class LLMEmptyResponseTests(unittest.TestCase):
     def test_retry_off_fails_with_explanation(self):
         error = EmptyModelResponse(finish_reason="length", reasoning_seen=True)
         with patch.dict(os.environ, {"PENX_LLM_RETRY_EMPTY": "off"}), \
-             patch("llm.complete_chat", side_effect=error) as call:
+             patch("penx_app.analysis.llm.complete_chat", side_effect=error) as call:
             result = ask_llm([{"role": "user", "content": "x"}])
         self.assertTrue(result.startswith("[!]"))
         self.assertEqual(call.call_count, 1)
@@ -137,7 +137,7 @@ class LLMEmptyResponseTests(unittest.TestCase):
     def test_two_empty_answers_report_specific_failure(self):
         error = EmptyModelResponse(finish_reason="length", reasoning_seen=True)
         with patch.dict(os.environ, {"PENX_LLM_RETRY_EMPTY": "on"}), \
-             patch("llm.complete_chat", side_effect=[error, error]) as call:
+             patch("penx_app.analysis.llm.complete_chat", side_effect=[error, error]) as call:
             result = ask_llm([{"role": "user", "content": "x"}])
         self.assertEqual(call.call_count, 2)
         self.assertIn("final answer after retry", result.lower())

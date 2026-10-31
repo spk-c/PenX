@@ -129,7 +129,9 @@ class CataloguePortsTests(unittest.TestCase):
             result = cve.discover(
                 source, nvd_lookup=nvd, osv_lookup=osv, github_lookup=gh,
                 priority_lookup=priority)
-        self.assertEqual(calls, ["nvd", "osv", "github"])
+        # Discovery fetches OSV/GitHub concurrently with NVD, so completion
+        # order is thread-dependent; each supplied port must run exactly once.
+        self.assertEqual(sorted(calls), ["github", "nvd", "osv"])
         self.assertEqual(len(result["candidates"]), 1)
         self.assertEqual(result["candidates"][0]["id"], "CVE-2024-9999")
         self.assertIn("NVD fixture warning", result["warnings"])

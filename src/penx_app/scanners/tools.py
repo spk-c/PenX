@@ -870,7 +870,7 @@ def run_endpoint_mapping(target: str, *, cancel_event=None) -> ScannerOutput:
         partial = bool(malformed)
         with tempfile.TemporaryDirectory(prefix="penx_endpoint_ffuf_") as folder:
             wordlist = Path(folder) / "safe-paths.txt"
-            for parent, selected in zip(parents, wordlists):
+            for parent, selected in zip(parents, wordlists, strict=True):
                 # A cancellable gap prevents a burst at process boundaries.
                 if cancel_event is not None:
                     if cancel_event.wait(0.6):
@@ -972,9 +972,11 @@ def run_tls_check(target: str, *, cancel_event=None) -> ScannerOutput:
                         protocol = tls.version() or "unknown"
                         cipher = tls.cipher()
                 break
-            except (TimeoutError, socket.timeout):
+            except (TimeoutError, socket.timeout) as err:
                 if attempt:
-                    raise TimeoutError("TLS handshake timed out twice (6s per attempt)")
+                    raise TimeoutError(
+                        "TLS handshake timed out twice (6s per attempt)"
+                    ) from err
         cancelled = _cancelled_after_io(cancel_event)
         if cancelled is not None:
             return cancelled

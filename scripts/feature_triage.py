@@ -166,7 +166,7 @@ def feature_review(root: Path, issue: dict) -> dict:
     """
     sources, complete = _source_lines(root)
     topics = []
-    for number, (heading, body) in enumerate(_topics(issue), 1):
+    for number, (heading, _body) in enumerate(_topics(issue), 1):
         key = next((name for name, spec in FEATURES.items()
                     if re.search(spec["match"], heading, re.I)), None)
         spec = FEATURES.get(key or "")

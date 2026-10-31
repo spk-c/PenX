@@ -25,7 +25,7 @@ from penx_app.storage.db_evals import (save_evaluation, get_evaluations, delete_
 from penx_app.storage.db_training import export_training_data
 from penx_app.cli.db_display import print_session
 from penx_app.reporting.export import fetch_session
-from llm import load_correction_rules, build_system_prompt
+from penx_app.analysis.llm import load_correction_rules, build_system_prompt
 from penx_app.analysis.prompts import SYSTEM_PROMPT
 
 

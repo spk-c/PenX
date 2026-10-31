@@ -1,8 +1,12 @@
 name: Python compatibility contracts
 
-# Three-version compatibility matrix is run manually to conserve CI minutes.
+# Four-version compatibility matrix. Runs on demand and on a weekly schedule
+# to keep CI minute usage bounded while still catching version drift.
 on:
   workflow_dispatch:
+  schedule:
+    # Weekly compatibility sweep (Sundays ~06:17 UTC).
+    - cron: '17 6 * * 0'
 
 permissions:
   contents: read
@@ -12,13 +16,13 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  minimum-and-intermediate:
+  compatibility-matrix:
     runs-on: ubuntu-latest
     timeout-minutes: 12
     strategy:
       fail-fast: false
       matrix:
-        python-version: ['3.10', '3.11', '3.12']
+        python-version: ['3.10', '3.11', '3.12', '3.13']
     env:
       PYTHONUTF8: '1'
     steps:

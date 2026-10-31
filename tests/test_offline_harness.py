@@ -43,6 +43,31 @@ class OfflineHarnessTests(unittest.TestCase):
             self.assertEqual(offline_tests.main([]), 1)
         self.assertIs(run.call_args.kwargs["stdin"], subprocess.DEVNULL)
 
+    def test_keep_going_starts_every_suite_after_a_failure(self):
+        with patch("offline_tests.discover_tests",
+                   return_value=[Path("test_a.py"), Path("test_b.py")]), \
+             patch("offline_tests.subprocess.run",
+                   side_effect=[subprocess.CompletedProcess([], 1),
+                                 subprocess.CompletedProcess([], 0)]) as run:
+            self.assertEqual(offline_tests.main(["--keep-going"]), 1)
+        self.assertEqual(run.call_count, 2)
+
+    def test_fail_fast_does_not_start_suites_after_a_failure(self):
+        with patch("offline_tests.discover_tests",
+                   return_value=[Path("test_a.py"), Path("test_b.py")]), \
+             patch("offline_tests.subprocess.run",
+                   side_effect=[subprocess.CompletedProcess([], 1),
+                                 subprocess.CompletedProcess([], 0)]) as run:
+            self.assertEqual(offline_tests.main(["--workers", "1"]), 1)
+        self.assertEqual(run.call_count, 1)
+
+    def test_hung_suite_times_out_and_fails_the_run(self):
+        with patch("offline_tests.discover_tests",
+                   return_value=[Path("test_fake.py")]), \
+             patch("offline_tests.subprocess.run",
+                   side_effect=subprocess.TimeoutExpired(cmd=[], timeout=300)):
+            self.assertEqual(offline_tests.main([]), 1)
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

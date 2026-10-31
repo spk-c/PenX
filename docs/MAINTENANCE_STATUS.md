@@ -4,6 +4,7 @@ Verified on **22 October 2026**: [PenX v0.4.11](https://github.com/spk-c/PenX/re
 
 ## Release status
 
+- Source version **v0.5.0** is in development on `main` (post-v0.4.11 optimization roadmap: parallel CVE enrichment, NVD disk cache on by default, parallel offline test runner, Python 3.10–3.13 compatibility matrix, Ruff W/B + mypy gates, legacy shim retirement). It is a source-only release candidate; **publication is pending** the protected `release/*` PR and a successful tagged Windows Release workflow. The latest published release remains v0.4.11.
 - Latest published Windows release: **[v0.4.11](https://github.com/spk-c/PenX/releases/tag/v0.4.11)**, immutable tag and release build commit `e39a8995256cfc4a7f6e5e98bb51b9e67953e552`. The version matches `src/penx_app/version.py`, `pyproject.toml`, and the Inno Setup version fallback.
 - Published assets: `PenX-Setup-x64.exe`, `PenX-Windows-x64.zip`, `SHA256SUMS.txt`, `CVE-QUALITY.json`. GitHub reports SHA-256 for the ZIP `80aa869343a6dc21e1778ae0db6028a4db9f74eb5da243fac49f412d7749aa3b` and for the installer `9c1ca291f4252ab72691dfee8a581aad16c990571f6b29d7975d64c906a8c62c`. Do not confuse source-code archives with portable binaries.
 - The **Scoop and WinGet draft manifests** now pin the actual v0.4.11 ZIP URL and its published SHA-256. These drafts are not yet accepted by any community repository; real native package-manager install/upgrade/rollback tests have not been independently signed off.
@@ -16,7 +17,7 @@ Verified on **22 October 2026**: [PenX v0.4.11](https://github.com/spk-c/PenX/re
 | P1 | [#81 Windows/Npcap/12 scanners](https://github.com/spk-c/PenX/issues/81) | All scanner choices on an explicitly authorized disposable target; cancellation, timeouts, process tree, missing dependencies, UAC/Npcap, operator-reviewed logs |
 | P1 | [#82 Database/installer/report recovery](https://github.com/spk-c/PenX/issues/82) | Restore sanitized SQLite WAL and MariaDB test copies; Windows upgrade/rollback/uninstall; long PDF/HTML/JSON/SARIF review and interrupted-publication recovery |
 | P1 | [FIELD_ACCEPTANCE.md](FIELD_ACCEPTANCE.md) | Operator evidence matrix, exact test build, results, rollback and reviewer sign-off; currently **NOT SIGNED OFF** |
-| P2 | Source/architecture cleanup | Inventory and prove old compatibility facades unused before removing them; widen Ruff/mypy and Windows/Python 3.13 confidence; don't delete public entrypoints without contract tests |
+| P2 | Source/architecture cleanup | Compatibility facades inventoried via `scripts/import_inventory.py` and retired: the `llm`/`app_paths` shims were removed on 2026-10-31 and the `penx` module entrypoint is pinned public API until v1; Ruff W/B + mypy gates and the Python 3.13 compatibility matrix are in place |
 
 **Scope:** Automated CI green means only tested code contracts passed. Real scanning, model availability, security coverage, historical database backups, human PDF inspection and physical installer behavior are not proven by synthetic mocks.
 

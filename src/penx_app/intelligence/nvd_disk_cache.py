@@ -1,8 +1,9 @@
-"""Opt-in, bounded local NVD cache keyed by CPE, never by API key.
+"""Bounded local NVD cache keyed by CPE, never by API key.
 
-The cache holds upstream public vulnerability records, not scan logs, domains,
-authorization credentials, or model responses. An expired entry is NOT used to
-assert current vulnerability status while offline.
+Enabled by default; set PENX_NVD_DISK_CACHE=0 to opt out. The cache holds
+upstream public vulnerability records, not scan logs, domains, authorization
+credentials, or model responses. An expired entry is NOT used to assert
+current vulnerability status while offline.
 """
 from __future__ import annotations
 
@@ -23,7 +24,7 @@ MAX_RECORDS = 100
 
 
 def enabled() -> bool:
-    return os.getenv("PENX_NVD_DISK_CACHE", "0").lower() in ("1", "true", "yes")
+    return os.getenv("PENX_NVD_DISK_CACHE", "1").lower() in ("1", "true", "yes")
 
 
 def cache_path(cpe: str) -> Path:

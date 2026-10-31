@@ -40,7 +40,7 @@ def _terminate_process_tree(proc: subprocess.Popen) -> None:
             pass
     else:
         try:
-            os.killpg(proc.pid, signal.SIGKILL)
+            os.killpg(proc.pid, signal.SIGKILL)  # type: ignore[attr-defined]
         except (ProcessLookupError, PermissionError):
             pass
     if proc.poll() is None:

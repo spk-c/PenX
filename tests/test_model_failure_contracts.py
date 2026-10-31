@@ -16,7 +16,7 @@ from dataclasses import replace
 
 import requests
 
-import llm
+from penx_app.analysis import llm
 from penx_app.analysis.analysis_pipeline import AnalysisPorts, analyse_target
 from penx_app.settings import Settings, load_settings
 
@@ -44,15 +44,15 @@ class AskLlmFailureContractTests(unittest.TestCase):
         transport = Mock(return_value=("snap-model", "RISK_LEVEL: LOW\nSUMMARY: ok"))
         with tempfile.TemporaryDirectory() as temp, \
              patch.dict(os.environ, LIVE_OFF), \
-             patch("llm.complete_chat", transport), \
-             patch("llm.LLM_URL", "http://legacy:1/v1/chat/completions"), \
-             patch("llm.LLM_MODELS_URL", "http://legacy:1/v1/models"), \
-             patch("llm.LLM_BASE_URL", "http://legacy:1"), \
-             patch("llm.MODEL_NAME", "legacy-model"), \
-             patch("llm.LLM_API_KEY", "legacy-key"), \
-             patch("llm.MAX_TOKENS", 111), \
-             patch("llm.LLM_TIMEOUT", 22), \
-             patch("llm.TOP_K", 3):
+             patch("penx_app.analysis.llm.complete_chat", transport), \
+             patch("penx_app.analysis.llm.LLM_URL", "http://legacy:1/v1/chat/completions"), \
+             patch("penx_app.analysis.llm.LLM_MODELS_URL", "http://legacy:1/v1/models"), \
+             patch("penx_app.analysis.llm.LLM_BASE_URL", "http://legacy:1"), \
+             patch("penx_app.analysis.llm.MODEL_NAME", "legacy-model"), \
+             patch("penx_app.analysis.llm.LLM_API_KEY", "legacy-key"), \
+             patch("penx_app.analysis.llm.MAX_TOKENS", 111), \
+             patch("penx_app.analysis.llm.LLM_TIMEOUT", 22), \
+             patch("penx_app.analysis.llm.TOP_K", 3):
             settings = snapshot_settings(Path(temp))
             result = llm.ask_llm([{"role": "user", "content": "assess"}], settings=settings)
         self.assertEqual(result, "RISK_LEVEL: LOW\nSUMMARY: ok")
@@ -69,14 +69,14 @@ class AskLlmFailureContractTests(unittest.TestCase):
         transport = Mock(return_value=("legacy-model", "ok"))
         with tempfile.TemporaryDirectory() as temp, \
              patch.dict(os.environ, LIVE_OFF), \
-             patch("llm.complete_chat", transport), \
-             patch("llm.LLM_URL", "http://legacy:1/v1/chat/completions"), \
-             patch("llm.LLM_MODELS_URL", "http://legacy:1/v1/models"), \
-             patch("llm.MODEL_NAME", "legacy-model"), \
-             patch("llm.LLM_API_KEY", "legacy-key"), \
-             patch("llm.MAX_TOKENS", 111), \
-             patch("llm.LLM_TIMEOUT", 22), \
-             patch("llm.TOP_K", 3):
+             patch("penx_app.analysis.llm.complete_chat", transport), \
+             patch("penx_app.analysis.llm.LLM_URL", "http://legacy:1/v1/chat/completions"), \
+             patch("penx_app.analysis.llm.LLM_MODELS_URL", "http://legacy:1/v1/models"), \
+             patch("penx_app.analysis.llm.MODEL_NAME", "legacy-model"), \
+             patch("penx_app.analysis.llm.LLM_API_KEY", "legacy-key"), \
+             patch("penx_app.analysis.llm.MAX_TOKENS", 111), \
+             patch("penx_app.analysis.llm.LLM_TIMEOUT", 22), \
+             patch("penx_app.analysis.llm.TOP_K", 3):
             llm.ask_llm([{"role": "user", "content": "assess"}])
         kwargs = transport.call_args.kwargs
         self.assertEqual(kwargs["url"], "http://legacy:1/v1/chat/completions")
@@ -88,7 +88,7 @@ class AskLlmFailureContractTests(unittest.TestCase):
 
     def test_ask_llm_timeout_maps_to_actionable_message(self):
         with patch.dict(os.environ, LIVE_OFF), \
-             patch("llm.complete_chat", side_effect=requests.Timeout("slow")):
+             patch("penx_app.analysis.llm.complete_chat", side_effect=requests.Timeout("slow")):
             result = llm.ask_llm([{"role": "user", "content": "x"}])
         self.assertTrue(result.startswith("[!]"))
         self.assertIn("timed out", result)
@@ -96,7 +96,7 @@ class AskLlmFailureContractTests(unittest.TestCase):
     def test_ask_llm_connection_error_reports_snapshot_base_url(self):
         with tempfile.TemporaryDirectory() as temp, \
              patch.dict(os.environ, LIVE_OFF), \
-             patch("llm.complete_chat", side_effect=requests.ConnectionError("offline")):
+             patch("penx_app.analysis.llm.complete_chat", side_effect=requests.ConnectionError("offline")):
             settings = snapshot_settings(Path(temp))
             result = llm.ask_llm([{"role": "user", "content": "x"}], settings=settings)
         self.assertTrue(result.startswith("[!]"))
@@ -107,14 +107,14 @@ class AskLlmFailureContractTests(unittest.TestCase):
         response.status_code = 500
         error = requests.HTTPError("500 Server Error", response=response)
         with patch.dict(os.environ, LIVE_OFF), \
-             patch("llm.complete_chat", side_effect=error):
+             patch("penx_app.analysis.llm.complete_chat", side_effect=error):
             result = llm.ask_llm([{"role": "user", "content": "x"}])
         self.assertTrue(result.startswith("[!]"))
         self.assertIn("500", result)
 
     def test_ask_llm_unexpected_error_is_bounded(self):
         with patch.dict(os.environ, LIVE_OFF), \
-             patch("llm.complete_chat", side_effect=ValueError("boom")):
+             patch("penx_app.analysis.llm.complete_chat", side_effect=ValueError("boom")):
             result = llm.ask_llm([{"role": "user", "content": "x"}])
         self.assertTrue(result.startswith("[!]"))
         self.assertIn("Unexpected LLM error: boom", result)
@@ -363,7 +363,7 @@ class SourceDispatchInjectionTests(unittest.TestCase):
 
 
 class FacadeSnapshotWiringTests(unittest.TestCase):
-    """llm.analyse_target must bind one snapshot to ask/review/summarize ports."""
+    """penx_app.analysis.llm.analyse_target must bind one snapshot to ask/review/summarize ports."""
 
     def test_pipeline_ports_receive_settings_bound_transports(self):
         ask_mock = Mock(side_effect=[
@@ -373,25 +373,25 @@ class FacadeSnapshotWiringTests(unittest.TestCase):
         review_mock = Mock(return_value={"flags": [], "review": "", "adjusted_risk": ""})
         summarize_mock = Mock(side_effect=lambda text, complete=None: text)
         with tempfile.TemporaryDirectory() as temp, \
-             patch("llm.LLM_TIMEOUT", 77), \
-             patch("llm.MAX_TOKENS", 4321), \
-             patch("llm.MODEL_NAME", "snap-model"), \
-             patch("llm.LLM_API_KEY", "snap-key"), \
-             patch("llm.STRUCTURED_MODE", "off"), \
-             patch("llm.VERIFY_SOURCES", False), \
-             patch("llm.discover", return_value={"candidates": []}), \
-             patch("llm.format_report", return_value=""), \
-             patch("llm.research_plugins", return_value={
+             patch("penx_app.analysis.llm.LLM_TIMEOUT", 77), \
+             patch("penx_app.analysis.llm.MAX_TOKENS", 4321), \
+             patch("penx_app.analysis.llm.MODEL_NAME", "snap-model"), \
+             patch("penx_app.analysis.llm.LLM_API_KEY", "snap-key"), \
+             patch("penx_app.analysis.llm.STRUCTURED_MODE", "off"), \
+             patch("penx_app.analysis.llm.VERIFY_SOURCES", False), \
+             patch("penx_app.analysis.llm.discover", return_value={"candidates": []}), \
+             patch("penx_app.analysis.llm.format_report", return_value=""), \
+             patch("penx_app.analysis.llm.research_plugins", return_value={
                  "observations": [], "checks": [], "candidates": [],
              }), \
-             patch("llm.build_system_prompt", return_value="System prompt"), \
-             patch("llm.load_correction_rules", return_value=""), \
-             patch("llm.ask_llm", ask_mock), \
-             patch("llm.self_review", review_mock), \
-             patch("llm.summarize_tool_output", summarize_mock), \
-             patch("llm.run_tool_by_command", return_value="x" * 600), \
-             patch("llm.verify_findings", side_effect=lambda x, *_a, **_k: x), \
-             patch("llm.exploitdb_lookup", return_value={
+             patch("penx_app.analysis.llm.build_system_prompt", return_value="System prompt"), \
+             patch("penx_app.analysis.llm.load_correction_rules", return_value=""), \
+             patch("penx_app.analysis.llm.ask_llm", ask_mock), \
+             patch("penx_app.analysis.llm.self_review", review_mock), \
+             patch("penx_app.analysis.llm.summarize_tool_output", summarize_mock), \
+             patch("penx_app.analysis.llm.run_tool_by_command", return_value="x" * 600), \
+             patch("penx_app.analysis.llm.verify_findings", side_effect=lambda x, *_a, **_k: x), \
+             patch("penx_app.analysis.llm.exploitdb_lookup", return_value={
                  "status": "offline", "checked_cves": [], "matches": [],
              }):
             result = llm.analyse_target("example.test", "offline evidence")

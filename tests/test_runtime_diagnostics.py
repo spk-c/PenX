@@ -177,7 +177,7 @@ class MetadataV3RoundTripTests(unittest.TestCase):
         parsed = ScanResult.from_metadata(original.metadata())
         self.assertEqual(parsed.plan_summary, original.plan_summary)
         self.assertEqual(len(parsed.results), len(original.results))
-        for orig, got in zip(original.results, parsed.results):
+        for orig, got in zip(original.results, parsed.results, strict=True):
             self.assertEqual(got.scanner_id, orig.scanner_id)
             self.assertEqual(got.status, orig.status)
             self.assertEqual(got.evidence, orig.evidence)

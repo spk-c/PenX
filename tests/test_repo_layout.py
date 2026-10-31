@@ -11,9 +11,10 @@ ROOT = Path(__file__).resolve().parent.parent
 class RepositoryLayoutTests(unittest.TestCase):
     def test_layout_keeps_public_entrypoint_and_source(self):
         self.assertTrue((ROOT / "penx.py").is_file())
-        self.assertTrue((ROOT / "src" / "llm.py").is_file())
-        self.assertTrue((ROOT / "src" / "app_paths.py").is_file())
-        from app_paths import APP_ROOT
+        # The installed module entrypoint (``python -m penx``) stays public
+        # until v1.
+        self.assertTrue((ROOT / "src" / "penx" / "__main__.py").is_file())
+        from penx_app.app_paths import APP_ROOT
         self.assertEqual(APP_ROOT, ROOT)
 
     def test_version_command_from_repository_root(self):
@@ -31,12 +32,13 @@ class RepositoryLayoutTests(unittest.TestCase):
         self.assertEqual(proc.returncode, 0, proc.stderr)
 
     def test_legacy_shims_retired_except_public_entrypoints(self):
-        # Only the public/pinned compatibility shims remain as top-level
-        # src/*.py modules; every other legacy shim has been retired.
+        # No top-level src/*.py compatibility shims remain; every legacy
+        # name is retired and consumers use the canonical penx_app paths.
+        # The ``penx`` module entrypoint is public API until v1.
         from scripts import import_inventory
-        self.assertEqual(import_inventory.KEPT, frozenset({"llm", "app_paths"}))
+        self.assertEqual(import_inventory.KEPT, frozenset())
         shims_on_disk = {p.stem for p in (ROOT / "src").glob("*.py")}
-        self.assertEqual(shims_on_disk, set(import_inventory.KEPT))
+        self.assertEqual(shims_on_disk, set())
         # REMOVED and KEPT partition the known legacy shim names exactly.
         legacy_names = set(import_inventory.LEGACY)
         self.assertEqual(import_inventory.REMOVED | import_inventory.KEPT, legacy_names)

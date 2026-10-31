@@ -1,5 +1,6 @@
-"""Offline regression of privacy-bounded, opt-in NVD catalogue cache."""
+"""Offline regression of the privacy-bounded NVD catalogue cache."""
 import json
+import os
 from pathlib import Path
 import tempfile
 import unittest
@@ -80,6 +81,16 @@ class LocalNvdCacheTests(unittest.TestCase):
             self.assertFalse(cache.store(PRODUCT.cpe, ()))
             self.assertIsNone(cache.load(PRODUCT.cpe))
         self.assertEqual(list(Path(self.temp.name).iterdir()), [])
+
+    def test_cache_is_enabled_by_default_when_env_unset(self):
+        # The default must stay "on": with no PENX_NVD_DISK_CACHE variable at
+        # all, entries are stored and readable.
+        env = {key: value for key, value in os.environ.items()
+               if key != "PENX_NVD_DISK_CACHE"}
+        with patch.dict("os.environ", env, clear=True):
+            self.assertTrue(cache.enabled())
+            self.assertTrue(cache.store(PRODUCT.cpe, ({"cve": {}},), now=100))
+            self.assertEqual(cache.load(PRODUCT.cpe, now=101), ({"cve": {}},))
 
 
 if __name__ == "__main__":

@@ -154,12 +154,14 @@ class SqliteSessionLockRetryTests(unittest.TestCase):
         for code in (sqlite3.SQLITE_ERROR, sqlite3.SQLITE_BUSY_SNAPSHOT):
             with self.subTest(code=code):
                 class ErrorCursor:
-                    def __init__(self):
+                    # error_code default binds this iteration's code value.
+                    def __init__(self, error_code=code):
                         self.attempts = 0
+                        self.error_code = error_code
                     def execute(self, _sql, _params):
                         self.attempts += 1
                         exc = sqlite3.OperationalError("synthetic sqlite error")
-                        exc.sqlite_errorcode = code
+                        exc.sqlite_errorcode = self.error_code
                         raise exc
                 cursor = ErrorCursor()
                 with self.assertRaises(sqlite3.OperationalError):

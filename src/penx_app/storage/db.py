@@ -116,7 +116,7 @@ def save_exploit(sl_no, exploit_name, tool_used, payload, result, notes):
     with closing(get_connection()) as conn:
         c = conn.cursor()
         c.execute("""
-            INSERT INTO exploits_attempted 
+            INSERT INTO exploits_attempted
             (sl_no, exploit_name, tool_used, payload, result, notes)
             VALUES (%s, %s, %s, %s, %s, %s)
         """, (

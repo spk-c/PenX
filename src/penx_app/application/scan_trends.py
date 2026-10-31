@@ -344,7 +344,9 @@ def compare_sessions(older: dict, newer: dict) -> dict:
         unmatched_old: list[dict] = []
         for severity in sorted(buckets):
             unmatched_old.extend(buckets[severity])
-        for old, new in zip(unmatched_old, unmatched_new):
+        # strict=False on purpose: the tail beyond the shorter side is
+        # reported separately as missing/fresh below.
+        for old, new in zip(unmatched_old, unmatched_new, strict=False):
             changed.append({"finding": new, "from": old["severity"],
                             "to": new["severity"]})
         missing.extend(unmatched_old[len(unmatched_new):])

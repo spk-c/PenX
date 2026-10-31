@@ -18,6 +18,13 @@ def fake_response(payload):
     return response
 
 
+def _bound(response):
+    """Build a transport that ignores all arguments and returns ``response``."""
+    def _get(*_args, **_kwargs):
+        return response
+    return _get
+
+
 class CatalogueFailClosedTests(unittest.TestCase):
     def setUp(self):
         sources._nvd_cache.clear()
@@ -35,20 +42,20 @@ class CatalogueFailClosedTests(unittest.TestCase):
             with self.subTest(payload=payload):
                 response = fake_response(payload)
                 self.assertEqual(sources.lookup_nvd(
-                    CVE, get=lambda *args, **kwargs: response), "unavailable")
+                    CVE, get=_bound(response)), "unavailable")
                 response.close.assert_called_once()
                 self.assertNotIn(CVE, sources._nvd_cache)
 
     def test_nvd_valid_empty_records_are_not_listed(self):
         response = fake_response({"vulnerabilities": []})
         self.assertEqual(sources.lookup_nvd(
-            CVE, get=lambda *args, **kwargs: response), "not-listed")
+            CVE, get=_bound(response)), "not-listed")
         response.close.assert_called_once()
 
     def test_nvd_valid_matching_cve_is_listed(self):
         response = fake_response({"vulnerabilities": [{"cve": {"id": CVE}}]})
         self.assertEqual(sources.lookup_nvd(
-            CVE, get=lambda *args, **kwargs: response), "listed")
+            CVE, get=_bound(response)), "listed")
         response.close.assert_called_once()
 
     def test_nvd_applicability_malformed_envelopes_fail_closed(self):
@@ -60,7 +67,7 @@ class CatalogueFailClosedTests(unittest.TestCase):
                     response = fake_response(payload)
                     result = sources.verify_nvd_applicability(
                         CVE, "synthetic versioned fixture",
-                        get=lambda *args, **kwargs: response)
+                        get=_bound(response))
                     self.assertEqual(result, "unavailable")
                     response.close.assert_called_once()
 
@@ -73,14 +80,14 @@ class CatalogueFailClosedTests(unittest.TestCase):
             with self.subTest(payload=payload):
                 response = fake_response(payload)
                 self.assertIsNone(sources.load_cisa_kev(
-                    get=lambda *args, **kwargs: response))
+                    get=_bound(response)))
                 response.close.assert_called_once()
                 self.assertIsNone(sources._kev_cache)
 
     def test_kev_valid_fixture_remains_supported(self):
         response = fake_response({"vulnerabilities": [{"cveID": CVE}]})
         self.assertEqual(sources.load_cisa_kev(
-            get=lambda *args, **kwargs: response), {CVE})
+            get=_bound(response)), {CVE})
         response.close.assert_called_once()
 
     def test_http_errors_also_close_connections(self):
@@ -96,15 +103,15 @@ class CatalogueFailClosedTests(unittest.TestCase):
                            return_value=[object()]):
                     if url is None:
                         self.assertIsNone(function(
-                            get=lambda *args, **kwargs: response))
+                            get=_bound(response)))
                     else:
                         if function == sources.verify_nvd_applicability:
                             value = function(
                                 url, "synthetic",
-                                get=lambda *args, **kwargs: response)
+                                get=_bound(response))
                         else:
                             value = function(
-                                url, get=lambda *args, **kwargs: response)
+                                url, get=_bound(response))
                         self.assertEqual(value, "unavailable")
                 response.close.assert_called_once()
 

@@ -1,9 +1,11 @@
 """Offline tests for version-aware catalogue discovery and scoped Nmap XML."""
 import json
+import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import Mock, patch
 
+from penx_app.intelligence import nvd_disk_cache
 from penx_app.intelligence.cve_observations import (
     parse_nmap_services, parse_explicit_packages, normalize_cpe, github_ecosystem
 )
@@ -54,7 +56,16 @@ def response(payload, status=200):
 
 class CveDiscoveryTests(unittest.TestCase):
     def setUp(self):
+        # The NVD disk cache is enabled by default; keep these transport
+        # tests from reading or writing the repository's real cache.
+        self.temp = tempfile.TemporaryDirectory(prefix="penx-nvd-cache-")
+        self.addCleanup(self.temp.cleanup)
+        self.directory = patch.object(
+            nvd_disk_cache, "CACHE_DIR", Path(self.temp.name))
+        self.directory.start()
+        self.addCleanup(self.directory.stop)
         _cached_nvd.cache_clear()
+        self.addCleanup(_cached_nvd.cache_clear)
 
     def test_nmap_xml_extracts_concrete_cpe_and_skips_closed_ports(self):
         services = parse_nmap_services(SAMPLE_XML)
@@ -150,7 +161,7 @@ class CveDiscoveryTests(unittest.TestCase):
         self.assertIn("unavailable",warn.lower())
 
     def test_integration_enriches_prompt_and_stores_candidates_without_fake_vulns(self):
-        import llm
+        from penx_app.analysis import llm
         discovery={
             "observations":["Port tcp/22: SSH 9.2"],
             "candidates":[{
@@ -165,12 +176,12 @@ class CveDiscoveryTests(unittest.TestCase):
         def model(messages, settings=None):
             self.assertIn("CVE-2024-9999",messages[-1]["content"])
             return "RISK_LEVEL: LOW\nSUMMARY: No confirmed vulnerabilities"
-        with patch("llm.discover",return_value=discovery),\
-             patch("llm.ask_llm",side_effect=model),\
-             patch("llm.STRUCTURED_MODE","off"),\
-             patch("llm.self_review",return_value={"review":"","adjusted_risk":"","flags":[]}),\
-             patch("llm.verify_findings",side_effect=lambda records,*a,**kw: records),\
-             patch("llm.load_correction_rules",return_value=""):
+        with patch("penx_app.analysis.llm.discover",return_value=discovery),\
+             patch("penx_app.analysis.llm.ask_llm",side_effect=model),\
+             patch("penx_app.analysis.llm.STRUCTURED_MODE","off"),\
+             patch("penx_app.analysis.llm.self_review",return_value={"review":"","adjusted_risk":"","flags":[]}),\
+             patch("penx_app.analysis.llm.verify_findings",side_effect=lambda records,*a,**kw: records),\
+             patch("penx_app.analysis.llm.load_correction_rules",return_value=""):
             data=llm.analyse_target("example.test",SAMPLE_XML)
         self.assertIn("CVE-2024-9999",data["full_response"])
         self.assertEqual(data["vulnerabilities"],[])
