@@ -65,6 +65,24 @@ class OfflineHarnessTests(unittest.TestCase):
         self.assertEqual((rc, err, failure), (0, b"", None))
         self.assertEqual(len(out), 1024)
 
+    def test_large_output_keeps_tail_with_final_error(self):
+        from offline_tests import _BoundedOutput
+        output = _BoundedOutput(1024)
+        output.append(b"START\\n" + b"x" * 100000)
+        output.append(b"\\nFINAL TRACEBACK MARKER\\n")
+        captured = output.output()
+        self.assertEqual(len(captured), 1024)
+        self.assertIn(b"START", captured)
+        self.assertIn(b"middle test output omitted", captured)
+        self.assertIn(b"FINAL TRACEBACK MARKER", captured)
+
+    def test_normal_output_keeps_exact_bytes(self):
+        from offline_tests import _BoundedOutput
+        output = _BoundedOutput(1024)
+        output.append(b"first")
+        output.append(b" second\\n")
+        self.assertEqual(output.output(), b"first second\\n")
+
     def test_hung_suite_times_out_and_fails(self):
         with tempfile.TemporaryDirectory() as directory:
             child = Path(directory) / "test_sleep.py"
