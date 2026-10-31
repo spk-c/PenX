@@ -7,7 +7,7 @@ from unittest.mock import patch
 
 from penx_app.storage import db
 from penx_app.storage import db_backend
-import llm
+from penx_app.analysis import llm
 import penx
 from penx_app.storage.db_evals import parse_evaluation_response, import_distilled_rules, get_learned_rules
 from penx_app.reporting.export import export_html, export_pdf, export_menu
@@ -36,7 +36,7 @@ class SecurityRegressions(unittest.TestCase):
             nmap.assert_not_called()
             self.assertEqual(run_tool_by_command('nmap -sV example.test', authorized_target='example.test'), 'safe-run')
             nmap.assert_called_once_with('example.test')
-        with patch('llm.run_tool_by_command', return_value='blocked') as dispatched:
+        with patch('penx_app.analysis.llm.run_tool_by_command', return_value='blocked') as dispatched:
             llm.run_tool_calls([('TOOL','nmap example.test')], authorized_target='example.test')
             dispatched.assert_called_once_with('nmap example.test', authorized_target='example.test')
 
@@ -108,7 +108,7 @@ class SecurityRegressions(unittest.TestCase):
              patch('penx.analyse_target',side_effect=RuntimeError('Model unavailable')):
             penx.new_scan()
         self.assertEqual(len(db.get_all_history()), 1)
-        with patch('llm.ask_llm',return_value='[!] Cannot connect'):
+        with patch('penx_app.analysis.llm.ask_llm',return_value='[!] Cannot connect'):
             with self.assertRaisesRegex(RuntimeError,'failed'):
                 llm.analyse_target('example.test','safe output')
 

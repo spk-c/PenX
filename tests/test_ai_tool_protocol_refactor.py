@@ -5,7 +5,14 @@ from unittest.mock import Mock, patch
 
 from penx_app.analysis import ai_tool_protocol
 from penx_app.domain.scan_models import ScannerOutput
-import llm
+from penx_app.analysis import llm
+
+
+def _bound(value):
+    """Build a callable that ignores all arguments and returns ``value``."""
+    def _call(*_args, **_kwargs):
+        return value
+    return _call
 
 
 class ToolProtocolRefactorTests(unittest.TestCase):
@@ -56,7 +63,7 @@ class ToolProtocolRefactorTests(unittest.TestCase):
                 collected = []
                 result = ai_tool_protocol.dispatch_directives(
                     [("TOOL", "nmap fixture.invalid")], raw_collector=collected,
-                    scanner_runner=lambda *_args, **_kwargs: value,
+                    scanner_runner=_bound(value),
                     search_runner=lambda _query: "",
                     summarizer=lambda value: value,
                 )
@@ -81,7 +88,7 @@ class ToolProtocolRefactorTests(unittest.TestCase):
                 collected = []
                 ai_tool_protocol.dispatch_directives(
                     [("TOOL", "nmap fixture.invalid")], raw_collector=collected,
-                    scanner_runner=lambda *_args, **_kwargs: value,
+                    scanner_runner=_bound(value),
                     search_runner=lambda _query: "",
                     summarizer=lambda text: text,
                 )
@@ -107,8 +114,8 @@ class ToolProtocolRefactorTests(unittest.TestCase):
         self.assertNotIn("SEARCH RESULT: fixture-%d" % limit, result)
 
     def test_public_llm_patch_points_still_work(self):
-        with patch("llm.run_tool_by_command", return_value="fixture") as scanner, \
-             patch("llm.summarize_tool_output", side_effect=lambda x: x):
+        with patch("penx_app.analysis.llm.run_tool_by_command", return_value="fixture") as scanner, \
+             patch("penx_app.analysis.llm.summarize_tool_output", side_effect=lambda x: x):
             result = llm.run_tool_calls([("TOOL", "nmap example.test")],
                                         authorized_target="example.test")
         scanner.assert_called_once_with("nmap example.test", authorized_target="example.test")

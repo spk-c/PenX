@@ -5,7 +5,7 @@ No HTTP requests or real security scans are issued by these tests.
 import unittest
 from unittest.mock import patch
 
-import llm
+from penx_app.analysis import llm
 from penx_app.analysis.assessment_quality import review_evidence, reviewer_report, apply_review
 from penx_app.scanners.tools import run_tool_by_command
 
@@ -183,7 +183,7 @@ class SL13OpenSSHAndReviewTests(unittest.TestCase):
 class NiktoTerminationRegressions(unittest.TestCase):
     def test_legacy_error_limit_is_partial(self):
         from penx_app.reporting.scan_coverage import coverage
-        raw = ("[ NIKTO OUTPUT ]\n" 
+        raw = ("[ NIKTO OUTPUT ]\n"
                "==============================\n"
                "- Nikto v2.6.1\n"
                "+ ERROR: *** Error limit (20) reached for host, giving up. ***\n"
@@ -330,11 +330,11 @@ class FirstCompleteScanRegressions(unittest.TestCase):
             scan.assert_called_once_with("shirtgeklebt.net")
 
     def test_blocked_model_tools_terminate_loop_without_retries(self):
-        with patch("llm.CVE_DISCOVERY", False), patch("llm.STRUCTURED_MODE", "off"), \
-             patch("llm.load_correction_rules", return_value=""), \
-             patch("llm.ask_llm", return_value="[TOOL: curl -sk https://shirtgeklebt.net/]") as ai, \
-             patch("llm.run_tool_by_command", return_value="[!] Blocked model tool call: unsupported flag") as tool, \
-             patch("llm.self_review", return_value={"review":"", "flags":[], "adjusted_risk":""}):
+        with patch("penx_app.analysis.llm.CVE_DISCOVERY", False), patch("penx_app.analysis.llm.STRUCTURED_MODE", "off"), \
+             patch("penx_app.analysis.llm.load_correction_rules", return_value=""), \
+             patch("penx_app.analysis.llm.ask_llm", return_value="[TOOL: curl -sk https://shirtgeklebt.net/]") as ai, \
+             patch("penx_app.analysis.llm.run_tool_by_command", return_value="[!] Blocked model tool call: unsupported flag") as tool, \
+             patch("penx_app.analysis.llm.self_review", return_value={"review":"", "flags":[], "adjusted_risk":""}):
             data = llm.analyse_target("shirtgeklebt.net", RAW)
         ai.assert_called_once()
         tool.assert_called_once()
@@ -348,15 +348,15 @@ class FirstCompleteScanRegressions(unittest.TestCase):
         }
         draft = {"vulnerabilities": [], "recommendations": [], "exploits": [suggestion],
                  "risk_level": "LOW", "summary": "No verified exploit execution"}
-        with patch("llm.CVE_DISCOVERY", False), \
-             patch("llm.STRUCTURED_MODE", "auto"), \
-             patch("llm.load_correction_rules", return_value=""), \
-             patch("llm.ask_llm", return_value="RISK_LEVEL: LOW\nSUMMARY: No exploits run"), \
-             patch("llm.request_structured_report", return_value=draft), \
-             patch("llm.self_review", return_value={
+        with patch("penx_app.analysis.llm.CVE_DISCOVERY", False), \
+             patch("penx_app.analysis.llm.STRUCTURED_MODE", "auto"), \
+             patch("penx_app.analysis.llm.load_correction_rules", return_value=""), \
+             patch("penx_app.analysis.llm.ask_llm", return_value="RISK_LEVEL: LOW\nSUMMARY: No exploits run"), \
+             patch("penx_app.analysis.llm.request_structured_report", return_value=draft), \
+             patch("penx_app.analysis.llm.self_review", return_value={
                  "review": "", "adjusted_risk": "", "flags": []
              }), \
-             patch("llm.verify_findings", side_effect=lambda a, *_b, **_c: a):
+             patch("penx_app.analysis.llm.verify_findings", side_effect=lambda a, *_b, **_c: a):
             result = llm.analyse_target("shirtgeklebt.net", RAW)
         self.assertEqual(result["exploits"], [])
         self.assertIn("[UNEXECUTED MODEL EXPLOIT SUGGESTIONS", result["full_response"])
@@ -399,11 +399,11 @@ class FirstCompleteScanRegressions(unittest.TestCase):
         def fake_ask(messages, settings=None):
             calls.append(messages)
             return "RISK_LEVEL: LOW\nSUMMARY: First pass" if len(calls) == 1 else flags
-        with patch("llm.CVE_DISCOVERY", False), patch("llm.STRUCTURED_MODE", "auto"), \
-             patch("llm.load_correction_rules", return_value=""), \
-             patch("llm.ask_llm", side_effect=fake_ask), \
-             patch("llm.request_structured_report", return_value=report), \
-             patch("llm.verify_findings", side_effect=lambda findings, *_a, **_kw: findings):
+        with patch("penx_app.analysis.llm.CVE_DISCOVERY", False), patch("penx_app.analysis.llm.STRUCTURED_MODE", "auto"), \
+             patch("penx_app.analysis.llm.load_correction_rules", return_value=""), \
+             patch("penx_app.analysis.llm.ask_llm", side_effect=fake_ask), \
+             patch("penx_app.analysis.llm.request_structured_report", return_value=report), \
+             patch("penx_app.analysis.llm.verify_findings", side_effect=lambda findings, *_a, **_kw: findings):
             result = llm.analyse_target("shirtgeklebt.net", RAW)
         self.assertEqual(result["vulnerabilities"], [])
         self.assertEqual(len(result["review"]["flags"]), 1)

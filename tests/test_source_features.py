@@ -8,7 +8,7 @@ from unittest.mock import Mock, patch
 import requests
 from jsonschema import ValidationError
 
-import llm
+from penx_app.analysis import llm
 from penx_app.intelligence import source_verification as verify
 from penx_app.analysis.llm_client import complete_chat
 from penx_app.analysis.structured_output import ANALYSIS_SCHEMA, parse_json_findings, request_structured_report
@@ -119,12 +119,12 @@ class SourceAndSchemaTests(unittest.TestCase):
 
     def test_main_analysis_uses_schema_without_executing_json_directives(self):
         result = sample()
-        with patch("llm.STRUCTURED_MODE", "auto"), patch("llm.VERIFY_SOURCES", False), \
-             patch("llm.load_correction_rules", return_value=""), \
-             patch("llm.ask_llm", return_value="RISK_LEVEL: LOW\nSUMMARY: First pass"), \
-             patch("llm.self_review", return_value={"review":"", "adjusted_risk":"", "flags":[]}), \
-             patch("llm.request_structured_report", return_value=result), \
-             patch("llm.verify_findings", side_effect=lambda findings, *_a, **_kw: findings):
+        with patch("penx_app.analysis.llm.STRUCTURED_MODE", "auto"), patch("penx_app.analysis.llm.VERIFY_SOURCES", False), \
+             patch("penx_app.analysis.llm.load_correction_rules", return_value=""), \
+             patch("penx_app.analysis.llm.ask_llm", return_value="RISK_LEVEL: LOW\nSUMMARY: First pass"), \
+             patch("penx_app.analysis.llm.self_review", return_value={"review":"", "adjusted_risk":"", "flags":[]}), \
+             patch("penx_app.analysis.llm.request_structured_report", return_value=result), \
+             patch("penx_app.analysis.llm.verify_findings", side_effect=lambda findings, *_a, **_kw: findings):
             data = llm.analyse_target("example.test", "OpenSSH version marker fixture")
         self.assertEqual(data["risk_level"], "HIGH")
         self.assertEqual(data["vulnerabilities"][0]["vuln_name"], "CVE-2024-6387 (test only)")

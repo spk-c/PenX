@@ -8,14 +8,14 @@ import unittest
 from unittest.mock import patch
 
 from penx_app.storage import db
-import llm
+from penx_app.analysis import llm
 import penx
 
 
 class ToolDispatchTests(unittest.TestCase):
     def test_none_tool_output_does_not_abort_assessment(self):
-        with patch("llm.run_tool_by_command", return_value=None), \
-             patch("llm.summarize_tool_output", side_effect=lambda text: text):
+        with patch("penx_app.analysis.llm.run_tool_by_command", return_value=None), \
+             patch("penx_app.analysis.llm.summarize_tool_output", side_effect=lambda text: text):
             result = llm.run_tool_calls(
                 [("TOOL", "nmap example.test")], authorized_target="example.test",
                 raw_collector=[],
@@ -28,17 +28,17 @@ class ToolDispatchTests(unittest.TestCase):
             "[TOOL: nmap -p 80 example.test]\nRISK_LEVEL: UNKNOWN",
             "RISK_LEVEL: LOW\nSUMMARY: The model has reviewed tool results.",
         ]
-        with patch("llm.MAX_TOOL_LOOPS", 1), \
-             patch("llm.ask_llm", side_effect=responses), \
-             patch("llm.discover", return_value={"candidates": []}), \
-             patch("llm.format_report", return_value=""), \
-             patch("llm.load_correction_rules", return_value=""), \
-             patch("llm.self_review", return_value={
+        with patch("penx_app.analysis.llm.MAX_TOOL_LOOPS", 1), \
+             patch("penx_app.analysis.llm.ask_llm", side_effect=responses), \
+             patch("penx_app.analysis.llm.discover", return_value={"candidates": []}), \
+             patch("penx_app.analysis.llm.format_report", return_value=""), \
+             patch("penx_app.analysis.llm.load_correction_rules", return_value=""), \
+             patch("penx_app.analysis.llm.self_review", return_value={
                  "review": "", "flags": [], "adjusted_risk": ""}), \
-             patch("llm.STRUCTURED_MODE", "off"), \
-             patch("llm.VERIFY_SOURCES", False), \
-             patch("llm.run_tool_calls", return_value="Two tool requests inspected") as run, \
-             patch("llm.verify_findings", side_effect=lambda x, *_a, **_kw: x):
+             patch("penx_app.analysis.llm.STRUCTURED_MODE", "off"), \
+             patch("penx_app.analysis.llm.VERIFY_SOURCES", False), \
+             patch("penx_app.analysis.llm.run_tool_calls", return_value="Two tool requests inspected") as run, \
+             patch("penx_app.analysis.llm.verify_findings", side_effect=lambda x, *_a, **_kw: x):
             result = llm.analyse_target("example.test", "offline evidence")
         self.assertEqual(result["risk_level"], "LOW")
         calls = run.call_args.args[0]
@@ -53,17 +53,17 @@ class ToolDispatchTests(unittest.TestCase):
             "RISK_LEVEL: LOW\nSUMMARY: Checked evidence.",
         ]
         with patch.dict(os.environ, {"PENX_ALLOW_MODEL_WEB_SEARCH": "on"}), \
-             patch("llm.MAX_TOOL_LOOPS", 1), \
-             patch("llm.ask_llm", side_effect=responses), \
-             patch("llm.discover", return_value={"candidates": []}), \
-             patch("llm.format_report", return_value=""), \
-             patch("llm.load_correction_rules", return_value=""), \
-             patch("llm.self_review", return_value={
+             patch("penx_app.analysis.llm.MAX_TOOL_LOOPS", 1), \
+             patch("penx_app.analysis.llm.ask_llm", side_effect=responses), \
+             patch("penx_app.analysis.llm.discover", return_value={"candidates": []}), \
+             patch("penx_app.analysis.llm.format_report", return_value=""), \
+             patch("penx_app.analysis.llm.load_correction_rules", return_value=""), \
+             patch("penx_app.analysis.llm.self_review", return_value={
                  "review": "", "flags": [], "adjusted_risk": ""}), \
-             patch("llm.STRUCTURED_MODE", "off"), \
-             patch("llm.VERIFY_SOURCES", False), \
-             patch("llm.run_tool_calls", return_value="Local mock output") as run, \
-             patch("llm.verify_findings", side_effect=lambda x, *_a, **_kw: x):
+             patch("penx_app.analysis.llm.STRUCTURED_MODE", "off"), \
+             patch("penx_app.analysis.llm.VERIFY_SOURCES", False), \
+             patch("penx_app.analysis.llm.run_tool_calls", return_value="Local mock output") as run, \
+             patch("penx_app.analysis.llm.verify_findings", side_effect=lambda x, *_a, **_kw: x):
             llm.analyse_target("example.test", "offline evidence")
         self.assertLessEqual(len(run.call_args.args[0]), 8)
 

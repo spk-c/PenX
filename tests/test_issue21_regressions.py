@@ -15,7 +15,7 @@ os.environ["PENX_DB_PATH"] = str(Path(_STORAGE.name) / "tests.sqlite")
 
 from penx_app.storage import db
 import penx
-import llm
+from penx_app.analysis import llm
 from penx_app.analysis.llm_client import IncompleteModelResponse, complete_chat
 from penx_app.storage.db_training import export_training_data
 from penx_app.reporting.export import _active_report_data
@@ -209,17 +209,17 @@ class Issue21Tests(unittest.TestCase):
             "[TOOL: nmap example.test]\nRISK_LEVEL: UNKNOWN",
             "RISK_LEVEL: LOW\nSUMMARY: Included latest tool evidence.",
         ]
-        with patch("llm.MAX_TOOL_LOOPS", 1), \
-             patch("llm.ask_llm", side_effect=responses) as ask, \
-             patch("llm.discover", return_value={"candidates": []}), \
-             patch("llm.format_report", return_value=""), \
-             patch("llm.load_correction_rules", return_value=""), \
-             patch("llm.self_review", return_value={"review": "",
+        with patch("penx_app.analysis.llm.MAX_TOOL_LOOPS", 1), \
+             patch("penx_app.analysis.llm.ask_llm", side_effect=responses) as ask, \
+             patch("penx_app.analysis.llm.discover", return_value={"candidates": []}), \
+             patch("penx_app.analysis.llm.format_report", return_value=""), \
+             patch("penx_app.analysis.llm.load_correction_rules", return_value=""), \
+             patch("penx_app.analysis.llm.self_review", return_value={"review": "",
                                                    "flags": [], "adjusted_risk": ""}), \
-             patch("llm.STRUCTURED_MODE", "off"), \
-             patch("llm.VERIFY_SOURCES", False), \
-             patch("llm.run_tool_calls", return_value="port 80 observed") as run, \
-             patch("llm.verify_findings", side_effect=lambda x, *_a, **_kw: x):
+             patch("penx_app.analysis.llm.STRUCTURED_MODE", "off"), \
+             patch("penx_app.analysis.llm.VERIFY_SOURCES", False), \
+             patch("penx_app.analysis.llm.run_tool_calls", return_value="port 80 observed") as run, \
+             patch("penx_app.analysis.llm.verify_findings", side_effect=lambda x, *_a, **_kw: x):
             result = llm.analyse_target("example.test", "raw data")
         self.assertEqual(ask.call_count, 2)
         run.assert_called_once()

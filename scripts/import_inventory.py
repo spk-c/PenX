@@ -37,7 +37,10 @@ except ImportError:  # executed directly as ``python scripts/import_inventory.py
     from source_layout import SOURCE_PATHS
 
 # Shims intentionally retained as public/pinned compatibility entrypoints.
-KEPT: frozenset[str] = frozenset({"llm", "app_paths"})
+# (As of 2026-10-31 none remain: ``llm`` and ``app_paths`` were migrated to
+# ``penx_app.analysis.llm`` / ``penx_app.app_paths``; the ``penx`` module
+# entrypoint is public API until v1 and is not part of LEGACY.)
+KEPT: frozenset[str] = frozenset()
 
 
 def _canonical(name: str) -> str:
