@@ -76,7 +76,7 @@ def _read_chars(prompt: str, getch, *, posix_fd: int | None = None) -> str:
 def _read_windows(prompt: str) -> str:
     import msvcrt
     # Windows-only API; this branch only runs on native Windows consoles.
-    return _read_chars(prompt, msvcrt.getwch)
+    return _read_chars(prompt, msvcrt.getwch)  # type: ignore[attr-defined]
 
 
 def _read_posix(prompt: str) -> str:
