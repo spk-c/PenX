@@ -150,14 +150,16 @@ def _terminal_event(output: ScannerOutput) -> str:
     """Map a finalized adapter row to its bounded run-event name."""
     if output.status == 'FAILED':
         return 'failed'
+    if output.status == 'COMPLETE':
+        return 'completed'
     diagnostics = output.diagnostics
     if 'cancel' in diagnostics.lower():
         return 'cancelled'
-    if 'Timed out' in diagnostics:
-        return 'failed'
     if diagnostics.startswith('Not started:') or '508' in diagnostics:
         return 'skipped'
-    return 'completed'
+    # PARTIAL is neither a successful completion nor an adapter failure.
+    # Timeouts and incomplete results remain visible as incomplete coverage.
+    return 'partial'
 
 
 def _run_plan_scheduled(plan: ScanPlan, *, menu: dict, emit,
