@@ -60,22 +60,31 @@ def evidence_in_scan(quote: str, raw_scan: str) -> bool:
     fragments = [" ".join(part.split()).casefold() for part in quoted]
     return bool(fragments) and all(len(part) >= 12 and part in scan for part in fragments)
 
+def _nvd_json(cve: str, api_key: str, get: Callable | None) -> dict | list:
+    """Share the catalogue request budget and response cap with CVE discovery."""
+    # Import lazily: cve_engine imports cve_priority -> this module.
+    from penx_app.intelligence.cve_engine import _nvd_before_request, _bounded_json
+    headers = {"User-Agent": "PenX/SourceVerification"}
+    if api_key:
+        headers["apiKey"] = api_key
+    if get is None:
+        _nvd_before_request(has_key=bool(api_key))
+    with closing((requests.get if get is None else get)(
+        NVD_API, params={"cveId": cve}, headers=headers,
+        timeout=(3, 7), allow_redirects=False, stream=True,
+    )) as response:
+        response.raise_for_status()
+        return _bounded_json(response)
+
+
 def lookup_nvd(cve: str, api_key: str = "", *, get: Callable | None = None) -> str:
     """Returns 'listed', 'not-listed' or 'unavailable' (never a target verdict)."""
     key = cve.upper()
     if (get is None and key in _nvd_cache
             and _fresh(_nvd_cache_time.get(key), time.monotonic())):
         return _nvd_cache[key]
-    headers = {"User-Agent": "PenX/SourceVerification"}
-    if api_key:
-        headers["apiKey"] = api_key
     try:
-        with closing((requests.get if get is None else get)(
-            NVD_API, params={"cveId": cve}, headers=headers,
-            timeout=(3, 7), allow_redirects=False,
-        )) as res:
-            res.raise_for_status()
-            payload = res.json()
+        payload = _nvd_json(cve, api_key, get)
         if not isinstance(payload, dict) or not isinstance(payload.get("vulnerabilities"), list):
             raise ValueError("Invalid NVD response")
         records = payload["vulnerabilities"]
@@ -104,16 +113,8 @@ def verify_nvd_applicability(cve_id: str, raw_scan: str, *, api_key: str = "",
     products = parse_nmap_services(raw_scan)
     if not products:
         return "unknown (no versioned Nmap CPE observed)"
-    headers = {"User-Agent": "PenX/SourceVerification"}
-    if api_key:
-        headers["apiKey"] = api_key
     try:
-        with closing((requests.get if get is None else get)(
-            NVD_API, params={"cveId": cve_id}, headers=headers,
-            timeout=(3, 7), allow_redirects=False,
-        )) as response:
-            response.raise_for_status()
-            payload = response.json()
+        payload = _nvd_json(cve_id, api_key, get)
         if not isinstance(payload, dict) or not isinstance(payload.get("vulnerabilities"), list):
             raise ValueError("Invalid NVD response")
         entries = payload["vulnerabilities"]
