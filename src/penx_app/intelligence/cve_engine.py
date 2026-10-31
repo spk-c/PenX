@@ -6,6 +6,7 @@ research candidates, never proof of target exploitability.
 """
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor
 from functools import lru_cache
 from collections.abc import Callable
 from penx_app.intelligence.nvd_disk_cache import load as load_nvd_cache, store as store_nvd_cache
@@ -80,7 +81,7 @@ def _candidate_match(match: dict, product: Product) -> bool | None:
     rule = cpe_components(match.get("criteria", ""))
     if not target or not rule:
         return None
-    if any(r not in ("*", t) for r, t in zip(rule[:3], target[:3])):
+    if any(r not in ("*", t) for r, t in zip(rule[:3], target[:3], strict=True)):
         return False
     return version_applies(target[3], match, rule[3])
 
@@ -108,7 +109,7 @@ def applicability(cve: dict, product: Product) -> str:
         criteria = cpe_components(criteria_text)
         if not target or not criteria:
             return None
-        if any(expected not in ("*", actual) for expected, actual in zip(criteria[:3], target[:3])):
+        if any(expected not in ("*", actual) for expected, actual in zip(criteria[:3], target[:3], strict=True)):
             # The inventory only describes this service, not all installed software.
             return None
         observed = True
@@ -242,7 +243,7 @@ def _memory_nvd(cpe: str, api_key: str) -> tuple[dict, ...]:
 
 
 # Preserve the existing cache reset API used by standalone callers/tests.
-setattr(_memory_nvd, "cache_clear", _memory_nvd_epoch.cache_clear)
+_memory_nvd.cache_clear = _memory_nvd_epoch.cache_clear  # type: ignore[attr-defined]
 
 
 def _cached_nvd(cpe: str, api_key: str) -> tuple[dict, ...]:
@@ -259,7 +260,7 @@ def _cached_nvd(cpe: str, api_key: str) -> tuple[dict, ...]:
 
 
 # Keep existing test/caller cache reset API for the disabled-memory-cache path.
-setattr(_cached_nvd, "cache_clear", _memory_nvd_epoch.cache_clear)
+_cached_nvd.cache_clear = _memory_nvd_epoch.cache_clear  # type: ignore[attr-defined]
 
 def _vendor_refs(cve: dict) -> list[str]:
     """Retain valid HTTPS vendor links despite malformed provider siblings."""
@@ -498,20 +499,40 @@ def discover(raw_scan: str, *, enabled: bool = True,
     github_client = github_candidates if github_lookup is None else github_lookup
     priority_client = enrich_priority if priority_lookup is None else priority_lookup
     vendor_client = vendor_guidance if vendor_lookup is None else vendor_lookup
-    for prod in products:
-        hits, warn = nvd_client(prod, api_key=nvd_api_key, limit=max_results)
+    nvd_results: list = [None] * len(products)
+    osv_results: list = [None] * len(packages)
+    gh_results: list = [None] * len(packages)
+    if products or packages:
+        with ThreadPoolExecutor(max_workers=3, thread_name_prefix="penx-cve") as pool:
+            package_futures = {}
+            for index, pkg in enumerate(packages):
+                package_futures[("osv", index)] = pool.submit(osv_client, pkg, limit=max_results)
+                package_futures[("gh", index)] = pool.submit(
+                    github_client, pkg, token=github_token, limit=max_results)
+            # NVD shares one public rate limit (5 requests / 5 s without an
+            # API key), so its queries stay on the calling thread, one at a
+            # time. They overlap with the pool's OSV/GitHub work instead of
+            # serializing it.
+            for prod_index, prod in enumerate(products):
+                nvd_results[prod_index] = nvd_client(prod, api_key=nvd_api_key, limit=max_results)
+            for (kind, index), future in package_futures.items():
+                fetched = future.result()
+                if kind == "osv":
+                    osv_results[index] = fetched
+                else:
+                    gh_results[index] = fetched
+    for hits, warn in nvd_results:
         absorb(hits)
         if warn:
             warnings.append(warn)
-    for pkg in packages:
-        hits, warn = osv_client(pkg, limit=max_results)
-        absorb(hits)
-        if warn:
-            warnings.append(warn)
-        hits, warn = github_client(pkg, token=github_token, limit=max_results)
-        absorb(hits)
-        if warn:
-            warnings.append(warn)
+    for index, (osv_hits, osv_warn) in enumerate(osv_results):
+        absorb(osv_hits)
+        if osv_warn:
+            warnings.append(osv_warn)
+        gh_hits, gh_warn = gh_results[index]
+        absorb(gh_hits)
+        if gh_warn:
+            warnings.append(gh_warn)
     if candidates and priority:
         candidates, issues = priority_client(candidates)
         warnings.extend(issues)
