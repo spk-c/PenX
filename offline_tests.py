@@ -85,16 +85,13 @@ class _BoundedOutput:
             return
         if not self.truncated:
             combined = self.data + chunk
+            head = combined[:self.head_size]
             self.truncated = True
         else:
+            head = self.data[:self.head_size]
             combined = self.data[self.head_size + len(self.marker):] + chunk
         tail = combined[-self.tail_size:] if self.tail_size else b""
-        self.data = bytearray(combined[:self.head_size] if self.head_size and not self.truncated else
-                              self.data[:self.head_size])
-        if len(self.data) < self.head_size:
-            self.data = bytearray(combined[:self.head_size])
-        self.data.extend(self.marker)
-        self.data.extend(tail)
+        self.data = bytearray(head + self.marker + tail)
 
     def output(self) -> bytes:
         return bytes(self.data)
