@@ -41,8 +41,8 @@ class CveReliabilityTests(unittest.TestCase):
             def sleep(seconds):
                 sleeps.append(seconds)
                 clock[0] += seconds
-            with patch.object(cve.time, "monotonic", side_effect=lambda: clock[0]), \\
-                 patch.object(cve.time, "sleep", side_effect=sleep):
+            with (patch.object(cve.time, "monotonic", side_effect=lambda: clock[0]),
+                  patch.object(cve.time, "sleep", side_effect=sleep)):
                 for _ in range(6):
                     cve._nvd_before_request(has_key=False)
             self.assertEqual(len(sleeps), 1)
