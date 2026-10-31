@@ -38,7 +38,7 @@ class ActionsBudgetTests(unittest.TestCase):
         self.assertIn("  workflow_dispatch:", p)
         self.assertNotIn("  pull_request:", p)
         self.assertNotIn("  push:", p)
-        self.assertIn("['3.10', '3.11', '3.12']", p)
+        self.assertIn("['3.10', '3.11', '3.12', '3.13']", p)
         i = read("issue-triage.yml")
         self.assertNotIn("  schedule:", i)
         self.assertIn("types: [opened]", i)
