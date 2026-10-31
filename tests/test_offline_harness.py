@@ -83,6 +83,16 @@ class OfflineHarnessTests(unittest.TestCase):
         output.append(b" second\\n")
         self.assertEqual(output.output(), b"first second\\n")
 
+    def test_trailing_process_output_is_available_on_return(self):
+        with tempfile.TemporaryDirectory() as directory:
+            child = Path(directory) / 'test_tail.py'
+            child.write_text("import sys\nsys.stderr.write('X' * 100000)\nsys.stderr.write('TAIL_ERROR_MARKER\\\\n')\nsys.stderr.flush()\nraise SystemExit(3)", encoding='utf-8')
+            with patch.object(offline_tests, 'MAX_SUITE_OUTPUT_BYTES', 2048):
+                rc, out, err, note = offline_tests._run_suite(child, os.environ.copy())
+        self.assertEqual((rc, out, note), (3, b'', None))
+        self.assertIn(b'TAIL_ERROR_MARKER', err)
+        self.assertLessEqual(len(err), 2048)
+
     def test_hung_suite_times_out_and_fails(self):
         with tempfile.TemporaryDirectory() as directory:
             child = Path(directory) / "test_sleep.py"
