@@ -86,6 +86,14 @@ class LocalNvdCacheTests(unittest.TestCase):
         self.assertEqual(len(list(Path(self.temp.name).glob("*.json"))), 4)
         self.assertEqual(unrelated.read_text(encoding="utf-8"), "keep")
 
+    def test_prune_caps_aggregate_bytes(self):
+        with patch.object(cache, 'MAX_TOTAL_CACHE_BYTES', 400):
+            for index in range(8):
+                cpe = f'cpe:2.3:a:vendor:fixture:{index}:*:*:*:*:*:*:*'
+                self.assertTrue(cache.store(cpe, ({'cve': {'id': 'CVE-2026-12345'}},)))
+        total = sum(path.stat().st_size for path in Path(self.temp.name).glob('*.json'))
+        self.assertLessEqual(total, 400)
+
     def test_prune_discards_expired_entry(self):
         cpe = "cpe:2.3:a:vendor:obsolete:1:*:*:*:*:*:*:*"
         self.assertTrue(cache.store(cpe, ()))
