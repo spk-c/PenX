@@ -10,7 +10,7 @@ The officially published [PenX v0.5.0 release](https://github.com/spk-c/PenX/rel
 The official installer SHA-256 is
 `74660a19d25607982e676659aa2c969739f7656375ed869f669bbe93b3047a2e`.
 
-**Release/version warning:** A published GitHub Release is not a listing in a community package registry. The WinGet package identifier `SLP-DEV1.PenX` remains a draft identifier pending independent publisher and package-identity review. GitHub Windows and installer smoke tests are **not** proof of actual Scoop/WinGet install, upgrade or rollback, Npcap, all scanner modes, or independently reviewed recovered databases. Full field acceptance is **NOT SIGNED OFF**. Historic v0.4.11 draft manifests remain in Git history; the working tree contains only the current v0.5.0 drafts.
+**Release/version warning:** A published GitHub Release is not a listing in a community package registry. The WinGet package identifier `SLP-DEV1.PenX` remains a draft identifier pending independent publisher and package-identity review. GitHub Windows and installer smoke tests are **not** proof of actual Scoop/WinGet install, upgrade or rollback, Npcap, all scanner modes, or independently reviewed recovered databases. Full field acceptance is **NOT SIGNED OFF**. Historical v0.4.11 draft manifests remain in Git history; the working tree contains only the current v0.5.0 drafts.
 
 ## WinGet (community repository)
 
