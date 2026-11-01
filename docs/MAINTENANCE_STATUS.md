@@ -1,14 +1,14 @@
 # PenX — maintenance and release status
 
-Verified on **22 October 2026**: [PenX v0.4.11](https://github.com/spk-c/PenX/releases/tag/v0.4.11) is **published**, with Windows binaries and SHA-256 digests. The tagged [Windows Release workflow](https://github.com/spk-c/PenX/actions/runs/39818462210) succeeded. Separate operator Windows/scanner/database field acceptance remains **NOT SIGNED OFF**; publication is not certification of all live environments.
+Verified on **1 November 2026**: [PenX v0.5.0](https://github.com/spk-c/PenX/releases/tag/v0.5.0) is **published** with official Windows installer, portable ZIP, CVE-quality fixtures, and SHA-256 checksums. The [tagged Windows Release workflow](https://github.com/spk-c/PenX/actions/runs/41293851523) succeeded for the immutable tagged commit `42b143ec21ced57a95e24909ffe4a143f17ad932`. Independent operator field acceptance remains **NOT SIGNED OFF**; a published installer is not certification of all real environments.
 
 ## Release status
 
-- Source version **v0.5.0** is in development on `main` (post-v0.4.11 optimization roadmap: parallel CVE enrichment, NVD disk cache on by default, parallel offline test runner, Python 3.10–3.13 compatibility matrix, Ruff W/B + mypy gates, legacy shim retirement). It is a source-only release candidate; **publication is pending** the protected `release/*` PR and a successful tagged Windows Release workflow. The latest published release remains v0.4.11.
-- Latest published Windows release: **[v0.4.11](https://github.com/spk-c/PenX/releases/tag/v0.4.11)**, immutable tag and release build commit `e39a8995256cfc4a7f6e5e98bb51b9e67953e552`. The published installer matches its immutable v0.4.11 tag; the development source files (`src/penx_app/version.py`, `pyproject.toml` and Inno Setup fallback) now identify the unreleased 0.5.0 candidate.
-- Published assets: `PenX-Setup-x64.exe`, `PenX-Windows-x64.zip`, `SHA256SUMS.txt`, `CVE-QUALITY.json`. GitHub reports SHA-256 for the ZIP `80aa869343a6dc21e1778ae0db6028a4db9f74eb5da243fac49f412d7749aa3b` and for the installer `9c1ca291f4252ab72691dfee8a581aad16c990571f6b29d7975d64c906a8c62c`. Do not confuse source-code archives with portable binaries.
-- The **Scoop and WinGet draft manifests** now pin the actual v0.4.11 ZIP URL and its published SHA-256. These drafts are not yet accepted by any community repository; real native package-manager install/upgrade/rollback tests have not been independently signed off.
-- Automated PR, release, smoke and post-merge checks completed successfully for the reviewed v0.4.11 chain. The [#81](https://github.com/spk-c/PenX/issues/81) and [#82](https://github.com/spk-c/PenX/issues/82) trackers were **closed** on 22 October 2026, but the separate [field acceptance checklist](FIELD_ACCEPTANCE.md) still states **NOT SIGNED OFF**. Closing issue trackers does not establish successful physical Windows/Npcap, backup-restore or human report-review tests.
+- **Latest published Windows release: [v0.5.0](https://github.com/spk-c/PenX/releases/tag/v0.5.0)** (published 1 November 2026), reviewed through [release PR #117](https://github.com/spk-c/PenX/pull/117), with Linux and Windows offline tests, packaged app and installer smoke checks, and the tagged Windows Release workflow all green.
+- Source, Python packaging and Inno Setup all identify **v0.5.0**. The tag resolves to the reviewed `main` commit `42b143ec21ced57a95e24909ffe4a143f17ad932`; do not move the tag or confuse source-code archives with Windows executables.
+- Published assets: `PenX-Setup-x64.exe`, `PenX-Windows-x64.zip`, `SHA256SUMS.txt`, `CVE-QUALITY.json`. The official release checksum file and GitHub asset digests agree: ZIP SHA-256 `79d70936093d239698c9ec9c2a48ff696693d2b8c70cb8dd387e02ff7e34e84c`; installer SHA-256 `74660a19d25607982e676659aa2c969739f7656375ed869f669bbe93b3047a2e`.
+- The **Scoop and WinGet draft manifests** now pin the actual published v0.5.0 ZIP and SHA-256. These are still only drafts, not community-registry submissions or proof of native package-manager installation/upgrade/rollback.
+- The earlier published [v0.4.11](https://github.com/spk-c/PenX/releases/tag/v0.4.11) remains available as historical release. Issues [#81](https://github.com/spk-c/PenX/issues/81) and [#82](https://github.com/spk-c/PenX/issues/82) were closed on 22 October 2026, but the separate [field acceptance checklist](FIELD_ACCEPTANCE.md) still states **NOT SIGNED OFF**.
 
 ## Outstanding independent acceptance
 
@@ -31,9 +31,9 @@ Verified on **22 October 2026**: [PenX v0.4.11](https://github.com/spk-c/PenX/re
 
 ## Next release checklist
 
-1. For the **next version after v0.4.11**, update the application, packaging, installer version and reviewed release notes together; do not move the immutable `v0.4.11` tag.
+1. For the **next version after v0.5.0**, update the application, packaging, installer version and reviewed release notes together; do not move the immutable `v0.4.11` tag.
 2. Use a protected `release/*` PR, confirm successful Linux/Windows packaged-app, Security and applicable path-filtered package checks, then the exact `main` post-merge CI.
 3. Create a **new** version tag only after the reviewed source commit is green. Publish and verify the official Windows installer, portable ZIP and SHA-256 checksums using the tagged Windows Release workflow.
-4. Only **after the new assets exist**, update WinGet/Scoop draft manifests and public documentation to verified URLs and checksums. Keep Windows/Npcap, installer upgrade/rollback, database recovery and visual report field acceptance explicitly **NOT SIGNED OFF** until supported by independent operator evidence.
+4. Only **after the next version's assets exist**, update WinGet/Scoop draft manifests and public documentation to verified URLs and checksums. Keep Windows/Npcap, installer upgrade/rollback, database recovery and visual report field acceptance explicitly **NOT SIGNED OFF** until supported by independent operator evidence.
 
 No production scanner targets, private credentials or customer databases are required for documentation/CI maintenance.
