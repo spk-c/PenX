@@ -57,13 +57,16 @@ def prune(*, now: float | None = None) -> None:
             for candidate in listing:
                 if not _CACHE_FILENAME.fullmatch(candidate.name):
                     continue
+                path = CACHE_DIR / candidate.name
                 try:
-                    info = candidate.stat(follow_symlinks=False)
+                    # On Windows, DirEntry.stat() may supply a different
+                    # st_ino from Path.lstat(), preventing safe cleanup.
+                    # Use the same stat API as _safe_unlink on every OS.
+                    info = path.lstat()
                 except OSError:
                     continue
                 if not stat.S_ISREG(info.st_mode):
                     continue
-                path = CACHE_DIR / candidate.name
                 if (info.st_size > MAX_CACHE_SIZE
                         or (0 <= current_time - info.st_mtime > TTL_SECONDS)):
                     _safe_unlink(path, info)
