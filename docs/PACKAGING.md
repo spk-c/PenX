@@ -2,19 +2,15 @@
 
 **Status: package manifests are drafts, not public registry listings.**
 PenX is a Windows-first Python application; npm is not an appropriate primary distribution channel.
-GitHub published [PenX v0.4.11](https://github.com/spk-c/PenX/releases/tag/v0.4.11) on **22 October 2026** with the Windows installer, portable ZIP, SHA256SUMS.txt and CVE-QUALITY.json. The [tagged Windows Release workflow](https://github.com/spk-c/PenX/actions/runs/39818462210) completed successfully. The current checked-in Scoop and WinGet **draft** manifests pin the released v0.4.11 ZIP to the SHA-256 digest reported by GitHub, but are **not** public community-registry listings. Historical WinGet drafts remain in Git history; only the latest draft is kept in the working tree.
 
-**v0.4.11 distribution status:** Scoop and WinGet draft manifests reference the genuine released ZIP and its GitHub-reported SHA-256 digest (`80aa869343a6dc21e1778ae0db6028a4db9f74eb5da243fac49f412d7749aa3b`). The Windows release pipeline passed packaging smoke tests, **not** community-registry validation or native Scoop/WinGet install, upgrade and rollback acceptance.
+The officially published [PenX v0.5.0 release](https://github.com/spk-c/PenX/releases/tag/v0.5.0) was built on **1 November 2026** by the successful [tagged Windows Release workflow](https://github.com/spk-c/PenX/actions/runs/41293851523). It contains the Windows installer `PenX-Setup-x64.exe`, portable `PenX-Windows-x64.zip`, `SHA256SUMS.txt` and `CVE-QUALITY.json`.
 
-**v0.5.0 status:** The source tree has advanced to **v0.5.0** (post-v0.4.11 optimization roadmap: parallel CVE enrichment, NVD disk cache on by default, parallel offline test runner, Python 3.10–3.13 compatibility matrix, Ruff W/B + mypy gates, legacy shim retirement). It is a **source-only release candidate**: no published v0.5.0 ZIP, installer, or verified SHA-256 exists yet, and the draft manifests below continue to pin the published v0.4.11 ZIP until the tagged Windows Release workflow publishes the v0.5.0 assets.
+**v0.5.0 verified download:** Both checked-in Scoop and WinGet **draft** manifests reference the real released `v0.5.0/PenX-Windows-x64.zip` with the SHA-256 published by GitHub and in `SHA256SUMS.txt`:
+`79d70936093d239698c9ec9c2a48ff696693d2b8c70cb8dd387e02ff7e34e84c`.
+The official installer SHA-256 is
+`74660a19d25607982e676659aa2c969739f7656375ed869f669bbe93b3047a2e`.
 
-## Release/version warning
-
-Both current draft manifests reference the **published v0.4.11 ZIP** under `spk-c/PenX`, pinned to SHA-256 `80aa869343a6dc21e1778ae0db6028a4db9f74eb5da243fac49f412d7749aa3b`.
-Historical draft manifests can be inspected in Git history, but must not be submitted or used as current downloads.
-The WinGet package identifier `SLP-DEV1.PenX` is retained as a draft identifier; changing it or promoting this manifest to a public community repository requires separate publisher and package-identity review.
-Automated GitHub Release smoke tests are **not** proof of native WinGet/Scoop install, upgrade, uninstall or rollback behavior, and full hardware/field acceptance is **NOT SIGNED OFF**.
-For future versions, align tag, Python package version, executable version, official download URL and independently verified SHA-256 before updating these drafts. GitHub also reports the v0.4.11 installer SHA-256 `9c1ca291f4252ab72691dfee8a581aad16c990571f6b29d7975d64c906a8c62c` (the manifests intentionally reference the portable ZIP).
+**Release/version warning:** A published GitHub Release is not a listing in a community package registry. The WinGet package identifier `SLP-DEV1.PenX` remains a draft identifier pending independent publisher and package-identity review. GitHub Windows and installer smoke tests are **not** proof of actual Scoop/WinGet install, upgrade or rollback, Npcap, all scanner modes, or independently reviewed recovered databases. Full field acceptance is **NOT SIGNED OFF**. Historic v0.4.11 draft manifests remain in Git history; the working tree contains only the current v0.5.0 drafts.
 
 ## WinGet (community repository)
 
