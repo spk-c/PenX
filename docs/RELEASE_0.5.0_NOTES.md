@@ -33,6 +33,25 @@ This release packages the optimization work merged after the
   entrypoint (`python -m penx`, root `penx.py`) remains public API
   until v1 and is pinned by contract tests.
 
+## Reliability and evidence correctness
+
+- **CVE research completeness:** OSV reports when catalogue pagination or the
+  candidate display limit omits possible matches. NVD request pacing honors
+  provider limits, including bounded `Retry-After`, and both NVD and reference
+  checks reuse the same limiter. Per-provider faults cannot silently abort
+  unrelated research.
+- **Network-response safety:** CVE provider JSON responses are size-limited,
+  malformed records are isolated, and partial provider data is flagged rather
+  than misrepresented as complete.
+- **Cache hygiene:** The NVD cache removes expired entries and limits its
+  local directory to 128 cache files / 64 MiB; unrelated files are not
+  managed by the cache.
+- **Honest scan telemetry:** Incomplete scanner outcomes now use the
+  terminal `partial` event rather than reporting a false `completed` event.
+- **More dependable test diagnostics:** Timed-out or failed tests terminate
+  their subprocess trees; bounded output capture retains the beginning and
+  the end of long logs, including trailing error messages.
+
 ## Packaging and limitations
 
 Windows downloads are published only after the immutable `v0.5.0` tag
