@@ -1,0 +1,27 @@
+{
+  "repository": "spk-c/PenX",
+  "description": "Cross-platform security reconnaissance for Windows and Kali/Linux, with 12 scanner adapters, optional local AI, and HTML/PDF/JSON/SARIF reports.",
+  "homepage": "https://github.com/spk-c/PenX/releases/latest",
+  "topics": [
+    "cybersecurity",
+    "ffuf",
+    "httpx",
+    "kali-linux",
+    "katana",
+    "linux",
+    "local-ai",
+    "network-scanner",
+    "nikto",
+    "nmap",
+    "nuclei",
+    "penetration-testing",
+    "python",
+    "recon",
+    "sarif",
+    "security-tools",
+    "subfinder",
+    "vulnerability-assessment",
+    "whatweb",
+    "windows"
+  ]
+}
