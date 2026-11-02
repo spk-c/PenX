@@ -308,6 +308,22 @@ If the retry also fails, check your Qwen server's chat template, model context/o
 
 **Cloudflare note:** a scan of a Cloudflare-proxied domain normally observes the **Cloudflare edge** (for instance 80/443/8080/8443), not the actual WordPress/PHP backend. Do not assign origin-host CVEs based on these proxy banners. Obtain origin software/package versions only through an authorized backend inventory or trusted local data.
 
+### WHOIS and DNS provider diagnostic privacy
+
+The built-in Python **WHOIS [2]** and **DNS [5]** adapters keep the
+`COMPLETE`/`PARTIAL`/`FAILED` and usable-evidence distinctions intact.
+When an external WHOIS library or DNS resolver raises an exception, its raw
+message can contain a tokenized URL, resolver credential, or internal network
+detail. PenX therefore records only a bounded generic failure and the exception
+**type**, not the exception message. DNS retains independently collected
+records while reporting `PARTIAL` if some record types failed; all failed
+record types result in `FAILED` and no evidence.
+
+This does not make WHOIS registration details or successful DNS TXT values
+secret-free. Review collected evidence and exported reports before sharing.
+The PX-003 regression tests use synthetic provider errors and prohibit
+actual networking; they also verify no error canary leaks to JSON/SARIF.
+
 ## 🗄️ Data and privacy
 
 Legacy SQLite databases retain their stored values when missing fields are
