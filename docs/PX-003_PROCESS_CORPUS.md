@@ -30,3 +30,23 @@ sign-off. Successful mixed-stream text still includes labeled diagnostics for
 legacy readers; attributing every parsed line to a raw byte stream remains
 future work. Other adapter packs, HTML/PDF parity and raw-byte evidence anchors
 remain open. Permission denial is injected, not an OS ACL field acceptance.
+
+## Executed evidence
+
+- Red baseline: eight failing fixture/mode combinations before the capture
+  correction. The old live path accepted stderr-only output, omitted its
+  channel label, and trusted replacement-decoded bytes (or falsely truncated
+  their re-encoded expansion).
+- `python tests/test_process_golden_corpus.py -v` — two tests PASS on Windows
+  and Kali: ten fixtures in both modes, plus missing/denied startup checks.
+  Fixtures include valid split Unicode, literal U+FFFD, exact/overflow caps,
+  invalid stdout/stderr, multiline display and stable JSON/SARIF projections.
+- Existing bounds (four), early EOF (two), cooperative cancellation (four),
+  and actual Windows process integration (two) tests PASS unchanged.
+- `python offline_tests.py` — all 229 suites PASS on Windows and Kali.
+  `python scripts/validate_distributions.py` — PASS on both platforms.
+- Ruff fatal/W/B and unused-import checks, full-source mypy and diff
+  whitespace — PASS. Final-commit CI is tracked in
+  [PR #126](https://github.com/spk-c/PenX/pull/126).
+- Windows packaged installer smoke remains NOT RUN for this feature branch;
+  no real scanner/target, publication or independent field sign-off.
