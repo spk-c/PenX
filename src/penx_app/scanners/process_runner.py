@@ -6,9 +6,9 @@ Truncated or timed-out output is diagnostic, never full scanner evidence.
 from __future__ import annotations
 
 from pathlib import Path
+import codecs
 import os
 import sys
-import queue
 import signal
 import subprocess
 import threading
@@ -59,28 +59,50 @@ class _BoundedBytes:
         self.buffer = bytearray()
         self.limit = limit
         self.truncated = False
+        self.decode_errors = False
 
-    def add(self, part: bytes) -> None:
+    def add(self, part: bytes) -> bytes:
         room = self.limit - len(self.buffer)
         if len(part) > room:
             self.truncated = True
         if room > 0:
-            self.buffer.extend(part[:room])
+            retained = part[:room]
+            self.buffer.extend(retained)
+            return retained
+        return b""
 
     def decode(self) -> str:
-        return self.buffer.decode("utf-8", errors="replace").strip()
+        try:
+            return self.buffer.decode("utf-8").strip()
+        except UnicodeDecodeError:
+            self.decode_errors = True
+            return self.buffer.decode("utf-8", errors="replace").strip()
 
 
-def _drain_pipe(pipe, sink: _BoundedBytes) -> None:
+def _drain_pipe(pipe, sink: _BoundedBytes, stream: bool = False, prefix: str = "") -> None:
+    decoder = codecs.getincrementaldecoder("utf-8")(errors="replace") if stream else None
+
+    def emit(part: bytes, *, final: bool = False) -> None:
+        if decoder is not None:
+            text = decoder.decode(part, final=final)
+            for line in text.split("\n"):
+                if line:
+                    _emit_line("  [SCAN] " + prefix + _terminal_safe_text(line.rstrip("\r")))
+
     try:
         while True:
             chunk = pipe.read(_CHUNK_BYTES)
             if not chunk:
                 return
-            sink.add(chunk)
+            retained = sink.add(chunk)
+            if stream:
+                emit(retained)
     except (OSError, ValueError):
         # A caller cancelled the process and closed the read side.
         return
+    finally:
+        if stream:
+            emit(b"", final=True)
 
 
 def _emit_line(text: str) -> None:
@@ -122,8 +144,9 @@ def _cancelled_result(command: list[str], exit_code: int | None = None) -> Scann
 
 def _run_tool_quiet(command: list[str], timeout: int, cwd: str | None,
                     env: dict[str, str] | None,
-                    cancel_event: threading.Event | None = None) -> ScannerOutput:
-    """Drain both pipes in small blocks; never call communicate() unbounded."""
+                    cancel_event: threading.Event | None = None, *,
+                    stream: bool = False) -> ScannerOutput:
+    """Common byte capture/lifecycle; optional rendering never changes evidence."""
     proc = subprocess.Popen(
         command, shell=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
         bufsize=0, cwd=cwd, env=env, **_process_group_options(),
@@ -131,8 +154,8 @@ def _run_tool_quiet(command: list[str], timeout: int, cwd: str | None,
     stdout = _BoundedBytes()
     stderr = _BoundedBytes()
     workers = [
-        threading.Thread(target=_drain_pipe, args=(proc.stdout, stdout), daemon=True),
-        threading.Thread(target=_drain_pipe, args=(proc.stderr, stderr), daemon=True),
+        threading.Thread(target=_drain_pipe, args=(proc.stdout, stdout, stream), daemon=True),
+        threading.Thread(target=_drain_pipe, args=(proc.stderr, stderr, stream, "[STDERR] "), daemon=True),
     ]
     for worker in workers:
         worker.start()
@@ -154,7 +177,12 @@ def _run_tool_quiet(command: list[str], timeout: int, cwd: str | None,
                 break
             try:
                 proc.wait(timeout=min(0.2, remaining))
-                break
+                if all(not worker.is_alive() for worker in workers):
+                    break
+                # Process exit and pipe EOF are separate events. Drain both
+                # readers within the same deadline, never trust a read race.
+                for worker in workers:
+                    worker.join(timeout=min(0.05, remaining))
             except subprocess.TimeoutExpired:
                 continue
     except BaseException:
@@ -196,6 +224,13 @@ def _run_tool_quiet(command: list[str], timeout: int, cwd: str | None,
             status="FAILED", evidence=False,
             exit_code=proc.returncode,
         )
+    if stdout.decode_errors or stderr.decode_errors:
+        return ScannerOutput(
+            "[!] INVALID UTF-8: scanner output required replacement; "
+            "collected results are incomplete.\n" + combined,
+            status="PARTIAL", evidence=False, exit_code=proc.returncode,
+            diagnostics="Scanner output contains invalid UTF-8",
+        )
     return ScannerOutput(
         combined or "[!] Tool returned no output.",
         status="COMPLETE" if out else "FAILED",
@@ -206,124 +241,10 @@ def _run_tool_quiet(command: list[str], timeout: int, cwd: str | None,
 def _run_tool_live(command: list[str], timeout: int, cwd: str | None,
                    env: dict[str, str] | None,
                    cancel_event: threading.Event | None = None) -> ScannerOutput:
-    """Stream bounded line chunks without an unbounded producer queue."""
+    """Render the same bounded per-stream bytes used by quiet capture."""
     _emit_line(f"  [LIVE] {Path(command[0]).name} started...")
-    proc = subprocess.Popen(
-        command, shell=False, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-        text=True, encoding="utf-8", errors="replace", bufsize=1, cwd=cwd, env=env,
-        **_process_group_options(),
-    )
-    messages: queue.Queue[str | None] = queue.Queue(maxsize=64)
-    stop = threading.Event()
+    return _run_tool_quiet(command, timeout, cwd, env, cancel_event, stream=True)
 
-    def read() -> None:
-        pipe = proc.stdout
-        if pipe is None:
-            return
-        try:
-            while True:
-                # readline(size) bounds a single unterminated scanner line.
-                chunk = pipe.readline(4096)
-                if not chunk:
-                    break
-                while not stop.is_set():
-                    try:
-                        messages.put(chunk, timeout=0.1)
-                        break
-                    except queue.Full:
-                        continue
-        finally:
-            while not stop.is_set():
-                try:
-                    messages.put(None, timeout=0.1)
-                    break
-                except queue.Full:
-                    continue
-
-    worker = threading.Thread(target=read, daemon=True)
-    worker.start()
-    output = []
-    used = 0
-    truncated = False
-    timed_out = False
-    cancelled = False
-    deadline = time.monotonic() + timeout
-    try:
-        while True:
-            if cancel_event is not None and cancel_event.is_set():
-                cancelled = True
-                _terminate_process_tree(proc)
-                break
-            remaining = deadline - time.monotonic()
-            if remaining <= 0:
-                timed_out = True
-                _terminate_process_tree(proc)
-                break
-            try:
-                chunk = messages.get(timeout=min(0.2, remaining))
-            except queue.Empty:
-                if proc.poll() is not None and not worker.is_alive() and messages.empty():
-                    break
-                continue
-            if chunk is None:
-                # EOF belongs to the output pipe, not necessarily to the
-                # scanner process. A scanner may close stdout/stderr and
-                # keep running; it must still obey cancellation and timeout.
-                if proc.poll() is not None:
-                    break
-                continue
-            room = MAX_CAPTURE_BYTES - used
-            # Count the same encoded UTF-8 bytes as the quiet runner.
-            # Character counts understate memory consumption for Unicode text.
-            encoded = chunk.encode("utf-8")
-            if len(encoded) > room:
-                truncated = True
-            if room > 0:
-                retained = encoded[:room]
-                output.append(retained)
-                used += len(retained)
-                _emit_line("  [SCAN] " + _terminal_safe_text(
-                    retained.decode("utf-8", errors="replace").rstrip("\r\n")
-                ))
-        proc.wait(timeout=5 if (timed_out or cancelled)
-                  else max(0.1, deadline - time.monotonic()))
-    except BaseException:
-        _terminate_process_tree(proc)
-        proc.wait()
-        raise
-    finally:
-        stop.set()
-        worker.join(timeout=2)
-        if proc.stdout is not None:
-            proc.stdout.close()
-
-    text = b"".join(output).decode("utf-8", errors="replace").strip()
-    if cancelled:
-        return _cancelled_result(command, proc.returncode)
-    if timed_out:
-        return ScannerOutput(
-            f"[!] Timed out after {timeout}s: {command[0]}\n[PARTIAL OUTPUT]\n{text}",
-            status="PARTIAL", evidence=False,
-            exit_code=proc.returncode,
-        )
-    if truncated:
-        return ScannerOutput(
-            f"[!] OUTPUT TRUNCATED: streamed scanner output exceeded "
-            f"{MAX_CAPTURE_BYTES} bytes; collected results are incomplete.\n{text}",
-            status="PARTIAL", evidence=False,
-            exit_code=proc.returncode,
-        )
-    if proc.returncode:
-        return ScannerOutput(
-            f"[EXIT CODE {proc.returncode}]\n{text}",
-            status="FAILED", evidence=False,
-            exit_code=proc.returncode,
-        )
-    return ScannerOutput(
-        text or "[!] Tool returned no output.",
-        status="COMPLETE" if text else "FAILED",
-        evidence=bool(text), exit_code=proc.returncode,
-    )
 
 
 def _child_env(env: dict[str, str] | None) -> dict[str, str]:
