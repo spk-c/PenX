@@ -17,6 +17,7 @@ import threading
 PORT = 8080
 URL = f"http://127.0.0.1:{PORT}"
 TARGET = "127.0.0.1"
+AVAILABLE_PATHS = {"/", "/robots.txt", "/admin", "/docs"}
 
 
 class LocalFixture(BaseHTTPRequestHandler):
@@ -27,10 +28,16 @@ class LocalFixture(BaseHTTPRequestHandler):
         self._send(body=True)
 
     def _send(self, *, body: bool):
+        if self.path.split("?", 1)[0] not in AVAILABLE_PATHS:
+            self.send_response(404)
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+            return
         content = (
             "<html><head><title>PenX Kali localhost fixture</title>"
             '<meta name="generator" content="PenX-local-fixture"></head>'
-            "<body><a href='/robots.txt'>robots</a></body></html>"
+            "<body><a href='/robots.txt'>robots</a>"
+            "<a href='/docs'>docs</a><a href='/admin'>admin</a></body></html>"
         ).encode("utf-8")
         self.send_response(200)
         self.send_header("Content-Type", "text/html")
@@ -81,7 +88,10 @@ def assert_local_scan(scanner_id: str, key: str, target: str, directory: Path,
 
 
 def main() -> None:
-    for name in ("nmap", "whatweb", "nikto", "penx"):
+    # Deliberately only loopback: all active probes must stay inside the
+    # self-owned HTTP fixture. No passive provider or external DNS enumeration.
+    for name in ("nmap", "whatweb", "nikto", "penx", "nuclei",
+                 "httpx-toolkit", "ffuf", "katana", "subfinder"):
         if not shutil.which(name):
             raise RuntimeError(f"Required Kali scanner not installed: {name}")
     server = ThreadingHTTPServer(("127.0.0.1", PORT), LocalFixture)
@@ -89,8 +99,28 @@ def main() -> None:
     thread.start()
     try:
         with tempfile.TemporaryDirectory(prefix="penx-kali-local-") as temp:
+            fixture_root = Path(temp)
+            templates = fixture_root / "vetted-templates"
+            templates.mkdir()
+            (templates / "penx-local-fixture.yaml").write_text(
+                """id: penx-local-fixture
+info:
+  name: PenX controlled fixture verification
+  author: penx-ci
+  severity: low
+http:
+  - method: GET
+    path:
+      - "{{BaseURL}}/"
+    matchers:
+      - type: word
+        part: header
+        words:
+          - "PenX-Local-Fixture"
+""", encoding="utf-8")
+            os.environ["PENX_NUCLEI_TEMPLATES"] = str(templates)
             result = run("penx", "preflight", "--target", TARGET,
-                         "--scanners", "1,3,4,6", "--consent", timeout=45)
+                         "--scanners", "1,3,4,6,7,8,9,c,e", "--consent", timeout=45)
             if result.returncode:
                 raise AssertionError("Kali preflight incorrectly marks installed scanners missing")
             failures = []
@@ -106,6 +136,11 @@ def main() -> None:
                 ("whatweb", "3", URL, 75),
                 ("nmap", "1", TARGET, 165),
                 ("nikto", "6", URL, 125),
+                ("nuclei", "7", URL, 120),
+                ("httpx", "8", URL, 80),
+                ("ffuf", "9", URL, 90),
+                ("katana", "c", URL, 110),
+                ("endpoint_mapping", "e", URL, 125),
             ):
                 try:
                     assert_local_scan(scanner_id, key, target, Path(temp), timeout=deadline)
@@ -120,8 +155,24 @@ def main() -> None:
                 failures.append("Nikto did not emit its scanner banner")
             if failures:
                 raise AssertionError("Kali localhost acceptance failures: " + "; ".join(failures))
-            print("[PASS] Kali localhost: PenX HTTP headers, WhatWeb, Nmap, Nikto;"
-                  " plus native WhatWeb/Nikto binary verification", flush=True)
+            # Subfinder is passive and needs online sources to produce real
+            # discoveries. Prove its installed binary is found, and verify
+            # a literal IP is rejected rather than sent to outside providers.
+            preflight = run("penx", "preflight", "--target", TARGET,
+                            "--scanners", "s", timeout=30)
+            if preflight.returncode:
+                failures.append("Subfinder missing from Kali preflight")
+            no_external = run("penx", "scan", "--target", TARGET, "--scanners",
+                              "s", "--authorized", "--format", "json",
+                              "--output", str(fixture_root / "subfinder"), timeout=35)
+            if no_external.returncode != 4:
+                failures.append("Subfinder must reject an IP without passive provider calls")
+            if failures:
+                raise AssertionError("Kali localhost acceptance failures: " + "; ".join(failures))
+            print("[PASS] Kali localhost: Nmap, WhatWeb, Nikto, HTTP headers,"
+                  " Nuclei, httpx, ffuf, Katana and endpoint mapping;", flush=True)
+            print("[LIMITATION] WHOIS/Subfinder live providers and DNS are not"
+                  " verified by an isolated loopback HTTP fixture.", flush=True)
     finally:
         server.shutdown()
         server.server_close()

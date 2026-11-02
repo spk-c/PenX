@@ -82,7 +82,7 @@ jobs:
             -v "$PWD/artifacts:/artifacts:ro" \
             -v "$PWD/tests/kali_local_scanner_acceptance.py:/kali_acceptance.py:ro" \
             kalilinux/kali-rolling:latest \
-            bash -euo pipefail -c 'export DEBIAN_FRONTEND=noninteractive; apt-get update; apt-get install -y /artifacts/penx_*.deb python3 nmap whatweb nikto; penx --version; penx --check; penx --setup-status; export XDG_DATA_HOME="$(mktemp -d)"; penx --setup; test -s "$XDG_DATA_HOME/PenX/.env"; test "$(stat -c %a "$XDG_DATA_HOME/PenX/.env")" = 600; python3 /kali_acceptance.py'
+            bash -euo pipefail -c 'export DEBIAN_FRONTEND=noninteractive; apt-get update; apt-get install -y /artifacts/penx_*.deb python3 nmap whatweb nikto nuclei httpx-toolkit ffuf katana subfinder; penx --version; penx --check; penx --setup-status; export XDG_DATA_HOME="$(mktemp -d)"; penx --setup; test -s "$XDG_DATA_HOME/PenX/.env"; test "$(stat -c %a "$XDG_DATA_HOME/PenX/.env")" = 600; python3 /kali_acceptance.py'
       - name: Record artifact hashes
         run: cd artifacts && sha256sum *.deb *.tar.gz > SHA256SUMS.txt
       - name: Upload preview build for review
