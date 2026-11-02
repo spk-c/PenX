@@ -16,26 +16,38 @@ class RepositoryPublicDocsTests(unittest.TestCase):
     def test_public_links_and_linux_checksum_are_discoverable(self):
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
         from penx_app.version import VERSION
+        # An in-progress source release may be newer than the last
+        # published, hash-pinned binary. Never demand unpublished assets.
+        published_version = json.loads(
+            (ROOT / "packaging/scoop/penx.json").read_text(encoding="utf-8")
+        )["version"]
+        self.assertGreaterEqual(
+            tuple(map(int, VERSION.split("."))),
+            tuple(map(int, published_version.split("."))),
+        )
         for asset in (
             "PenX-Setup-x64.exe",
             "PenX-Windows-x64.zip",
-            f"penx_{VERSION}_amd64.deb",
+            f"penx_{published_version}_amd64.deb",
             "PenX-Linux-x86_64.tar.gz",
             "SHA256SUMS.txt",
             "SHA256SUMS-Linux.txt",
         ):
             self.assertIn(asset, readme)
-        self.assertIn(f"/releases/tag/v{VERSION}", readme)
+        self.assertIn(f"/releases/tag/v{published_version}", readme)
         self.assertNotIn("Linux support in development", readme)
         self.assertNotIn("published release still provides Windows binaries only", readme)
 
     def test_draft_manifests_pin_published_archive(self):
         scoop = json.loads((ROOT / "packaging/scoop/penx.json").read_text())
         from penx_app.version import VERSION
-        self.assertEqual(scoop["version"], VERSION)
+        self.assertGreaterEqual(
+            tuple(map(int, VERSION.split("."))),
+            tuple(map(int, scoop["version"].split("."))),
+        )
         self.assertEqual(
             scoop["architecture"]["64bit"]["url"],
-            f"https://github.com/spk-c/PenX/releases/download/v{VERSION}/PenX-Windows-x64.zip",
+            f"https://github.com/spk-c/PenX/releases/download/v{scoop['version']}/PenX-Windows-x64.zip",
         )
         digest = scoop["architecture"]["64bit"]["hash"]
         self.assertRegex(digest, r"^[0-9a-f]{64}$")
