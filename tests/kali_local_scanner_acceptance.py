@@ -10,12 +10,15 @@ import json
 import os
 from pathlib import Path
 import shutil
+import ssl
 import subprocess
 import tempfile
 import threading
 
 PORT = 8080
+TLS_PORT = 8443
 URL = f"http://127.0.0.1:{PORT}"
+TLS_URL = f"https://127.0.0.1:{TLS_PORT}"
 TARGET = "127.0.0.1"
 AVAILABLE_PATHS = {"/", "/robots.txt", "/admin", "/docs"}
 
@@ -97,9 +100,29 @@ def main() -> None:
     server = ThreadingHTTPServer(("127.0.0.1", PORT), LocalFixture)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
+    tls_server = None
+    tls_thread = None
+    previous_ca = os.environ.get("SSL_CERT_FILE")
     try:
         with tempfile.TemporaryDirectory(prefix="penx-kali-local-") as temp:
             fixture_root = Path(temp)
+            cert = fixture_root / "local-tls-cert.pem"
+            key = fixture_root / "local-tls-key.pem"
+            # Trust a self-generated certificate for this fixture only.
+            # The private key never leaves the temporary container directory.
+            subprocess.run([
+                "openssl", "req", "-x509", "-nodes", "-newkey", "rsa:2048",
+                "-keyout", str(key), "-out", str(cert), "-days", "1",
+                "-subj", "/CN=127.0.0.1",
+                "-addext", "subjectAltName=IP:127.0.0.1",
+            ], stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True, timeout=20)
+            context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+            context.load_cert_chain(certfile=str(cert), keyfile=str(key))
+            tls_server = ThreadingHTTPServer(("127.0.0.1", TLS_PORT), LocalFixture)
+            tls_server.socket = context.wrap_socket(tls_server.socket, server_side=True)
+            tls_thread = threading.Thread(target=tls_server.serve_forever, daemon=True)
+            tls_thread.start()
+            os.environ["SSL_CERT_FILE"] = str(cert)
             templates = fixture_root / "vetted-templates"
             templates.mkdir()
             (templates / "penx-local-fixture.yaml").write_text(
@@ -141,6 +164,7 @@ http:
                 ("ffuf", "9", URL, 90),
                 ("katana", "c", URL, 110),
                 ("endpoint_mapping", "e", URL, 125),
+                ("tls", "d", TLS_URL, 45),
             ):
                 try:
                     assert_local_scan(scanner_id, key, target, Path(temp), timeout=deadline)
@@ -170,10 +194,20 @@ http:
             if failures:
                 raise AssertionError("Kali localhost acceptance failures: " + "; ".join(failures))
             print("[PASS] Kali localhost: Nmap, WhatWeb, Nikto, HTTP headers,"
-                  " Nuclei, httpx, ffuf, Katana and endpoint mapping;", flush=True)
+                  " Nuclei, httpx, ffuf, Katana, endpoint mapping and"
+                  " verified TLS;", flush=True)
             print("[LIMITATION] WHOIS/Subfinder live providers and DNS are not"
                   " verified by an isolated loopback HTTP fixture.", flush=True)
     finally:
+        if previous_ca is None:
+            os.environ.pop("SSL_CERT_FILE", None)
+        else:
+            os.environ["SSL_CERT_FILE"] = previous_ca
+        if tls_server is not None:
+            tls_server.shutdown()
+            tls_server.server_close()
+        if tls_thread is not None:
+            tls_thread.join(timeout=10)
         server.shutdown()
         server.server_close()
         thread.join(timeout=10)
