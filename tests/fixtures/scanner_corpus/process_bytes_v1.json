@@ -1,0 +1,205 @@
+{
+  "schema": "penx-process-corpus-v1",
+  "provenance": {
+    "kind": "hand-authored-synthetic",
+    "source": "Synthetic inert byte files written by a fixed local Python child, never a scanner capture."
+  },
+  "cases": [
+    {
+      "id": "split-valid-utf8",
+      "stdout": {
+        "hex": "38302f746370206f70656e206874747020636166c3a920e282ac0a",
+        "sha256": "c0b8bde92b1200434c61833866690a8926cef8fd177235c43c8d76f4770eee32"
+      },
+      "stderr": {
+        "hex": "",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "expected": {
+        "status": "COMPLETE",
+        "evidence": true,
+        "coverage": "COMPLETE",
+        "rules": [
+          "PENX-open-service"
+        ],
+        "text": "80/tcp open http caf\u00e9 \u20ac"
+      },
+      "chunk_bytes": 1
+    },
+    {
+      "id": "stderr-only-service-text",
+      "stdout": {
+        "hex": "",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "stderr": {
+        "hex": "38302f746370206f70656e20687474700a",
+        "sha256": "4ba9864d8906bb66f71cebed34d3ef2d616bb3cad27e654c0ce4a78f0e703fde"
+      },
+      "expected": {
+        "status": "FAILED",
+        "evidence": false,
+        "coverage": "PARTIAL",
+        "rules": [],
+        "text": "[STDERR]\n80/tcp open http"
+      }
+    },
+    {
+      "id": "labeled-mixed-streams",
+      "stdout": {
+        "hex": "38302f746370206f70656e20687474700a",
+        "sha256": "4ba9864d8906bb66f71cebed34d3ef2d616bb3cad27e654c0ce4a78f0e703fde"
+      },
+      "stderr": {
+        "hex": "7761726e696e6720e29c930a",
+        "sha256": "b81d819048156741b16a20a6a42a6495869539ecb07101a05499848c674f6e62"
+      },
+      "expected": {
+        "status": "COMPLETE",
+        "evidence": true,
+        "coverage": "COMPLETE",
+        "rules": [
+          "PENX-open-service"
+        ],
+        "text": "80/tcp open http\n[STDERR]\nwarning \u2713"
+      }
+    },
+    {
+      "id": "invalid-stdout-utf8",
+      "stdout": {
+        "hex": "38302f746370206f70656e206874747020ff0a",
+        "sha256": "54c5680054aa3cceb0cc001f639a1e66c7627798b560b7b63b721eacd5801c80"
+      },
+      "stderr": {
+        "hex": "",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "expected": {
+        "status": "PARTIAL",
+        "evidence": false,
+        "coverage": "PARTIAL",
+        "rules": [],
+        "marker": "INVALID UTF-8"
+      }
+    },
+    {
+      "id": "invalid-stderr-utf8",
+      "stdout": {
+        "hex": "38302f746370206f70656e20687474700a",
+        "sha256": "4ba9864d8906bb66f71cebed34d3ef2d616bb3cad27e654c0ce4a78f0e703fde"
+      },
+      "stderr": {
+        "hex": "7761726e696e6720fe0a",
+        "sha256": "b4e868a64a819abc292684970ce92d75ab5d4ec8d1bf6d13f8a93aede2d4e9bc"
+      },
+      "expected": {
+        "status": "PARTIAL",
+        "evidence": false,
+        "coverage": "PARTIAL",
+        "rules": [],
+        "marker": "INVALID UTF-8"
+      }
+    },
+    {
+      "id": "multibyte-exact-byte-cap",
+      "stdout": {
+        "hex": "e282ac",
+        "sha256": "7776699d8de629f4b773e92dd1213c2f6bee5f29d2eb29caa188bb5ffa5614bd",
+        "repeat": 349525,
+        "suffix_hex": "41"
+      },
+      "stderr": {
+        "hex": "",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "expected": {
+        "status": "COMPLETE",
+        "evidence": true,
+        "coverage": "COMPLETE",
+        "rules": [],
+        "stdout_round_trip": true
+      }
+    },
+    {
+      "id": "multibyte-overflow-byte-cap",
+      "stdout": {
+        "hex": "e282ac",
+        "sha256": "dd3c1bb167f61b8d3baad79c47f570e8fbf2b1bf78732fd77426759d1b30646d",
+        "repeat": 349526
+      },
+      "stderr": {
+        "hex": "",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "expected": {
+        "status": "PARTIAL",
+        "evidence": false,
+        "coverage": "PARTIAL",
+        "rules": [],
+        "marker": "OUTPUT TRUNCATED"
+      }
+    },
+    {
+      "id": "bad-encoding-below-raw-byte-cap",
+      "stdout": {
+        "hex": "ff",
+        "sha256": "043e238a765f7cfbc62596a50e53c8ffb6b188a99357b0ebede251725d67589f",
+        "repeat": 524288
+      },
+      "stderr": {
+        "hex": "",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "expected": {
+        "status": "PARTIAL",
+        "evidence": false,
+        "coverage": "PARTIAL",
+        "rules": [],
+        "marker": "INVALID UTF-8"
+      }
+    },
+    {
+      "id": "literal-replacement-character-is-valid",
+      "stdout": {
+        "hex": "38302f746370206f70656e206874747020efbfbd0a",
+        "sha256": "2155c689329feaa25705573b8279743d5a55811fe0f488e092abc42f8af6b5e4"
+      },
+      "stderr": {
+        "hex": "",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "expected": {
+        "status": "COMPLETE",
+        "evidence": true,
+        "coverage": "COMPLETE",
+        "rules": [
+          "PENX-open-service"
+        ],
+        "text": "80/tcp open http \ufffd"
+      },
+      "chunk_bytes": 1
+    },
+    {
+      "id": "multiline-live-rendering",
+      "stdout": {
+        "hex": "38302f746370206f70656e20687474700a3434332f746370206f70656e2068747470730a",
+        "sha256": "14ae94e0f38a1d3e65ad8113e9ecc9c809df2d16a4252305f473f3ce4d80ae2c"
+      },
+      "stderr": {
+        "hex": "",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      "expected": {
+        "status": "COMPLETE",
+        "evidence": true,
+        "coverage": "COMPLETE",
+        "rules": [
+          "PENX-open-service",
+          "PENX-open-service"
+        ],
+        "text": "80/tcp open http\n443/tcp open https",
+        "render_lines": true
+      }
+    }
+  ]
+}
