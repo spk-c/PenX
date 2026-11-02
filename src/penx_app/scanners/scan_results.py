@@ -79,7 +79,7 @@ def recon_has_evidence(raw_scan: str, *, passive_only: bool = False) -> bool:
         # Require their actual result records, not just a non-error first line.
         if re.match(r'^\[https?://[^\n]+ headers ', value, re.I):
             return bool(re.search(r'(?im)^HTTP [1-5]\d{2} -> https?://', value))
-        if value.startswith('[Windows Python fingerprint fallback'):
+        if value.startswith(('[Windows Python fingerprint fallback', '[Python fingerprint fallback')):
             return bool(re.search(r'(?im)^https?://\S+ -> HTTP [1-5]\d{2}\b', value))
         if value.startswith('[Native Python DNS queries]'):
             return any(

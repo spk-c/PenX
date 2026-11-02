@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""PenX reconnaissance: Windows-native adapters with portable Python fallbacks.
+"""PenX reconnaissance: cross-platform adapters with portable Python fallbacks.
 
 External scanners are never auto-installed or silently replaced with equivalent-
 looking results. Fallback Python implementations clearly identify themselves.
@@ -115,9 +115,9 @@ def tool_status() -> dict[str, str]:
         'whois': 'Python WHOIS',
         'http': 'Python requests',
         'dns': 'dnspython',
-        'nuclei': find_native('nuclei') or 'not installed (Windows native scanner)',
+        'nuclei': find_native('nuclei') or 'not installed (native scanner)',
         'httpx': find_native('httpx') or 'not installed (ProjectDiscovery HTTPx)',
-        'ffuf': find_native('ffuf') or 'not installed (Windows native scanner)',
+        'ffuf': find_native('ffuf') or 'not installed (native scanner)',
     }
 
 
@@ -286,7 +286,7 @@ def run_whatweb(target: str, *, cancel_event=None) -> str:
     for url in _urls(target):
         try:
             response = requests.get(url, timeout=(5, 10), allow_redirects=False,
-                                    headers={'User-Agent': 'PenX/Windows'},
+                                    headers={'User-Agent': 'PenX'},
                                     stream=True)
             try:
                 body = response.raw.read(262144, decode_content=True)
