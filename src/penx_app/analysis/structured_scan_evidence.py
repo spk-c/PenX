@@ -11,7 +11,7 @@ import re
 
 from defusedxml import ElementTree as ET
 from defusedxml.common import DefusedXmlException
-from penx_app.intelligence.cve_observations import _XML_RE, MAX_XML_SIZE
+from penx_app.intelligence.cve_observations import _XML_RE, MAX_XML_SIZE, validated_nmap_port
 
 MAX_HOSTS = 12
 MAX_PORTS = 100
@@ -56,11 +56,9 @@ def nmap_records(raw_scan: str) -> list[dict]:
                 state = port.find("state")
                 if state is None or state.get("state") != "open":
                     continue
-                number = str(port.get("portid", ""))
                 protocol = str(port.get("protocol", ""))
-                if not number.isascii() or not number.isdecimal() or not 1 <= int(number) <= 65535:
-                    continue
-                if protocol not in ("tcp", "udp"):
+                number = validated_nmap_port(protocol, str(port.get("portid", "")))
+                if number is None:
                     continue
                 svc = port.find("service")
                 service = svc.attrib if svc is not None else {}
