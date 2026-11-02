@@ -48,13 +48,13 @@ class LocalDNS(socketserver.BaseRequestHandler):
         record_class = int.from_bytes(request[index + 2:index + 4], "big")
         has_a = labels == [b"penx-ci", b"test"] and record_type == 1 and record_class == 1
         header = (
-            request[:2] + b"\\x81\\x80" + b"\\x00\\x01" +
-            (b"\\x00\\x01" if has_a else b"\\x00\\x00") +
-            b"\\x00\\x00\\x00\\x00"
+            request[:2] + b"\x81\x80" + b"\x00\x01" +
+            (b"\x00\x01" if has_a else b"\x00\x00") +
+            b"\x00\x00\x00\x00"
         )
         answer = (
-            b"\\xc0\\x0c\\x00\\x01\\x00\\x01\\x00\\x00\\x00\\x3c"
-            b"\\x00\\x04\\x7f\\x00\\x00\\x01"
+            b"\xc0\x0c\x00\x01\x00\x01\x00\x00\x00\x3c"
+            b"\x00\x04\x7f\x00\x00\x01"
         ) if has_a else b""
         conn.sendto(header + question + answer, self.client_address)
 
@@ -225,7 +225,7 @@ http:
             original_resolv = resolv_conf.read_bytes()
             try:
                 resolv_conf.write_text(
-                    "nameserver 127.0.0.1\\noptions timeout:1 attempts:1\\n",
+                    "nameserver 127.0.0.1\noptions timeout:1 attempts:1\n",
                     encoding="ascii",
                 )
                 assert_local_scan("dns", "5", "penx-ci.test",
