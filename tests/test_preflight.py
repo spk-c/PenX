@@ -127,6 +127,30 @@ class AvailabilityMatrixTests(unittest.TestCase):
         self.assertEqual(item.missing, ())
         self.assertEqual(item.version, 'v1.2.3')
 
+    def test_linux_whatweb_uses_distribution_executable(self):
+        with mocked_resolvers(ruby=False, whatweb_script=False), \
+             mock.patch.object(preflight.os, 'name', 'posix'), \
+             mock.patch.object(preflight._tools, 'tool_path', return_value='/usr/bin/whatweb'):
+            item = scanner_availability('3')
+        self.assertTrue(item.available)
+        self.assertIn('distribution executable', item.note)
+        self.assertEqual(item.missing, ())
+
+    def test_linux_nikto_uses_distribution_executable(self):
+        with mocked_resolvers(perl=False, nikto_script=False), \
+             mock.patch.object(preflight.os, 'name', 'posix'), \
+             mock.patch.object(preflight._tools, 'tool_path', return_value='/usr/bin/nikto'):
+            item = scanner_availability('6')
+        self.assertTrue(item.available)
+        self.assertIn('distribution executable', item.note)
+        self.assertEqual(item.missing, ())
+
+    def test_windows_does_not_replace_missing_bundled_scanners_with_posix_fallback(self):
+        with mocked_resolvers(ruby=False, whatweb_script=False, os_name='nt'), \
+             mock.patch.object(preflight._tools, 'tool_path', return_value='/usr/bin/whatweb'):
+            item = scanner_availability('3')
+        self.assertFalse(item.available)
+
     def test_whatweb_missing_ruby_only(self):
         with mocked_resolvers(ruby=False, whatweb_script=True):
             item = scanner_availability('3')

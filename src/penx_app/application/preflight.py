@@ -118,6 +118,17 @@ def _script_scanner(key: str, interpreter: str, script: 'Path',
     missing: list[str] = []
     runtime = find_runtime(interpreter)
     script_ok = script.is_file()
+    # Linux packages normally provide executables on PATH instead of the
+    # Windows-specific vendored Ruby/Perl scripts. The runtime adapters already
+    # launch these native commands, so preflight must agree with dispatch.
+    if os.name != 'nt' and not script_ok:
+        executable = _tools.tool_path(SCANNERS[key].id)
+        if executable:
+            return ScannerAvailability(
+                key, SCANNERS[key].id, name, True,
+                _probe_version(executable, '--version'), (),
+                f'{name} available (distribution executable)'[:200],
+            )
     if not runtime:
         missing.append(interpreter)
     if not script_ok:
