@@ -1,5 +1,6 @@
 """Command dispatch before importing components with configuration dependencies."""
 from __future__ import annotations
+import os
 import sys
 from penx_app.version import VERSION
 
@@ -32,7 +33,7 @@ def main() -> int:
     if args:
         command = args[0]
         if command in ('--version', '-V'):
-            print(f'PenX Windows {VERSION}')
+            print(f"PenX {'Windows' if os.name == 'nt' else 'Linux'} {VERSION}")
             return 0
         if command == '--check-update':
             from penx_app.updates import check_update
@@ -49,9 +50,15 @@ def main() -> int:
             from penx_app.setup.llm_setup import maybe_configure_llm
             return 0 if maybe_configure_llm(force=True) else 1
         if command == '--check':
-            from penx_app.setup.windows_check import main as check
+            if os.name == 'nt':
+                from penx_app.setup.windows_check import main as check
+            else:
+                from penx_app.setup.linux_check import main as check
             return check()
         if command == '--setup-native':
+            if os.name != 'nt':
+                print("[INFO] Linux scanners are managed by the distribution. See LINUX.md.")
+                return 2
             from penx_app.setup.native_scanner_setup import main as setup
             return setup()
         if command == '--setup':

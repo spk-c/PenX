@@ -106,10 +106,12 @@ def tool_status() -> dict[str, str]:
         'nmap': (_executable('nmap', NMAP_PATH) or 'not installed') +
                 (' (Npcap detected)' if npcap_present() else ' (Npcap not detected; some scan types may fail)' if os.name == 'nt' else ''),
         'nikto': f'installed: {NIKTO_PATH} (Perl: {perl})' if nikto and perl
-                 else 'missing Perl' if nikto else 'not installed (run install-windows.bat)',
+                 else ('missing Perl' if nikto else
+                       (_executable('nikto') or ('not installed (run install-windows.bat)'
+                         if os.name == 'nt' else 'not installed (see LINUX.md)'))),
         'whatweb': f'installed: {WHATWEB_PATH} (Ruby: {ruby})' if whatweb and ruby
-                   else 'missing Ruby; Python fallback only' if whatweb
-                   else 'not installed; limited Python fallback',
+                   else ('missing Ruby; Python fallback only' if whatweb else
+                         (_executable('whatweb') or 'not installed; limited Python fallback')),
         'whois': 'Python WHOIS',
         'http': 'Python requests',
         'dns': 'dnspython',
@@ -279,7 +281,7 @@ def run_whatweb(target: str, *, cancel_event=None) -> str:
             return result
         timed_out = str(result) + '\n'
 
-    lines = ['[Windows Python fingerprint fallback — limited; NOT an actual WhatWeb scan]']
+    lines = ['[Python fingerprint fallback — limited; NOT an actual WhatWeb scan]']
     observed = 0
     for url in _urls(target):
         try:
@@ -495,9 +497,9 @@ def run_nikto(target: str, *, cancel_event=None) -> str:
         exe = _executable('nikto')
         if not exe:
             return ScannerOutput(
-                '[!] Nikto unavailable. Run install-windows.bat to install Strawberry Perl '
-                'and the genuine Nikto scanner, or set PENX_NIKTO_PATH manually. '
-                'No vulnerability scan was performed.',
+                '[!] Nikto unavailable. Install the genuine Nikto scanner '
+                '(Windows: install-windows.bat; Linux: apt install nikto), '
+                'or set PENX_NIKTO_PATH manually. No vulnerability scan was performed.',
                 status="FAILED", evidence=False)
         result = _process_outcome(_run_external([exe, *nikto_args], timeout=_scanner_timeout("nikto", 300),
                                              cancel_event=cancel_event))

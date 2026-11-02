@@ -12,17 +12,23 @@ def installed_mode() -> bool:
     )
 
 
+def user_data_base() -> Path:
+    """Keep Windows LocalAppData; on POSIX honor XDG_DATA_HOME."""
+    if os.name == "nt":
+        return Path(os.environ.get("LOCALAPPDATA", str(Path.home() / "AppData" / "Local")))
+    xdg = os.environ.get("XDG_DATA_HOME", "").strip()
+    return Path(xdg).expanduser() if xdg else Path.home() / ".local" / "share"
+
+
 def application_root() -> Path:
     if getattr(sys, 'frozen', False):
         if installed_mode():
-            base = Path(os.environ.get('LOCALAPPDATA', str(Path.home() / 'AppData' / 'Local')))
-            return base / 'PenX'
+            return user_data_base() / 'PenX'
         return Path(sys.executable).resolve().parent
     checkout = Path(__file__).resolve().parents[2]
     if (checkout / 'penx.py').is_file() and (checkout / 'src' / 'penx_app').is_dir():
         return checkout
-    base = Path(os.environ.get('LOCALAPPDATA', str(Path.home() / '.local' / 'share')))
-    return base / 'PenX'
+    return user_data_base() / 'PenX'
 
 
 APP_ROOT = application_root()

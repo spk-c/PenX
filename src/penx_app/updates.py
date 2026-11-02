@@ -197,7 +197,7 @@ def update_interactive() -> bool:
 
 def startup_notice() -> None:
     """Best-effort once-per-day notice; no install/download and no portable traffic."""
-    if not installed_mode() or os.environ.get("PENX_AUTO_UPDATE_CHECK", "on").lower() in (
+    if os.name != "nt" or not installed_mode() or os.environ.get("PENX_AUTO_UPDATE_CHECK", "on").lower() in (
         "off", "0", "false", "no"
     ):
         return

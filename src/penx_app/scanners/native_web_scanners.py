@@ -1,4 +1,4 @@
-"""Bounded Windows-native web scanner argument builders and JSONL summaries.
+"""Bounded cross-platform web scanner argument builders and JSONL summaries.
 
 No shell, no caller-supplied flags, no auto-downloads, no user-supplied arbitrary
 URLs inside template/wordlist arguments. These helpers never run commands.
@@ -33,11 +33,11 @@ def find_native(name: str) -> str | None:
     override = os.getenv(f"PENX_{name.upper()}_PATH", "").strip().strip('"')
     if override:
         path = Path(override)
-        return str(path) if path.is_file() else None
+        return str(path) if path.is_file() and (os.name == "nt" or os.access(path, os.X_OK)) else None
     suffix = ".exe" if os.name == "nt" else ""
     for place in (APP_ROOT / "vendor" / "bin" / (name + suffix),
                   APP_ROOT / "bin" / (name + suffix)):
-        if place.is_file():
+        if place.is_file() and (os.name == "nt" or os.access(place, os.X_OK)):
             return str(place)
     candidate = shutil.which(name)
     if candidate and name == "httpx":
