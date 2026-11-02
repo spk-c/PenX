@@ -39,21 +39,27 @@ def find_native(name: str) -> str | None:
                   APP_ROOT / "bin" / (name + suffix)):
         if place.is_file() and (os.name == "nt" or os.access(place, os.X_OK)):
             return str(place)
-    candidate = shutil.which(name)
-    if candidate and name == "httpx":
-        # The Python HTTPX package installs a different command with this name.
-        # Accept PATH entries only after identifying ProjectDiscovery's CLI.
-        try:
-            check = subprocess.run([candidate, "-version"], shell=False,
-                                   capture_output=True, text=True, timeout=5, check=False)
-            signature = (check.stdout or "") + "\n" + (check.stderr or "")
-            if check.returncode or not re.search(
-                r"(?i)(?:projectdiscovery|current version:\s*v?\d|httpx version:\s*v?\d)", signature
-            ):
-                return None
-        except (OSError, subprocess.TimeoutExpired):
-            return None
-    return candidate
+    # Kali packages ProjectDiscovery HTTPx as httpx-toolkit to avoid the
+    # unrelated Python HTTPX CLI. Test both and reject the Python executable.
+    candidates = [shutil.which(name)]
+    if name == "httpx" and os.name != "nt":
+        candidates.append(shutil.which("httpx-toolkit"))
+    for candidate in candidates:
+        if not candidate:
+            continue
+        if name == "httpx":
+            try:
+                check = subprocess.run([candidate, "-version"], shell=False,
+                                       capture_output=True, text=True, timeout=5, check=False)
+                signature = (check.stdout or "") + "\n" + (check.stderr or "")
+                if check.returncode or not re.search(
+                    r"(?i)(?:projectdiscovery|current version:\s*v?\d|httpx version:\s*v?\d)", signature
+                ):
+                    continue
+            except (OSError, subprocess.TimeoutExpired):
+                continue
+        return candidate
+    return None
 
 
 def web_endpoint(value: str, validate_web_target) -> str:

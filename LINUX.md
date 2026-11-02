@@ -43,9 +43,11 @@ This asks for sudo permission if required, uses apt to install **nmap**,
 **whatweb** and **nikto**, and should only be used on supported apt-based
 systems. Other tools (Nuclei, ProjectDiscovery httpx, ffuf, Subfinder, Katana)
 are optional; install their official Linux releases separately and put them
-on PATH. For `httpx`, PenX verifies the executable is the ProjectDiscovery
-scanner, not the unrelated Python `httpx` utility. Override with
-`PENX_HTTPX_PATH` if needed.
+on PATH. On Kali Linux, install ProjectDiscovery HTTPx with `sudo apt install httpx-toolkit`;
+the executable is named `httpx-toolkit`, not `httpx`. PenX verifies the
+ProjectDiscovery signature and searches both names so it cannot accidentally
+run the unrelated Python `httpx` CLI. Override with `PENX_HTTPX_PATH`
+if needed.
 
 The Linux package includes an example configuration. Running `penx --setup` creates a private per-user `.env` file with permissions `0600` without invoking any scanner or package manager. The same sample is bundled with Python-wheel installations.
 

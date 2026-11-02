@@ -94,6 +94,10 @@ def tool_path(tool: str) -> str | None:
     scanner would use.
     """
     override = os.environ.get(f'PENX_{tool.upper()}_PATH', '').strip().strip('"')
+    if tool == 'httpx':
+        # The Linux distribution may expose the correct binary as
+        # httpx-toolkit, while an unrelated Python httpx is also on PATH.
+        return find_native('httpx')
     return _executable(tool, override)
 
 

@@ -132,6 +132,24 @@ class NativeWebScannerTests(unittest.TestCase):
         self.assertIn("--setup-native", outcome)
         run.assert_not_called()
 
+    @unittest.skipIf(os.name == "nt", "Kali-specific executable alias")
+    def test_kali_httpx_toolkit_is_selected_over_python_httpx(self):
+        import subprocess
+        from penx_app.scanners import native_web_scanners as native
+        from penx_app.scanners import tools
+        def probe(args, **kwargs):
+            if args[0] == "/usr/bin/httpx-toolkit":
+                return subprocess.CompletedProcess(args, 0, stdout="httpx version v1.9.0", stderr="")
+            return subprocess.CompletedProcess(args, 1, stdout="", stderr="pip install 'httpx[cli]'")
+        with patch.dict(os.environ, {"PENX_HTTPX_PATH": ""}), \
+             patch.object(native.shutil, "which", side_effect=lambda n: {
+                 "httpx": "/usr/bin/httpx-python",
+                 "httpx-toolkit": "/usr/bin/httpx-toolkit",
+             }.get(n)), \
+             patch.object(native.subprocess, "run", side_effect=probe):
+            self.assertEqual(native.find_native("httpx"), "/usr/bin/httpx-toolkit")
+            self.assertEqual(tools.tool_path("httpx"), "/usr/bin/httpx-toolkit")
+
     def test_python_httpx_collision_not_used(self):
         import types
         from penx_app.scanners import native_web_scanners as native
