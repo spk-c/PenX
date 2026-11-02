@@ -16,6 +16,7 @@ import tempfile
 from urllib.parse import unquote, unquote_plus, urlsplit
 
 from penx_app.app_paths import application_root
+from penx_app.scanners.jsonl import load_record
 
 MAX_ENDPOINTS = 150
 MAX_PARAMETERS = 24
@@ -144,7 +145,7 @@ class EndpointInventory:
                 bad += 1
                 continue
             try:
-                obj = json.loads(line)
+                obj = load_record(line)
             except (ValueError, TypeError):
                 bad += 1
                 continue

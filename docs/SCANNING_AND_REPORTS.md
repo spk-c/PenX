@@ -415,6 +415,13 @@ Valid results mixed with rejected records produce `PARTIAL` coverage; a
 nonempty collection with no usable records fails. Repeated complete JSONL
 records are allowed and are distinct from duplicate fields within one record.
 
+Subfinder, Katana and endpoint mapping apply the same duplicate-field and
+non-finite-constant rejection to external JSONL records. An ambiguous or failed
+Katana record cannot authorize follow-on ffuf requests. Failed/partial native
+discovery process text is omitted from assessment summaries because it can
+contain credential-bearing URLs; status and independently valid crawl evidence
+remain available. Persisted inventory files keep their existing format.
+
 ## Printable PDF options
 
 PDF reports use a white, readable A4 layout by default. Set
