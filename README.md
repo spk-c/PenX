@@ -39,7 +39,7 @@
 > [!IMPORTANT]
 > **Authorized targets only.** PenX makes real network requests. Use it only on systems you own or are explicitly permitted to assess. AI-generated findings and CVE matches are **not proof of a vulnerability**—always review the underlying evidence.
 >
-> **Linux/Kali development:** The v0.6.0 cross-platform port is under review. See [LINUX.md](LINUX.md) for source installation, packaging and verification limits. The current published v0.5.0 artifacts remain Windows-only.
+> **Linux/Kali:** v0.6.0 adds Linux builds and tested Kali adapters. See [LINUX.md](LINUX.md) for installation, supported scanners and remaining field-verification limits. Only assets shown on the [official release page](https://github.com/spk-c/PenX/releases/latest) are published binaries.
 >
 > **Release availability:** Use the [latest official PenX release](https://github.com/spk-c/PenX/releases/latest) for published Windows installer, portable ZIP and SHA-256 checksums. Features in the current source may be newer than the latest published binaries. Independent Windows/scanner and database [field acceptance](docs/MAINTENANCE_STATUS.md) remains **NOT SIGNED OFF**.
 
@@ -49,7 +49,8 @@
 
 | Edition | Recommended for | Get it |
 | --- | --- | --- |
-| **Linux (in development)** | Kali, Debian, Ubuntu; Python source installation and future .deb/portable builds | [Linux guide](LINUX.md) |
+| **Linux Debian package** (`penx_0.6.0_amd64.deb`) | Kali/Debian/Ubuntu on x86-64, system installation | [Release download](https://github.com/spk-c/PenX/releases/latest/download/penx_0.6.0_amd64.deb) |
+| **Linux portable** (`PenX-Linux-x86_64.tar.gz`) | Linux x86-64 with compatible glibc; extract before running | [Release download](https://github.com/spk-c/PenX/releases/latest/download/PenX-Linux-x86_64.tar.gz) |
 | **Windows installer** (`PenX-Setup-x64.exe`) | Most Windows 10/11 users; Start menu and uninstall entry | **[Download installer](https://github.com/spk-c/PenX/releases/latest/download/PenX-Setup-x64.exe)** |
 | **Portable ZIP** (`PenX-Windows-x64.zip`) | Running PenX from an extracted directory | **[Download portable ZIP](https://github.com/spk-c/PenX/releases/latest/download/PenX-Windows-x64.zip)** |
 | **Source code** | Developers and Python-based installations | [Install from source](#from-source) |
