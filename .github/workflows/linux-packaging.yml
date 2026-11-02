@@ -8,6 +8,7 @@ on:
       - 'packaging/linux/**'
       - 'install-linux.sh'
       - 'requirements*.txt'
+      - 'pyproject.toml'
       - '.github/workflows/linux-packaging.yml'
       - 'tests/test_linux_portability.py'
       - 'LINUX.md'
@@ -61,6 +62,18 @@ jobs:
           test "$(stat -c %a "$XDG_DATA_HOME/PenX/.env")" = 600
           rm -rf "$XDG_DATA_HOME"
           sudo dpkg -r penx
+      - name: Python wheel installation smoke
+        run: |
+          python -m pip wheel --no-deps . --wheel-dir /tmp/penx-wheels
+          python -c 'from glob import glob; from zipfile import ZipFile; wheel = glob("/tmp/penx-wheels/penx-*.whl")[0]; assert "penx_app/resources/.env.example" in ZipFile(wheel).namelist()'
+          python -m pip install --no-deps --force-reinstall /tmp/penx-wheels/penx-*.whl
+          export XDG_DATA_HOME="$(mktemp -d)"
+          penx --version
+          penx --setup
+          test -s "$XDG_DATA_HOME/PenX/.env"
+          cmp .env.example "$XDG_DATA_HOME/PenX/.env"
+          test "$(stat -c %a "$XDG_DATA_HOME/PenX/.env")" = 600
+          rm -rf "$XDG_DATA_HOME"
       - name: Kali rolling packaged CLI smoke
         run: |
           docker run --rm --pull=always \
