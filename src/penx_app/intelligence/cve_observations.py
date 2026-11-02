@@ -72,6 +72,21 @@ def cpe_components(cpe: str) -> tuple[str, str, str, str] | None:
     parts = norm.split(":")
     return parts[2], parts[3].lower(), parts[4].lower(), parts[5]
 
+def validated_nmap_port(protocol: str, number: str) -> str | None:
+    """Canonical Nmap port only for bounded TCP/UDP identities.
+
+    Reject malformed or untrusted port IDs before integer conversion. This
+    is shared with the structured inventory so CVE research cannot accept
+    a service address the inventory would omit.
+    """
+    if (protocol not in ("tcp", "udp") or not isinstance(number, str)
+            or not 1 <= len(number) <= 5
+            or not number.isascii() or not number.isdecimal()):
+        return None
+    port = int(number)
+    return str(port) if 1 <= port <= 65535 else None
+
+
 def parse_nmap_services(raw_scan: str, *, max_services: int = 8) -> list[Product]:
     """Parse only completed Nmap XML documents; defuse entities and cap size."""
     products: list[Product] = []
@@ -97,6 +112,9 @@ def parse_nmap_services(raw_scan: str, *, max_services: int = 8) -> list[Product
                 vendor = service.get("product", "").strip()
                 version = service.get("version", "").strip()
                 protocol, number = port.get("protocol", ""), port.get("portid", "")
+                number = validated_nmap_port(protocol, number)
+                if number is None:
+                    continue
                 for tag in service.findall("cpe"):
                     cpe = normalize_cpe((tag.text or "").strip())
                     fields = cpe_components(cpe or "")
