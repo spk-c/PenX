@@ -136,11 +136,12 @@ class EndpointInventory:
         return True
 
     def collect_jsonl(self, raw: str, scanner: str) -> tuple[int, int]:
-        """Accept typed scanner JSON lines only; ignore errors and malformed siblings."""
+        """Accept scoped records; rejected counts include rows beyond the parse budget."""
         if scanner not in ("katana", "ffuf"):
             raise ValueError("Unsupported inventory source")
-        good = bad = 0
-        for line in raw.splitlines()[:3000]:
+        lines = raw.splitlines()
+        good, bad = 0, max(0, len(lines) - 3000)
+        for line in lines[:3000]:
             if len(line) > 8192:
                 bad += 1
                 continue

@@ -1,0 +1,222 @@
+{
+  "schema": "penx-discovery-limits-v1",
+  "provenance": {
+    "kind": "hand-authored-synthetic",
+    "source": "Bounded inert JSONL recipes; no live scanner or provider data."
+  },
+  "cases": [
+    {
+      "id": "subfinder-exact-preview-limit",
+      "scanner": "subfinder",
+      "input": {
+        "line_template": "{\"host\":\"s{index}.example.test\"}",
+        "count": 100
+      },
+      "sha256": "71daf5fffef974cb6ff6183dc19b0ff077d8ce9d8935ab91c2c3d0380b0b4f66",
+      "expected": {
+        "status": "COMPLETE",
+        "evidence": true,
+        "retained": 100,
+        "diagnostics": "",
+        "coverage": "COMPLETE",
+        "sorted_preview": true
+      }
+    },
+    {
+      "id": "subfinder-overflow-sorted-preview",
+      "scanner": "subfinder",
+      "input": {
+        "line_template": "{\"host\":\"s{index}.example.test\"}",
+        "count": 101,
+        "reverse": true
+      },
+      "sha256": "abea13f430850f2a22c05cf1ed42f6cd70129ed44f99d00de7d44f9e9a70f599",
+      "expected": {
+        "status": "PARTIAL",
+        "evidence": true,
+        "retained": 100,
+        "diagnostics": "Discovery inventory truncated for display",
+        "coverage": "PARTIAL",
+        "sorted_preview": true
+      }
+    },
+    {
+      "id": "subfinder-duplicates-are-not-preview-loss",
+      "scanner": "subfinder",
+      "input": {
+        "line_template": "{\"host\":\"www.example.test\"}",
+        "count": 101
+      },
+      "sha256": "bcac45b9bf1ab8c30410fca419f8ebabb886054b29ff3390ea9ec9d8e38a3fb9",
+      "expected": {
+        "status": "COMPLETE",
+        "evidence": true,
+        "retained": 1,
+        "diagnostics": "",
+        "coverage": "COMPLETE"
+      }
+    },
+    {
+      "id": "katana-exact-preview-limit",
+      "scanner": "katana",
+      "input": {
+        "line_template": "{\"request\":{\"endpoint\":\"https://example.test/p{index}\"}}",
+        "count": 100
+      },
+      "sha256": "0e465e720988a284fc37668f2542a954ead3294022fcbd558cd6a539ac6afd91",
+      "expected": {
+        "status": "COMPLETE",
+        "evidence": true,
+        "retained": 100,
+        "diagnostics": "",
+        "coverage": "COMPLETE",
+        "sorted_preview": true
+      }
+    },
+    {
+      "id": "katana-overflow-sorted-preview",
+      "scanner": "katana",
+      "input": {
+        "line_template": "{\"request\":{\"endpoint\":\"https://example.test/p{index}\"}}",
+        "count": 101,
+        "reverse": true
+      },
+      "sha256": "e1ba2c2ffcabef482522a1a2f04775fea746f483f20193c0f4263d3a25e61018",
+      "expected": {
+        "status": "PARTIAL",
+        "evidence": true,
+        "retained": 100,
+        "diagnostics": "Discovery inventory truncated for display",
+        "coverage": "PARTIAL",
+        "sorted_preview": true
+      }
+    },
+    {
+      "id": "katana-duplicates-are-not-preview-loss",
+      "scanner": "katana",
+      "input": {
+        "line_template": "{\"request\":{\"endpoint\":\"https://example.test/safe\"}}",
+        "count": 101
+      },
+      "sha256": "efef21fc3612885025950d86f40082da593159fde449f0611c24f6e519e8af95",
+      "expected": {
+        "status": "COMPLETE",
+        "evidence": true,
+        "retained": 1,
+        "diagnostics": "",
+        "coverage": "COMPLETE"
+      }
+    },
+    {
+      "id": "katana-overlong-identity-only",
+      "scanner": "katana",
+      "input": {
+        "tail": [
+          "{\"request\":{\"endpoint\":\"https://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc.test/pppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp\"}}"
+        ]
+      },
+      "sha256": "b09fb1fa584f1bb0ef7c1f5106097929602da098b056d643c9e69161db86a93e",
+      "expected": {
+        "status": "PARTIAL",
+        "evidence": false,
+        "retained": 0,
+        "diagnostics": "Katana omitted overlong URL identities",
+        "coverage": "PARTIAL"
+      },
+      "target": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc.test"
+    },
+    {
+      "id": "katana-mixed-overlong-identity",
+      "scanner": "katana",
+      "input": {
+        "tail": [
+          "{\"request\":{\"endpoint\":\"https://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc.test/safe\"}}",
+          "{\"request\":{\"endpoint\":\"https://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc.test/pppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp\"}}"
+        ]
+      },
+      "sha256": "e42e8ce1a4797a45d64ce0b9ee6de8b0a7e8e10be6c9b27c245cbc7e302c6437",
+      "expected": {
+        "status": "PARTIAL",
+        "evidence": true,
+        "retained": 1,
+        "diagnostics": "Katana omitted overlong URL identities",
+        "coverage": "PARTIAL"
+      },
+      "target": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb.cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc.test"
+    },
+    {
+      "id": "katana-redacted-query-is-not-identity-loss",
+      "scanner": "katana",
+      "input": {
+        "tail": [
+          "{\"request\":{\"endpoint\":\"https://example.test/safe?token=CORPUS_SECRETCORPUS_SECRETCORPUS_SECRETCORPUS_SECRETCORPUS_SECRETCORPUS_SECRETCORPUS_SECRETCORPUS_SECRETCORPUS_SECRETCORPUS_SECRETCORPUS_SECRETCORPUS_SECRETCORPUS_SECRETCORPUS_SECRETCORPUS_SECRETCORPUS_SECRETCORPUS_SECRETCORPUS_SECRETCORPUS_SECRETCORPUS_SECRETCORPUS_SECRETCORPUS_SECRETCORPUS_SECRETCORPUS_SECRETCORPUS_SECRETCORPUS_SECRETCORPUS_SECRETCORPUS_SECRETCORPUS_SECRETCORPUS_SECRETCORPUS_SECRETCORPUS_SECRETCORPUS_SECRETCORPUS_SECRETCORPUS_SECRETCORPUS_SECRETCORPUS_SECRETCORPUS_SECRETCORPUS_SECRETCORPUS_SECRET\"}}"
+        ]
+      },
+      "sha256": "0dd7ee6a8cd867450813c8691a2657d95852936c92eda126bf78518a2efe6dbe",
+      "expected": {
+        "status": "COMPLETE",
+        "evidence": true,
+        "retained": 1,
+        "diagnostics": "",
+        "coverage": "COMPLETE"
+      }
+    },
+    {
+      "id": "mapping-exact-row-budget",
+      "scanner": "endpoint_mapping",
+      "input": {
+        "line_template": "{\"request\":{\"endpoint\":\"https://example.test/safe\"}}",
+        "count": 3000
+      },
+      "sha256": "4cf78c433a573d36448563efb9fc7ed1a515613d15138e82b54b8e9d8b6740fc",
+      "expected": {
+        "status": "COMPLETE",
+        "evidence": true,
+        "retained": 1,
+        "diagnostics": "",
+        "coverage": "COMPLETE",
+        "accepted_rows": 3000,
+        "rejected_rows": 0
+      }
+    },
+    {
+      "id": "mapping-unread-tail-is-not-authorization",
+      "scanner": "endpoint_mapping",
+      "input": {
+        "line_template": "{\"request\":{\"endpoint\":\"https://example.test/safe\"}}",
+        "count": 3000,
+        "tail": [
+          "{\"request\":{\"endpoint\":\"https://example.test/tail/admin\"}}"
+        ]
+      },
+      "sha256": "6004699ecedacc685dab8b9a9693c1e71da9105d40282289afb8c27fbe7770c9",
+      "expected": {
+        "status": "PARTIAL",
+        "evidence": true,
+        "retained": 1,
+        "diagnostics": "",
+        "coverage": "PARTIAL",
+        "accepted_rows": 3000,
+        "rejected_rows": 1
+      }
+    },
+    {
+      "id": "mapping-duplicate-overflow-is-unprocessed",
+      "scanner": "endpoint_mapping",
+      "input": {
+        "line_template": "{\"request\":{\"endpoint\":\"https://example.test/safe\"}}",
+        "count": 3001
+      },
+      "sha256": "47357c0f43a79eac399b5abba154e4cee5c849a22147dfad3f64e8082aead9a7",
+      "expected": {
+        "status": "PARTIAL",
+        "evidence": true,
+        "retained": 1,
+        "diagnostics": "",
+        "coverage": "PARTIAL",
+        "accepted_rows": 3000,
+        "rejected_rows": 1
+      }
+    }
+  ]
+}

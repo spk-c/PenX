@@ -430,6 +430,14 @@ discovery process text is omitted from assessment summaries because it can
 contain credential-bearing URLs; status and independently valid crawl evidence
 remain available. Persisted inventory files keep their existing format.
 
+Standalone Subfinder/Katana previews keep at most 100 unique in-scope entries;
+omitted entries now produce an explicit cap marker and `PARTIAL` status.
+Standalone Katana omits normalized URLs longer than 350 characters instead
+of publishing a shortened, unobserved path. Long query values removed during
+redaction do not count as identity loss. Mapping's 3,000-row parse limit is
+unchanged, but unprocessed tail rows count as rejected and make coverage
+partial; they cannot authorize follow-on probes.
+
 ## Printable PDF options
 
 PDF reports use a white, readable A4 layout by default. Set
