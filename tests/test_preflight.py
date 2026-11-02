@@ -71,6 +71,11 @@ def mocked_resolvers(*, nmap=True, npcap=True, ruby=True, perl=True,
             importlib.util, 'find_spec', side_effect=find_spec))
         stack.enter_context(mock.patch.object(
             preflight, 'run_tool', side_effect=run_tool))
+        # Availability tests fake binary resolution without executing the
+        # real ProjectDiscovery -version probe on an unavailable test binary.
+        stack.enter_context(mock.patch.object(
+            preflight._tools, 'tool_path',
+            side_effect=lambda name: '/bin/' + name if name in binaries else None))
         stack.enter_context(mock.patch.object(
             preflight, 'WHATWEB_SCRIPT', fake_whatweb))
         stack.enter_context(mock.patch.object(

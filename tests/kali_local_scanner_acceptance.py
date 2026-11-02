@@ -105,22 +105,23 @@ def main() -> None:
                 ("http_headers", "4", URL, 45),
                 ("whatweb", "3", URL, 75),
                 ("nmap", "1", TARGET, 165),
+                ("nikto", "6", URL, 125),
             ):
                 try:
                     assert_local_scan(scanner_id, key, target, Path(temp), timeout=deadline)
                 except (AssertionError, subprocess.TimeoutExpired) as exc:
                     print(f"[FAIL] {scanner_id}: {exc}", flush=True)
                     failures.append(f"{scanner_id}: {exc}")
-            # Nikto's full database assessment may exceed the bounded smoke
-            # deadline. This tests the genuine binary but not its full adapter.
+            # Also run the native Nikto command with a strict time cap to
+            # distinguish a wrapper failure from the distribution executable.
             nikto = run("nikto", "-h", URL, "-nointeractive",
                         "-maxtime", "15s", timeout=55)
             if "Nikto" not in nikto.stdout and "nikto" not in nikto.stdout.lower():
                 failures.append("Nikto did not emit its scanner banner")
             if failures:
                 raise AssertionError("Kali localhost acceptance failures: " + "; ".join(failures))
-            print("[PASS] Kali localhost: PenX HTTP headers, WhatWeb, Nmap;"
-                  " real Nikto binary bounded smoke (not full adapter acceptance)", flush=True)
+            print("[PASS] Kali localhost: PenX HTTP headers, WhatWeb, Nmap, Nikto;"
+                  " plus native WhatWeb/Nikto binary verification", flush=True)
     finally:
         server.shutdown()
         server.server_close()

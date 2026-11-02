@@ -53,7 +53,7 @@ def find_native(name: str) -> str | None:
                                        capture_output=True, text=True, timeout=5, check=False)
                 signature = (check.stdout or "") + "\n" + (check.stderr or "")
                 if check.returncode or not re.search(
-                    r"(?i)(?:projectdiscovery|current version:\s*v?\d|httpx version:\s*v?\d)", signature
+                    r"(?i)(?:projectdiscovery|current version:\s*v?\d|httpx version:?\s*v?\d)", signature
                 ):
                     continue
             except (OSError, subprocess.TimeoutExpired):
