@@ -115,4 +115,9 @@ will distinguish the intentionally failing regressions from final checks.
   controls and repeated-record controls. JSON/SARIF and source-quote checks
   include the newly rejected cases and their valid neighbors.
 - Existing native suites, Ruff fatal/W/B checks and full-source mypy PASS.
-- Final full offline/distribution checks and current-commit CI are pending.
+- Full continuation validation on Windows and the now-reachable Kali VM:
+  `python offline_tests.py` — all 228 suites PASS on each platform;
+  `python scripts/validate_distributions.py` — PASS on each platform.
+  This actual VM run supersedes the earlier checkpoint's NOT RUN status.
+- Current-commit CI results are tracked in [PR #124](https://github.com/spk-c/PenX/pull/124).
+  Windows packaged installer testing remains NOT RUN for this feature branch.
