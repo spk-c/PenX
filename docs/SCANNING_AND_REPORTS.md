@@ -406,6 +406,15 @@ HTTP result is only a lead, not proof that an exploit is possible. Template
 downloads/updates are controlled by the upstream installation; PenX disables
 automatic update checks during individual Nuclei/httpx scans.
 
+For Nuclei, HTTPx and ffuf, ambiguous JSONL records with duplicate fields
+(including nested fields) or `NaN`/`Infinity` constants are discarded.
+HTTPx/ffuf response evidence requires an integer HTTP status from 100 to 599;
+HTTPx records reporting a request failure are rejected even if they also
+contain a response status. Valid responses such as HTTP 429 remain observations.
+Valid results mixed with rejected records produce `PARTIAL` coverage; a
+nonempty collection with no usable records fails. Repeated complete JSONL
+records are allowed and are distinct from duplicate fields within one record.
+
 ## Printable PDF options
 
 PDF reports use a white, readable A4 layout by default. Set

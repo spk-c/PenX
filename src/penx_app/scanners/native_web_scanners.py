@@ -244,6 +244,19 @@ def _summary_url(value: object, limit: int = 200, *,
         return "[INVALID URL]"
 
 
+def _unique_json_fields(pairs):
+    fields = {}
+    for key, value in pairs:
+        if key in fields:
+            raise ValueError("Duplicate scanner JSON field")
+        fields[key] = value
+    return fields
+
+
+def _reject_json_constant(value):
+    raise ValueError("Non-finite scanner JSON number")
+
+
 def summarize_output(scanner: str, raw: str, *, max_items: int = 60,
                      diagnostics: dict[str, int] | None = None) -> tuple[str, bool]:
     """Remove huge raw HTTP bodies and never treat empty results as vulnerabilities."""
@@ -258,13 +271,23 @@ def summarize_output(scanner: str, raw: str, *, max_items: int = 60,
             discarded += 1
             continue
         try:
-            item = json.loads(line)
+            item = json.loads(line, object_pairs_hook=_unique_json_fields,
+                              parse_constant=_reject_json_constant)
         except (ValueError, TypeError):
             discarded += 1
             continue
         if not isinstance(item, dict):
             discarded += 1
             continue
+        if scanner in ("httpx", "ffuf"):
+            # A URL alone can be a failed request's input, not a response.
+            # Match the existing endpoint-inventory status contract, including
+            # excluding bool (an int subclass) and contradictory HTTPx errors.
+            status = item.get("status_code" if scanner == "httpx" else "status")
+            if (type(status) is not int or not 100 <= status <= 599
+                    or (scanner == "httpx" and (item.get("failed") or item.get("error")))):
+                discarded += 1
+                continue
         if scanner == "nuclei":
             info = item.get("info") or {}
             if not isinstance(info, dict):
