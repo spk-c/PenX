@@ -1,9 +1,10 @@
 # PenX on Linux and Kali Linux
 
 PenX uses the **same Python application** on Windows and Linux. Linux support
-is under development for the v0.6.0 milestone; the published v0.5.0 release
-still provides Windows binaries only. Do not mistake an unmerged PR or
-successful offline test for a finished Kali field-verified release.
+is included in the v0.6.0 release, alongside the Windows application.
+The packaged Linux amd64 build and 11 local/Kali scanner adapters were
+acceptance-tested; some independent field scenarios remain unverified.
+Official assets are provided on the GitHub Releases page, not in source archives.
 
 ## Requirements
 
@@ -29,9 +30,11 @@ bash ./install-linux.sh
 .venv/bin/penx
 ```
 
-Run the commands on the Linux-support branch until v0.6.0 is merged.
+Use the tagged v0.6.0 source or the current main branch.
 If your distribution's default Python is outside 3.10–3.13, install a
 supported interpreter in a separate venv (do not override system Python).
+For prebuilt amd64 artifacts and checksums, see
+[the official release](https://github.com/spk-c/PenX/releases/tag/v0.6.0).
 
 To explicitly install the common distribution scanners during setup:
 

@@ -1,6 +1,6 @@
 <!-- penx-download-options-v1 -->
 
-> **Availability:** Download the current Windows installer or portable ZIP from the [latest official PenX release](https://github.com/spk-c/PenX/releases/latest), together with its SHA-256 checksums. GitHub-generated source archives are not ready-to-run Windows applications.
+> **Availability:** Download the Windows installer/portable ZIP or the Linux amd64 Debian package/portable archive from the [latest official PenX release](https://github.com/spk-c/PenX/releases/latest), together with their SHA-256 checksums. GitHub-generated source archives are not ready-to-run applications.
 
 ## Which Windows download should I choose?
 
@@ -23,7 +23,9 @@
 
 > **Important:** Do not choose GitHub's automatically generated **Source code (zip)** if you want a ready-to-run Windows app. Neither download bundles third-party scanners (such as Nmap/Npcap) or a local AI model; PenX can guide scanner setup with your consent.
 
-You can verify either download using **`SHA256SUMS.txt`** from the same release. See the [Windows installation and migration guide](https://github.com/spk-c/PenX/blob/main/WINDOWS.md) before switching from the portable version to the installer.
+For Linux amd64, choose **`penx_0.6.0_amd64.deb`** on Kali/Debian/Ubuntu or extract **`PenX-Linux-x86_64.tar.gz`** for portable use. The third-party scanners and LLM models must be installed separately. See [LINUX.md](https://github.com/spk-c/PenX/blob/main/LINUX.md) for commands and current field-test limitations. ARM64 prebuilt packages are not published.
+
+Verify Windows downloads against **`SHA256SUMS.txt`** and Linux downloads against **`SHA256SUMS-Linux.txt`** from the same release. See the [Windows installation and migration guide](https://github.com/spk-c/PenX/blob/main/WINDOWS.md) before switching from the portable version to the installer.
 
 > **Independent field acceptance: NOT SIGNED OFF.** Green CI checks validate automated contracts and packaged application smoke tests; they do **not** establish real Windows/Npcap behavior for all 12 scanners, installer upgrade/rollback, restored SQLite/MariaDB backups, or visual report quality. These checks remain tracked by [#81](https://github.com/spk-c/PenX/issues/81) and [#82](https://github.com/spk-c/PenX/issues/82). PHP2Shell version/header findings are not proof of RCE exploitation.
 

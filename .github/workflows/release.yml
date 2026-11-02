@@ -4,6 +4,12 @@ on:
   push:
     tags:
       - 'v*'
+  pull_request:
+    paths:
+      - 'src/penx_app/version.py'
+      - 'pyproject.toml'
+      - '.github/workflows/release.yml'
+      - 'docs/RELEASE_*_NOTES.md'
   workflow_dispatch:
 
 permissions:
@@ -19,7 +25,89 @@ env:
   PYTHONUTF8: "1"
 
 jobs:
+  linux-release:
+    name: Build and verify Linux amd64 release assets
+    runs-on: ubuntu-22.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.13'
+          cache: pip
+          cache-dependency-path: |
+            requirements.lock.txt
+            requirements-build.txt
+      - name: Assert matching tag, source and Python package version
+        run: |
+          PYTHONPATH=src python - <<'PY'
+          import os, tomllib
+          from pathlib import Path
+          from penx_app.version import VERSION
+          assert VERSION == "0.6.0", VERSION
+          meta = tomllib.loads(Path("pyproject.toml").read_text(encoding="utf-8"))
+          assert meta["project"]["version"] == VERSION
+          if os.environ["GITHUB_REF_TYPE"] == "tag":
+              assert os.environ["GITHUB_REF_NAME"] == "v" + VERSION
+          PY
+      - name: Install verified build dependencies
+        run: |
+          python -m pip install --disable-pip-version-check --require-hashes -r requirements.lock.txt
+          python -m pip install --disable-pip-version-check -r requirements-build.txt
+          python -m pip check
+      - name: Build Linux amd64 standalone, archive and Debian package
+        run: |
+          python -m unittest discover -s tests -p test_linux_portability.py -v
+          python scripts/build_linux.py
+          test -x dist/PenX/PenX
+          test -s dist/PenX/_internal/whois/data/public_suffix_list.dat
+          dist/PenX/PenX --version
+          dist/PenX/PenX --check
+          test -f dist/PenX/.env.example
+          cmp .env.example dist/PenX/.env.example
+          python packaging/linux/build_packages.py
+          test -s artifacts/penx_0.6.0_amd64.deb
+          test -s artifacts/PenX-Linux-x86_64.tar.gz
+          tar -tzf artifacts/PenX-Linux-x86_64.tar.gz | grep -q '^PenX/PenX$'
+          dpkg-deb --info artifacts/penx_0.6.0_amd64.deb
+      - name: Debian package install and first-run smoke
+        run: |
+          sudo dpkg -i artifacts/penx_0.6.0_amd64.deb
+          penx --version
+          penx --check
+          export XDG_DATA_HOME="$(mktemp -d)"
+          penx --setup
+          test -s "$XDG_DATA_HOME/PenX/.env"
+          test "$(stat -c %a "$XDG_DATA_HOME/PenX/.env")" = 600
+          rm -rf "$XDG_DATA_HOME"
+          sudo dpkg -r penx
+      - name: Kali rolling functional scanner acceptance
+        run: |
+          docker run --rm --pull=always \
+            -v "$PWD/artifacts:/artifacts:ro" \
+            -v "$PWD/tests/kali_local_scanner_acceptance.py:/kali_acceptance.py:ro" \
+            kalilinux/kali-rolling:latest \
+            bash -euo pipefail -c 'export DEBIAN_FRONTEND=noninteractive; apt-get update; apt-get install -y /artifacts/penx_0.6.0_amd64.deb python3 openssl nmap whatweb nikto nuclei httpx-toolkit ffuf katana subfinder; python3 /kali_acceptance.py'
+      - name: Hash both Linux release assets
+        run: |
+          cd artifacts
+          sha256sum PenX-Linux-x86_64.tar.gz penx_0.6.0_amd64.deb > SHA256SUMS-Linux.txt
+          sha256sum --check SHA256SUMS-Linux.txt
+      - name: Upload Linux release artifacts to the run
+        uses: actions/upload-artifact@v7
+        with:
+          name: PenX-Linux-x86_64
+          path: |
+            artifacts/PenX-Linux-x86_64.tar.gz
+            artifacts/penx_0.6.0_amd64.deb
+            artifacts/SHA256SUMS-Linux.txt
+          if-no-files-found: error
+          retention-days: 7
+
   windows-release:
+    needs: linux-release
     runs-on: windows-latest
     timeout-minutes: 20
     steps:
@@ -113,6 +201,26 @@ jobs:
           $setupHash = (Get-FileHash dist/PenX-Setup-x64.exe -Algorithm SHA256).Hash.ToLowerInvariant()
           "$setupHash  PenX-Setup-x64.exe" | Add-Content -Path SHA256SUMS.txt -Encoding ascii
           Copy-Item dist/PenX-Setup-x64.exe PenX-Setup-x64.exe
+      - name: Download Linux assets from successful build
+        uses: actions/download-artifact@v7
+        with:
+          name: PenX-Linux-x86_64
+          path: linux-assets
+      - name: Verify Linux asset files and checksums
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $names = @("PenX-Linux-x86_64.tar.gz", "penx_0.6.0_amd64.deb")
+          $lines = @(Get-Content "linux-assets/SHA256SUMS-Linux.txt" -Encoding ascii)
+          if ($lines.Count -ne 2) { throw "Linux checksum file must have exactly two entries" }
+          foreach ($name in $names) {
+            $line = @($lines | Where-Object { $_.EndsWith("  $name") })
+            if ($line.Count -ne 1) { throw "Missing or duplicate SHA256 entry: $name" }
+            $expected = ($line[0] -split '  ')[0].Trim().ToLowerInvariant()
+            if ($expected -notmatch '^[a-f0-9]{64}$') { throw "Invalid checksum" }
+            $actual = (Get-FileHash "linux-assets/$name" -Algorithm SHA256).Hash.ToLowerInvariant()
+            if ($expected -ne $actual) { throw "SHA256 mismatch: $name" }
+          }
       # Tagged releases already store the ZIP/quality report permanently.
       # Keep a short-lived Actions artifact only for manual preview runs.
       - name: Upload manual workflow artifact
@@ -157,5 +265,5 @@ jobs:
                     ($generated -join [Environment]::NewLine)
           }
           [System.IO.File]::WriteAllText((Join-Path (Get-Location) "RELEASE-NOTES.md"), $body, [System.Text.UTF8Encoding]::new($false))
-          gh release create "$env:TAG" PenX-Windows-x64.zip PenX-Setup-x64.exe SHA256SUMS.txt CVE-QUALITY.json --verify-tag --title "PenX $env:TAG" --notes-file RELEASE-NOTES.md
+          gh release create "$env:TAG" PenX-Windows-x64.zip PenX-Setup-x64.exe SHA256SUMS.txt CVE-QUALITY.json linux-assets/PenX-Linux-x86_64.tar.gz linux-assets/penx_0.6.0_amd64.deb linux-assets/SHA256SUMS-Linux.txt --verify-tag --title "PenX $env:TAG" --notes-file RELEASE-NOTES.md
           if ($LASTEXITCODE -ne 0) { throw "GitHub release publication failed" }

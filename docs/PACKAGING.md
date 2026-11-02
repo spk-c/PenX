@@ -1,5 +1,8 @@
 # Distributing PenX: WinGet, Scoop and PyPI
 
+**v0.6.0 source-only release candidate (2 November 2026):** The source and packaged build workflow are being validated for the new Windows installer/portable ZIP and Linux amd64 `.deb`/portable archive. No `v0.6.0` binaries are considered published until the new immutable tag completes its workflow and assets and SHA-256 checksums are verified. The Scoop and WinGet manifests intentionally remain **draft** references to the last verified **v0.5.0** Windows ZIP; update them only after the v0.6.0 binary hash is confirmed. Field acceptance is **NOT SIGNED OFF**.
+
+
 **Status: package manifests are drafts, not public registry listings.**
 PenX is a Windows-first Python application; npm is not an appropriate primary distribution channel.
 
