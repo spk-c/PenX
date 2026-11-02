@@ -28,3 +28,23 @@ this work. Keep its diff independent of the preceding native-parser pack.
 This follow-up does not complete PX-003. Nmap/WHOIS/WhatWeb/HTTP/DNS/Nikto/TLS
 packs, HTML/PDF parity, byte-decoding/oversize corpus cases and raw-JSONL byte
 anchors remain deferred. Neither synthetic results nor CI sign off field use.
+
+## Executed evidence
+
+- Before correction: 14 failing discovery snapshot/mutation subcases; two
+  mapping integrity regressions; four mapping-phase diagnostic privacy
+  subcases. The ambiguous Katana row triggered three mocked scanner calls
+  instead of stopping after its initial crawl. No real requests were made.
+- After correction: `python tests/test_scanner_golden_corpus.py -v` PASS on
+  Windows and Kali; six tests replay 28 snapshots across the two packs,
+  plus non-finite, status, finite/string and repeated-record mutations.
+- `python tests/test_endpoint_inventory_mapping.py` — 18 tests PASS;
+  `python -m unittest discover -s tests -p 'test_native*.py'` — 68 tests
+  PASS on Windows with two Linux-only skips.
+- `python offline_tests.py` — all 228 suites PASS on both Windows and Kali.
+  `python scripts/validate_distributions.py` — PASS on both platforms.
+- Ruff fatal/W/B and source-unused-import checks, full-source mypy (123
+  source files), and diff whitespace — PASS.
+- Final-commit CI is recorded in [PR #125](https://github.com/spk-c/PenX/pull/125).
+  Windows installer smoke remains NOT RUN for this feature branch; no
+  third-party scan, release publication or independent field sign-off.
