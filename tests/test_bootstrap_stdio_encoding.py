@@ -4,6 +4,7 @@ German Windows redirects stdout to cp1252 ("charmap"); non-Latin characters in
 scanner or model output must not crash a scan run or a dispatch path.
 """
 import io
+import os
 import sys
 import unittest
 
@@ -43,7 +44,7 @@ class ForceUtf8StreamsTests(unittest.TestCase):
         stream.close()
         self.assertEqual(rc, 0)
         self.assertEqual(stream.encoding, "utf-8")
-        self.assertIn("PenX Windows", data)
+        self.assertIn("PenX Windows" if os.name == "nt" else "PenX Linux", data)
 
 
 class LiveLineEmissionTests(unittest.TestCase):
