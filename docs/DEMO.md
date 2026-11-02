@@ -6,8 +6,8 @@
 
 ## Five steps
 
-1. [Download the official Windows installer or portable ZIP](../README.md#download), or [install from source](../README.md#from-source). The [v0.4.9 release](https://github.com/spk-c/PenX/releases/tag/v0.4.9) includes both Windows packages and SHA-256 checksums.
-2. Keep the **entire extracted portable folder** intact and start **PenX.exe**. At first launch the scanner wizard asks before installing missing third-party components. Scanner binaries and an LLM are not bundled.
+1. [Download the official v0.6.0 Windows or Linux build](../README.md#download), or [install from source](../README.md#from-source). Use the platform-specific SHA-256 checksum file from the release.
+2. Keep the **entire extracted portable folder** intact. Start `PenX.exe` on Windows or `./PenX/PenX` on Linux, or run `penx` after installing the Debian package. External scanner binaries and LLMs are not bundled.
 3. If using AI analysis, start your own local Ollama, LM Studio or llama.cpp server and complete the guided LLM setup.
 4. Choose **[1] New Scan**, supply an IP/domain you own or are expressly authorized to assess, then select the scanners. **0** in the tool picker means Passive-Only Recon, **a** selects tools 1–5, **n** adds Nikto, and **x** selects all 12 tools (with active-scan confirmation). Passive providers receive lookup queries.
 5. Review the evidence and tentative AI findings. Completed saved assessments automatically produce HTML/PDF reports in the **reports/** directory. Use **[2] View History** to inspect, regenerate or delete them.
@@ -16,7 +16,7 @@
 
 The following is a documentation excerpt, not a screenshot of a finished scan:
 
-    PenX | AI Security Assessment | Local LLM | Windows 10/11
+    PenX | AI Security Assessment | Local LLM | Windows / Linux
     [1] New Scan
     [2] View History
     [9] Scan Diff & Trends

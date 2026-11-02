@@ -1,32 +1,20 @@
 <!-- penx-download-options-v1 -->
 
-> **Availability:** Download the Windows installer/portable ZIP or the Linux amd64 Debian package/portable archive from the [latest official PenX release](https://github.com/spk-c/PenX/releases/latest), together with their SHA-256 checksums. GitHub-generated source archives are not ready-to-run applications.
+## Download PenX
 
-## Which Windows download should I choose?
+Choose the package for your platform from the [latest official GitHub Release](https://github.com/spk-c/PenX/releases/latest). Use the **release Assets**, not the automatically generated **Source code (zip)** or source tarball, if you need a ready-to-run executable.
 
-### ✅ Recommended: Windows Installer
-**`PenX-Setup-x64.exe`** — best for most Windows 10/11 (64-bit) users.
+| Platform | Edition | Download |
+| --- | --- | --- |
+| **Windows 10/11 (x64)** | **Installer — recommended** | [PenX-Setup-x64.exe](https://github.com/spk-c/PenX/releases/latest/download/PenX-Setup-x64.exe) |
+| Windows (x64) | **Portable (no installation)** | [PenX-Windows-x64.zip](https://github.com/spk-c/PenX/releases/latest/download/PenX-Windows-x64.zip) |
+| **Kali / Debian / Ubuntu (amd64)** | Debian package | Find `penx_<version>_amd64.deb` under [release assets](https://github.com/spk-c/PenX/releases/latest) |
+| Linux (x86-64) | Portable archive | [PenX-Linux-x86_64.tar.gz](https://github.com/spk-c/PenX/releases/latest/download/PenX-Linux-x86_64.tar.gz) |
 
-- Installs PenX with a Start menu entry and an uninstall option.
-- Saves your configuration, scan history and reports separately in `%LOCALAPPDATA%\PenX` so app updates do not overwrite them.
-- Supports **Check for Updates** inside PenX. Installing an update always requires your confirmation.
+**Verify your download:** use `SHA256SUMS.txt` for Windows, or `SHA256SUMS-Linux.txt` for Linux, from the **same release**.
 
-### 📦 Alternative: Portable (no installation)
-**`PenX-Windows-x64.zip`** — for users who prefer a portable folder.
+**Getting started:** Windows installer creates Start menu and uninstall entries, and saves user data under `%LOCALAPPDATA%\PenX`. For portable Windows, extract the **entire ZIP** and run `PenX\PenX.exe`, keeping `_internal` beside it. For Linux Debian packages, see [LINUX.md](https://github.com/spk-c/PenX/blob/main/LINUX.md); portable users extract the TAR.GZ and run `./PenX/PenX`. Third-party scanners, Npcap and AI model weights are **not bundled**.
 
-- Download and **extract the entire ZIP**, then run `PenX\PenX.exe`.
-- Keep the `_internal` folder and other extracted files with the executable.
-- No Windows installer needed; you update manually by downloading a newer ZIP.
-- Existing portable configuration and reports remain in your portable directory.
-
-**Not sure? Choose `PenX-Setup-x64.exe`.** Both downloads contain the same PenX app version.
-
-> **Important:** Do not choose GitHub's automatically generated **Source code (zip)** if you want a ready-to-run Windows app. Neither download bundles third-party scanners (such as Nmap/Npcap) or a local AI model; PenX can guide scanner setup with your consent.
-
-For Linux amd64, choose **`penx_0.6.0_amd64.deb`** on Kali/Debian/Ubuntu or extract **`PenX-Linux-x86_64.tar.gz`** for portable use. The third-party scanners and LLM models must be installed separately. See [LINUX.md](https://github.com/spk-c/PenX/blob/main/LINUX.md) for commands and current field-test limitations. ARM64 prebuilt packages are not published.
-
-Verify Windows downloads against **`SHA256SUMS.txt`** and Linux downloads against **`SHA256SUMS-Linux.txt`** from the same release. See the [Windows installation and migration guide](https://github.com/spk-c/PenX/blob/main/WINDOWS.md) before switching from the portable version to the installer.
-
-> **Independent field acceptance: NOT SIGNED OFF.** Green CI checks validate automated contracts and packaged application smoke tests; they do **not** establish real Windows/Npcap behavior for all 12 scanners, installer upgrade/rollback, restored SQLite/MariaDB backups, or visual report quality. These checks remain tracked by [#81](https://github.com/spk-c/PenX/issues/81) and [#82](https://github.com/spk-c/PenX/issues/82). PHP2Shell version/header findings are not proof of RCE exploitation.
+> **Independent field acceptance: NOT SIGNED OFF.** Passing CI and packaged-app tests does not prove all real Windows/Npcap scanners, Linux distributions, database recovery, report layouts, upgrades or model/provider integrations. The Windows installer is not Authenticode-signed. Assess only authorized systems, and verify scanner/AI findings. See the [Linux acceptance record](https://github.com/spk-c/PenX/blob/main/docs/LINUX_ACCEPTANCE_2026-11-02.md), [Windows guide](https://github.com/spk-c/PenX/blob/main/WINDOWS.md) and [security policy](https://github.com/spk-c/PenX/blob/main/SECURITY.md).
 
 ---
