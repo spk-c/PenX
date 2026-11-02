@@ -16,6 +16,7 @@ from penx_app.domain.scan_models import ScanResult, ScannerResult
 from penx_app.reporting.export import export_html, export_pdf
 from penx_app.reporting.machine_reports import report_payload, sarif_payload
 from penx_app.reporting.report_design import _report, _summary
+from penx_app.reporting.report_view import ReportView
 from penx_app.reporting.scan_coverage import COVERAGE_EXPLANATION
 
 
@@ -126,7 +127,8 @@ class SavedAssessmentPresentationParityTests(unittest.TestCase):
         self.assertTrue(machine["findings"][0]["evidence_ref"])
         self.assertIsNone(machine["findings"][1]["evidence_ref"])
         self.assertEqual(len(sarif), 2)
-        parsed = _report(data)
+        # Public exporters filter reviewed corrections before _report.
+        parsed = _report(ReportView.from_session(data).as_legacy())
         self.assertIn("1 confirmed, 1 potential", _summary(parsed))
         html = Path(export_html(data, self.folder.name)).read_text(encoding="utf-8")
         pdf = pdf_texts(data, self.folder.name)
