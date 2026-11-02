@@ -82,6 +82,121 @@
         "coverage": "COMPLETE",
         "rules": []
       }
+    },
+    {
+      "id": "httpx-missing-status",
+      "scanner": "httpx",
+      "stdout": [
+        "{\"url\":\"https://example.test/\"}"
+      ],
+      "sha256": "adcda36e7e491755172fab765e4ce4c026677ceec109930865bdfbae9f733614",
+      "expected": {
+        "status": "FAILED",
+        "evidence": false,
+        "summary": "[!] httpx emitted no parseable JSONL result; unstructured tool output omitted (may include confidential URLs).",
+        "coverage": "PARTIAL",
+        "rules": []
+      }
+    },
+    {
+      "id": "ffuf-missing-status",
+      "scanner": "ffuf",
+      "stdout": [
+        "{\"url\":\"https://example.test/admin\"}"
+      ],
+      "sha256": "d920b6aa1a91a7db16dfcd649a0963b60cac67a04e5e02a6e5ae7ec9ab184f81",
+      "expected": {
+        "status": "FAILED",
+        "evidence": false,
+        "summary": "[!] ffuf emitted no parseable JSONL result; unstructured tool output omitted (may include confidential URLs).",
+        "coverage": "PARTIAL",
+        "rules": []
+      }
+    },
+    {
+      "id": "ffuf-boolean-status",
+      "scanner": "ffuf",
+      "stdout": [
+        "{\"url\":\"https://example.test/admin\",\"status\":true}"
+      ],
+      "sha256": "6d4261952bbb2d081cc70edec1e30359afcf04e260e69fea63e17e5f648635a1",
+      "expected": {
+        "status": "FAILED",
+        "evidence": false,
+        "summary": "[!] ffuf emitted no parseable JSONL result; unstructured tool output omitted (may include confidential URLs).",
+        "coverage": "PARTIAL",
+        "rules": []
+      }
+    },
+    {
+      "id": "httpx-non-http-status",
+      "scanner": "httpx",
+      "stdout": [
+        "{\"url\":\"https://example.test/\",\"status_code\":700}"
+      ],
+      "sha256": "ff3050b140a2a07252ac244c4f2adc683f35f590628d82a1ade03876b31c66a8",
+      "expected": {
+        "status": "FAILED",
+        "evidence": false,
+        "summary": "[!] httpx emitted no parseable JSONL result; unstructured tool output omitted (may include confidential URLs).",
+        "coverage": "PARTIAL",
+        "rules": []
+      }
+    },
+    {
+      "id": "httpx-contradictory-failure",
+      "scanner": "httpx",
+      "stdout": [
+        "{\"url\":\"https://example.test/?token=CORPUS_SECRET\",\"status_code\":200,\"failed\":true,\"error\":\"request failed CORPUS_SECRET\"}"
+      ],
+      "sha256": "ad0ccddc1f4c3a4a35f07d53df68e47672fb2a46c010e9f0188cef215c4a60d7",
+      "expected": {
+        "status": "FAILED",
+        "evidence": false,
+        "summary": "[!] httpx emitted no parseable JSONL result; unstructured tool output omitted (may include confidential URLs).",
+        "coverage": "PARTIAL",
+        "rules": []
+      },
+      "must_not_publish": [
+        "CORPUS_SECRET"
+      ]
+    },
+    {
+      "id": "httpx-mixed-failed-response",
+      "scanner": "httpx",
+      "stdout": [
+        "{\"url\":\"https://example.test/\",\"status_code\":200}",
+        "{\"url\":\"https://example.test/bad\",\"status_code\":0,\"error\":\"CORPUS_SECRET\"}"
+      ],
+      "sha256": "70b290f58b38f4d1cccff32c6793f96862f480e70170dc069cf359dc715455aa",
+      "expected": {
+        "status": "PARTIAL",
+        "evidence": true,
+        "summary": "HTTP 200 | https://example.test/ |  |  | technologies: ",
+        "coverage": "PARTIAL",
+        "rules": [],
+        "diagnostics": "Native output contains unparseable or incomplete records"
+      },
+      "must_not_publish": [
+        "CORPUS_SECRET"
+      ]
+    },
+    {
+      "id": "ffuf-mixed-invalid-response",
+      "scanner": "ffuf",
+      "stdout": [
+        "{\"url\":\"https://example.test/admin\",\"status\":403}",
+        "{\"url\":\"https://example.test/bad\",\"status\":true}"
+      ],
+      "sha256": "ddf559d0231c08a7357e0fcd5492f6e15cd378fc7ae031414c05a5e261925a13",
+      "expected": {
+        "status": "PARTIAL",
+        "evidence": true,
+        "summary": "ENDPOINT HTTP 403 | https://example.test/admin",
+        "coverage": "PARTIAL",
+        "rules": [],
+        "diagnostics": "Native output contains unparseable or incomplete records"
+      }
     }
   ]
 }

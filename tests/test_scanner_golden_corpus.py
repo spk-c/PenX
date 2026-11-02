@@ -92,6 +92,36 @@ class ScannerGoldenCorpusTests(unittest.TestCase):
                     self.assertEqual(sarif['properties']['evidenceRef'], finding['evidence_ref'])
                     self.assertEqual(sarif['properties']['scannerStatus'], expected['status'])
 
+    def test_http_status_type_and_bounds_mutations(self):
+        for scanner, field in (('httpx', 'status_code'), ('ffuf', 'status')):
+            seed = next(case for case in self.pack['cases'] if case['id'] == scanner + '-response')
+            row = json.loads(seed['stdout'][0])
+            for invalid in (None, True, False, 0, 99, 600, 200.0, '200', [], {}):
+                with self.subTest(scanner=scanner, invalid=invalid):
+                    raw = json.dumps({**row, field: invalid})
+                    output = _summarize_native_run(scanner, raw)
+                    self.assertEqual(output.status, 'FAILED')
+                    self.assertFalse(output.evidence)
+            for valid in (100, 200, 403, 429, 500, 599):
+                with self.subTest(scanner=scanner, valid=valid):
+                    output = _summarize_native_run(scanner, json.dumps({**row, field: valid}))
+                    self.assertEqual(output.status, 'COMPLETE')
+                    self.assertTrue(output.evidence)
+
+    def test_httpx_error_fields_override_response_claim(self):
+        seed = next(case for case in self.pack['cases'] if case['id'] == 'httpx-response')
+        row = json.loads(seed['stdout'][0])
+        for flags in ({'failed': True}, {'error': 'CORPUS_SECRET'},
+                      {'failed': False, 'error': 'CORPUS_SECRET'}):
+            with self.subTest(flags=flags):
+                output = _summarize_native_run('httpx', json.dumps({**row, **flags}))
+                self.assertEqual(output.status, 'FAILED')
+                self.assertFalse(output.evidence)
+                self.assertNotIn('CORPUS_SECRET', str(output) + output.diagnostics)
+        output = _summarize_native_run('httpx', json.dumps({**row, 'failed': False, 'error': ''}))
+        self.assertEqual(output.status, 'COMPLETE')
+        self.assertTrue(output.evidence)
+
 
 if __name__ == '__main__':
     unittest.main()

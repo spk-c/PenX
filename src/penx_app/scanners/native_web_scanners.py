@@ -265,6 +265,15 @@ def summarize_output(scanner: str, raw: str, *, max_items: int = 60,
         if not isinstance(item, dict):
             discarded += 1
             continue
+        if scanner in ("httpx", "ffuf"):
+            # A URL alone can be a failed request's input, not a response.
+            # Match the existing endpoint-inventory status contract, including
+            # excluding bool (an int subclass) and contradictory HTTPx errors.
+            status = item.get("status_code" if scanner == "httpx" else "status")
+            if (type(status) is not int or not 100 <= status <= 599
+                    or (scanner == "httpx" and (item.get("failed") or item.get("error")))):
+                discarded += 1
+                continue
         if scanner == "nuclei":
             info = item.get("info") or {}
             if not isinstance(info, dict):
