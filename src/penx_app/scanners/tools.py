@@ -281,7 +281,9 @@ def run_whatweb(target: str, *, cancel_event=None) -> str:
             return result
         timed_out = str(result) + '\n'
 
-    lines = ['[Python fingerprint fallback — limited; NOT an actual WhatWeb scan]']
+    lines = [('[Windows Python fingerprint fallback — limited; NOT an actual WhatWeb scan]'
+              if os.name == 'nt' else
+              '[Python fingerprint fallback — limited; NOT an actual WhatWeb scan]')]
     observed = 0
     for url in _urls(target):
         try:
