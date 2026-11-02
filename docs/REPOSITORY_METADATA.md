@@ -1,6 +1,6 @@
 # PenX GitHub repository presentation
 
-This is the reviewed public repository profile proposal for [PenX](https://github.com/spk-c/PenX), aligned to the published v0.6.0 cross-platform release. The repository's **About / Description / Topics** settings live in GitHub repository metadata (not Git files); changing this document alone does **not** apply those settings.
+This is the reviewed public repository profile proposal for [PenX](https://github.com/spk-c/PenX), aligned to v0.6.0. The canonical machine-readable values are in [repository-profile.json](repository-profile.json). GitHub's **About / Description / Topics** settings live outside the Git tree: editing a file alone does **not** apply them.
 
 ## Description (About)
 
@@ -39,7 +39,9 @@ These topics describe real project features. Do not add `exploit`, `zero-day`, `
 
 ## Apply settings
 
-In the repository's GitHub **About** sidebar, select the gear icon, paste the **Description**, set the **Website**, and replace or add the topics above; then save. This requires repository metadata/administration write access. The installed repository connector does not expose that mutation, and no hosted workflow should claim to have applied it without authorization.
+Run `scripts/sync_github_repository_profile.ps1` on Windows to preview the canonical values. After signing in with `gh auth login` as an account with GitHub administration/metadata write permission, run `scripts/sync_github_repository_profile.ps1 -Apply` to update and verify Description, Website and Topics. Alternatively, use the gear icon in the repository's GitHub **About** sidebar to set them manually.
+
+The connected GitHub connector currently does **not** expose that metadata mutation, so these values must not be described as live until the script succeeds or the GitHub About sidebar is confirmed. The script does not alter code, branches, releases, published assets or repository visibility.
 
 ## Release visibility and trust
 
