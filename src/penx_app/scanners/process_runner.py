@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from pathlib import Path
 import os
+import sys
 import queue
 import signal
 import subprocess
@@ -337,6 +338,16 @@ def _child_env(env: dict[str, str] | None) -> dict[str, str]:
     operators can still override.
     """
     base = dict(os.environ) if env is None else dict(env)
+    # PyInstaller prepends its bundled shared libraries to LD_LIBRARY_PATH.
+    # Inheriting that path when launching distro-provided Kali binaries can
+    # load incompatible libcrypto/libssl/libstdc++ and cause immediate failures.
+    # Restore the operator's original loader path for external child scanners.
+    if os.name != "nt" and getattr(sys, "frozen", False):
+        original = base.get("LD_LIBRARY_PATH_ORIG")
+        if original is None:
+            base.pop("LD_LIBRARY_PATH", None)
+        else:
+            base["LD_LIBRARY_PATH"] = original
     base.setdefault("PYTHONUTF8", "1")
     base.setdefault("PYTHONIOENCODING", "utf-8")
     return base
