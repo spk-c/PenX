@@ -13,7 +13,6 @@ import shutil
 import subprocess
 import tempfile
 import threading
-import time
 
 PORT = 8080
 URL = f"http://127.0.0.1:{PORT}"
@@ -94,17 +93,32 @@ def main() -> None:
                          "--scanners", "1,3,4,6", "--consent", timeout=45)
             if result.returncode:
                 raise AssertionError("Kali preflight incorrectly marks installed scanners missing")
-            # Exercise *the real PenX adapters*, not mocked test doubles.
-            assert_local_scan("http_headers", "4", URL, Path(temp), timeout=45)
-            assert_local_scan("whatweb", "3", URL, Path(temp), timeout=75)
-            assert_local_scan("nmap", "1", TARGET, Path(temp), timeout=165)
-            # Native Nikto is separately capped: a full Nikto scan can run for
-            # minutes even on localhost. Mark as executable smoke, not full
-            # PenX-adapter acceptance.
+            failures = []
+            # First run the distribution's executable directly. If the PenX
+            # adapter fails, distinguish a broken Kali binary from adapter IO.
+            native = run("whatweb", "-a", "1", URL, timeout=45)
+            if native.returncode != 0:
+                failures.append(f"native WhatWeb exit={native.returncode}")
+            # Exercise real PenX adapters, gathering all results even if one
+            # fails. This avoids hiding Nmap behind an earlier WhatWeb failure.
+            for scanner_id, key, target, deadline in (
+                ("http_headers", "4", URL, 45),
+                ("whatweb", "3", URL, 75),
+                ("nmap", "1", TARGET, 165),
+            ):
+                try:
+                    assert_local_scan(scanner_id, key, target, Path(temp), timeout=deadline)
+                except (AssertionError, subprocess.TimeoutExpired) as exc:
+                    print(f"[FAIL] {scanner_id}: {exc}", flush=True)
+                    failures.append(f"{scanner_id}: {exc}")
+            # Nikto's full database assessment may exceed the bounded smoke
+            # deadline. This tests the genuine binary but not its full adapter.
             nikto = run("nikto", "-h", URL, "-nointeractive",
                         "-maxtime", "15s", timeout=55)
             if "Nikto" not in nikto.stdout and "nikto" not in nikto.stdout.lower():
-                raise AssertionError("Nikto did not emit its own scanner banner")
+                failures.append("Nikto did not emit its scanner banner")
+            if failures:
+                raise AssertionError("Kali localhost acceptance failures: " + "; ".join(failures))
             print("[PASS] Kali localhost: PenX HTTP headers, WhatWeb, Nmap;"
                   " real Nikto binary bounded smoke (not full adapter acceptance)", flush=True)
     finally:

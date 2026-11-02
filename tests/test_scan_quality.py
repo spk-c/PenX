@@ -2,6 +2,7 @@
 
 No HTTP requests or real security scans are issued by these tests.
 """
+import os
 import unittest
 from unittest.mock import patch
 
@@ -383,7 +384,7 @@ class FirstCompleteScanRegressions(unittest.TestCase):
                  patch("penx_app.scanners.tools.requests.get", return_value=reply), \
                  patch("penx_app.scanners.tools._urls", return_value=["https://shirtgeklebt.net"]):
                 result = tools.run_whatweb("shirtgeklebt.net")
-        self.assertTrue(result.startswith("[Windows Python fingerprint fallback"))
+        self.assertTrue(result.startswith("[Windows Python fingerprint fallback" if os.name == "nt" else "[Python fingerprint fallback"))
         self.assertIn("Server=cloudflare", result)
         self.assertIn("Timed out after 60s", result)
         self.assertIn("-a", run.call_args.args[0])
