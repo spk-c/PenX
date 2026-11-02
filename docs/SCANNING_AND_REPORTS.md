@@ -255,8 +255,6 @@ will show text only. The final saved scan report is identical in either mode.
 **Windows without WSL remains supported.** No Docker / Lab Mode / Offline
 Replay or nonstandard UI dependency was added.
 
-### How the workflow fits together
-
 Native scanner capture uses the same raw-byte policy in live and quiet modes:
 stdout and stderr are each capped at 1 MiB and continue draining after the cap.
 Stderr is labeled separately; stderr-only output does not establish evidence.
@@ -264,6 +262,8 @@ Invalid UTF-8 is displayed with replacement characters but reported as
 `PARTIAL` with no usable evidence. Valid Unicode remains intact, including
 multibyte characters split across reads. Truncation, process failure and
 cancellation retain their existing incomplete/failed status semantics.
+
+### How the workflow fits together
 
 ~~~text
   Authorized IP / domain
