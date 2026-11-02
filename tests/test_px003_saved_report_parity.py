@@ -114,10 +114,13 @@ class SavedAssessmentPresentationParityTests(unittest.TestCase):
         data = saved_fixture()
         machine = report_payload(data)
         sarif = sarif_payload(data)["runs"][0]["results"]
+        # Saved JSON retains advisory recommendations as an explicit
+        # recommendation entry; SARIF excludes them from security alerts.
         self.assertEqual([r["name"] for r in machine["findings"]],
-                         ["Validated scanner quote", "Unverified severity hypothesis"])
+                         ["Validated scanner quote", "Unverified severity hypothesis",
+                          "Review DNS settings"])
         self.assertEqual([r["confidence"] for r in machine["findings"]],
-                         ["confirmed", "possible"])
+                         ["confirmed", "possible", "recommendation"])
         self.assertEqual([r["properties"]["confidence"] for r in sarif],
                          ["confirmed", "possible"])
         self.assertTrue(machine["findings"][0]["evidence_ref"])
