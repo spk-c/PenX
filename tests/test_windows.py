@@ -56,7 +56,7 @@ class PortTests(unittest.TestCase):
         result = subprocess.run([sys.executable, str(Path(__file__).resolve().parent.parent / 'penx.py'), '--version'],
                                 capture_output=True, text=True, timeout=15)
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn('PenX Windows', result.stdout)
+        self.assertIn('PenX Windows' if os.name == 'nt' else 'PenX Linux', result.stdout)
 
     def test_path_for_source_mode(self):
         from penx_app.app_paths import APP_ROOT

@@ -60,7 +60,7 @@ are not signed releases.
 
 ```bash
 # After obtaining a release .deb and verifying its SHA-256:
-sudo apt install ./penx_<version>_amd64.deb
+sudo apt install ./penx_*.deb
 penx --version
 penx --check
 ```

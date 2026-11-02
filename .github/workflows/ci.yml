@@ -88,7 +88,7 @@ jobs:
     name: tests (windows-latest)
     # Normal PRs skip Windows; release/* PRs run real Windows regression tests.
     # Independent physical field acceptance is tracked separately.
-    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && startsWith(github.head_ref, 'release/'))
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && (startsWith(github.head_ref, 'release/') || startsWith(github.head_ref, 'feature/linux-')))
     runs-on: windows-latest
     timeout-minutes: 25
     steps:
@@ -130,7 +130,7 @@ jobs:
   # and again during tagged builds. Normal PRs conserve Windows minutes.
   windows-package-smoke:
     name: Windows packaged app & installer
-    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && startsWith(github.head_ref, 'release/'))
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && (startsWith(github.head_ref, 'release/') || startsWith(github.head_ref, 'feature/linux-')))
     runs-on: windows-latest
     timeout-minutes: 20
     steps:

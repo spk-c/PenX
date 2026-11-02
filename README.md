@@ -4,7 +4,7 @@
 
 <h1 align="center">PenX</h1>
 
-<p align="center"><strong>Windows-first security reconnaissance. Local AI. Evidence you can review.</strong></p>
+<p align="center"><strong>Cross-platform security reconnaissance. Local AI. Evidence you can review.</strong></p>
 
 <p align="center">
   PenX is an open-source terminal application that brings <strong>Nmap, Nuclei, httpx, ffuf, Subfinder, Katana</strong> and more into one security assessment workflow—with local LLM assistance and shareable reports.
@@ -15,12 +15,14 @@
   <a href="https://github.com/spk-c/PenX/releases/latest"><img src="https://img.shields.io/github/v/release/spk-c/PenX?label=release" alt="Latest release"></a>
   <a href="https://github.com/spk-c/PenX/stargazers"><img src="https://img.shields.io/github/stars/spk-c/PenX?style=flat" alt="GitHub stars"></a>
   <img src="https://img.shields.io/badge/Windows-10%20%7C%2011-0078D6?logo=windows" alt="Windows 10 and 11">
+  <img src="https://img.shields.io/badge/Linux-Kali%20%7C%20Debian%20%7C%20Ubuntu-333333?logo=linux" alt="Linux support in development">
   <img src="https://img.shields.io/badge/Python-3.10--3.13-3776AB?logo=python" alt="Python 3.10 to 3.13 for source installation">
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-22A699" alt="MIT license"></a>
 </p>
 
 <p align="center">
   <a href="#download"><strong>Download for Windows</strong></a> ·
+  <a href="LINUX.md"><strong>Linux / Kali setup</strong></a> ·
   <a href="#quick-start"><strong>Quick start</strong></a> ·
   <a href="docs/DEMO.md"><strong>View demo</strong></a> ·
   <a href="#documentation"><strong>Documentation</strong></a>
@@ -37,6 +39,8 @@
 > [!IMPORTANT]
 > **Authorized targets only.** PenX makes real network requests. Use it only on systems you own or are explicitly permitted to assess. AI-generated findings and CVE matches are **not proof of a vulnerability**—always review the underlying evidence.
 >
+> **Linux/Kali development:** The v0.6.0 cross-platform port is under review. See [LINUX.md](LINUX.md) for source installation, packaging and verification limits. The current published v0.5.0 artifacts remain Windows-only.
+>
 > **Release availability:** Use the [latest official PenX release](https://github.com/spk-c/PenX/releases/latest) for published Windows installer, portable ZIP and SHA-256 checksums. Features in the current source may be newer than the latest published binaries. Independent Windows/scanner and database [field acceptance](docs/MAINTENANCE_STATUS.md) remains **NOT SIGNED OFF**.
 
 ## Download
@@ -45,6 +49,7 @@
 
 | Edition | Recommended for | Get it |
 | --- | --- | --- |
+| **Linux (in development)** | Kali, Debian, Ubuntu; Python source installation and future .deb/portable builds | [Linux guide](LINUX.md) |
 | **Windows installer** (`PenX-Setup-x64.exe`) | Most Windows 10/11 users; Start menu and uninstall entry | **[Download installer](https://github.com/spk-c/PenX/releases/latest/download/PenX-Setup-x64.exe)** |
 | **Portable ZIP** (`PenX-Windows-x64.zip`) | Running PenX from an extracted directory | **[Download portable ZIP](https://github.com/spk-c/PenX/releases/latest/download/PenX-Windows-x64.zip)** |
 | **Source code** | Developers and Python-based installations | [Install from source](#from-source) |
@@ -65,7 +70,7 @@
 | **History and comparison** | Locally saved assessments, corrections and scan differences over time |
 | **Report generation** | HTML/PDF reports plus saved-session JSON and SARIF 2.1.0 exports |
 
-**PenX is a terminal/CLI application**, not a graphical dashboard or an exploitation framework. It is an independent Windows-first adaptation of the MIT-licensed [METATRON project](https://github.com/sooryathejas/METATRON).
+**PenX is a terminal/CLI application**, not a graphical dashboard or an exploitation framework. It is an independent cross-platform adaptation of the MIT-licensed [METATRON project](https://github.com/sooryathejas/METATRON).
 
 ## Quick start
 
@@ -95,7 +100,7 @@ Useful diagnostics from a portable executable folder:
 
 ### From source
 
-Windows source installation supports Python **3.10–3.13** (3.13 recommended):
+Source installation supports Python **3.10–3.13** (3.13 recommended). Windows:
 
 ~~~powershell
 git clone https://github.com/spk-c/PenX.git
@@ -103,6 +108,8 @@ cd PenX
 .\install-windows.bat
 .\start-windows.bat
 ~~~
+
+On Kali/Debian/Ubuntu, run `bash ./install-linux.sh` and then `.venv/bin/penx --setup-status`. For optional apt scanner dependencies use `bash ./install-linux.sh --with-scanners`; see [the Linux guide](LINUX.md) before installing. The current published release still provides Windows binaries only.
 
 Setup prepares the Python environment and handles supported scanner setup with consent. Use `check-windows.bat` for diagnostics and `install-scanners.bat` to retry missing scanners. **Back up** existing `.env`, `data/` and `reports/` before updating. [Windows troubleshooting →](WINDOWS.md)
 
@@ -250,6 +257,7 @@ Third-party runtimes, privileges and networks affect scanner availability. Autom
 | Guide | Contents |
 | --- | --- |
 | [Windows setup](WINDOWS.md) | Installer, portable edition, dependencies, updates and troubleshooting |
+| [Linux / Kali setup](LINUX.md) | Source install, XDG paths, optional scanners, packages and limitations |
 | [Scanning and reports](docs/SCANNING_AND_REPORTS.md) | Scanner behavior, scope rules, evidence, history and exports |
 | [Local AI and CVE research](docs/LOCAL_AI_AND_CVE.md) | Endpoint configuration, keys and candidate verification |
 | [Demo](docs/DEMO.md) | Illustrated workflow and synthetic reports |
