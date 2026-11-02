@@ -197,6 +197,122 @@
         "rules": [],
         "diagnostics": "Native output contains unparseable or incomplete records"
       }
+    },
+    {
+      "id": "httpx-duplicate-fields",
+      "scanner": "httpx",
+      "stdout": [
+        "{\"url\":\"https://example.test/\",\"status_code\":200,\"failed\":true,\"failed\":false,\"error_detail\":\"CORPUS_SECRET\"}"
+      ],
+      "sha256": "b6c15b4f7b8f7c030b99986cd6cd44f9c800bbb2de45ff0e26818d56f94f694b",
+      "expected": {
+        "status": "FAILED",
+        "evidence": false,
+        "summary": "[!] httpx emitted no parseable JSONL result; unstructured tool output omitted (may include confidential URLs).",
+        "coverage": "PARTIAL",
+        "rules": []
+      },
+      "must_not_publish": [
+        "CORPUS_SECRET"
+      ]
+    },
+    {
+      "id": "httpx-mixed-duplicate-fields",
+      "scanner": "httpx",
+      "stdout": [
+        "{\"url\":\"https://example.test/\",\"status_code\":200}",
+        "{\"url\":\"https://example.test/\",\"status_code\":200,\"failed\":true,\"failed\":false,\"error_detail\":\"CORPUS_SECRET\"}"
+      ],
+      "sha256": "344bf47d206bb15470b7590c04b64e3d2408d8b35bea079c9c293d778bae0fd6",
+      "expected": {
+        "status": "PARTIAL",
+        "evidence": true,
+        "summary": "HTTP 200 | https://example.test/ |  |  | technologies: ",
+        "coverage": "PARTIAL",
+        "rules": [],
+        "diagnostics": "Native output contains unparseable or incomplete records"
+      },
+      "must_not_publish": [
+        "CORPUS_SECRET"
+      ]
+    },
+    {
+      "id": "ffuf-duplicate-fields",
+      "scanner": "ffuf",
+      "stdout": [
+        "{\"url\":\"https://example.test/admin\",\"status\":0,\"status\":403,\"error_detail\":\"CORPUS_SECRET\"}"
+      ],
+      "sha256": "cdf6ce536e9c4d7385052cf82c1f933840293119a3e4a6d773c041875837692a",
+      "expected": {
+        "status": "FAILED",
+        "evidence": false,
+        "summary": "[!] ffuf emitted no parseable JSONL result; unstructured tool output omitted (may include confidential URLs).",
+        "coverage": "PARTIAL",
+        "rules": []
+      },
+      "must_not_publish": [
+        "CORPUS_SECRET"
+      ]
+    },
+    {
+      "id": "ffuf-mixed-duplicate-fields",
+      "scanner": "ffuf",
+      "stdout": [
+        "{\"url\":\"https://example.test/admin\",\"status\":403}",
+        "{\"url\":\"https://example.test/admin\",\"status\":0,\"status\":403,\"error_detail\":\"CORPUS_SECRET\"}"
+      ],
+      "sha256": "9ef97b66f73dafada7475992ec170e4c21f06d879583245076a35b8bb58c19ab",
+      "expected": {
+        "status": "PARTIAL",
+        "evidence": true,
+        "summary": "ENDPOINT HTTP 403 | https://example.test/admin",
+        "coverage": "PARTIAL",
+        "rules": [],
+        "diagnostics": "Native output contains unparseable or incomplete records"
+      },
+      "must_not_publish": [
+        "CORPUS_SECRET"
+      ]
+    },
+    {
+      "id": "nuclei-duplicate-fields",
+      "scanner": "nuclei",
+      "stdout": [
+        "{\"template-id\":\"fixture-check\",\"info\":{\"severity\":\"unknown\",\"severity\":\"low\",\"name\":\"Synthetic finding\"},\"matched-at\":\"https://example.test/\",\"error_detail\":\"CORPUS_SECRET\"}"
+      ],
+      "sha256": "10f9b88f0532bc5e4bc073d205649abe1a59b91b065a8dcb3e2608aad1acd1f4",
+      "expected": {
+        "status": "FAILED",
+        "evidence": false,
+        "summary": "[!] nuclei emitted no parseable JSONL result; unstructured tool output omitted (may include confidential URLs).",
+        "coverage": "PARTIAL",
+        "rules": []
+      },
+      "must_not_publish": [
+        "CORPUS_SECRET"
+      ]
+    },
+    {
+      "id": "nuclei-mixed-duplicate-fields",
+      "scanner": "nuclei",
+      "stdout": [
+        "{\"template-id\":\"fixture-check\",\"info\":{\"severity\":\"low\",\"name\":\"Synthetic finding\"},\"matched-at\":\"https://example.test/\"}",
+        "{\"template-id\":\"fixture-check\",\"info\":{\"severity\":\"unknown\",\"severity\":\"low\",\"name\":\"Synthetic finding\"},\"matched-at\":\"https://example.test/\",\"error_detail\":\"CORPUS_SECRET\"}"
+      ],
+      "sha256": "2edce7e4cdee85db3272761ee6f12c94b29722699fda891b8cdf08576bf64c55",
+      "expected": {
+        "status": "PARTIAL",
+        "evidence": true,
+        "summary": "TEMPLATE fixture-check | low | Synthetic finding | https://example.test/",
+        "coverage": "PARTIAL",
+        "rules": [
+          "PENX-NUCLEI-fixture-check"
+        ],
+        "diagnostics": "Native output contains unparseable or incomplete records"
+      },
+      "must_not_publish": [
+        "CORPUS_SECRET"
+      ]
     }
   ]
 }

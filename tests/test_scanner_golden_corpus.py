@@ -92,6 +92,37 @@ class ScannerGoldenCorpusTests(unittest.TestCase):
                     self.assertIn(finding['raw_evidence'], adapter.text)
                     self.assertEqual(sarif['properties']['evidenceRef'], finding['evidence_ref'])
                     self.assertEqual(sarif['properties']['scannerStatus'], expected['status'])
+                for secret in case.get('must_not_publish', []):
+                    public = json.dumps([report, run, [r.quote for r in adapter.evidence_records]])
+                    self.assertNotIn(secret, public)
+
+    def test_nonfinite_json_constants_are_rejected(self):
+        for identity in ('nuclei-match', 'httpx-response', 'ffuf-response'):
+            seed = next(case for case in self.pack['cases'] if case['id'] == identity)
+            for constant in ('NaN', 'Infinity', '-Infinity'):
+                with self.subTest(scanner=seed['scanner'], constant=constant):
+                    raw = seed['stdout'][0][:-1] + ',"duration":' + constant + '}'
+                    output = _summarize_native_run(seed['scanner'], raw)
+                    self.assertEqual(output.status, 'FAILED')
+                    self.assertFalse(output.evidence)
+                    mixed = _summarize_native_run(seed['scanner'], seed['stdout'][0] + '\n' + raw)
+                    self.assertEqual(mixed.status, 'PARTIAL')
+                    self.assertTrue(mixed.evidence)
+            # Finite metadata is legal JSON and must not change the observation.
+            row = json.loads(seed['stdout'][0])
+            output = _summarize_native_run(seed['scanner'], json.dumps({
+                **row, 'duration': 1.5, 'note': 'NaN / Infinity are ordinary text here'}))
+            self.assertEqual(output.status, 'COMPLETE')
+            self.assertEqual(str(output), seed['expected']['summary'])
+
+    def test_repeated_records_are_not_duplicate_object_fields(self):
+        for identity in ('nuclei-match', 'httpx-response', 'ffuf-response'):
+            seed = next(case for case in self.pack['cases'] if case['id'] == identity)
+            with self.subTest(scanner=seed['scanner']):
+                output = _summarize_native_run(seed['scanner'], '\n'.join(seed['stdout'] * 2))
+                self.assertEqual(output.status, 'COMPLETE')
+                self.assertTrue(output.evidence)
+                self.assertEqual(str(output), '\n'.join([seed['expected']['summary']] * 2))
 
     def test_http_status_type_and_bounds_mutations(self):
         for scanner, field in (('httpx', 'status_code'), ('ffuf', 'status')):

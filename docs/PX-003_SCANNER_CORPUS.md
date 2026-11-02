@@ -93,3 +93,26 @@ No real scanner, external target or model is invoked by this pack.
 No roadmap completion checkbox is changed. The delta is one discoverable
 offline suite and stricter response evidence for two existing parsers;
 the all-adapter golden corpus remains partial.
+
+## Continuation: ambiguous JSONL records
+
+This checkpoint stays within the same three-parser boundary. Duplicate
+fields previously allowed a later value to conceal an earlier failure/status
+or change a Nuclei severity. Non-finite JSON constants were also accepted.
+Add hand-authored ambiguous records before changing decoding, then reject
+the whole offending record without echoing its content. Independent valid
+rows must survive as PARTIAL evidence, with unchanged JSON/SARIF schemas and
+summary-bound evidence anchors. Include repeated-key checks inside nested
+objects, and ensure identical duplicate *records* remain valid observations.
+Use the existing discard accounting; no new taxonomy, scanner, dependency,
+migration or external I/O. Rollback remains a normal revert. Results below
+will distinguish the intentionally failing regressions from final checks.
+
+- Red run: six duplicate-field snapshots plus nine non-finite-constant
+  combinations failed before the decoder change (15 failing subcases).
+- Targeted replay: six tests PASS over 18 snapshots, the original status
+  mutations, non-finite rows alone/mixed with valid rows, finite/string
+  controls and repeated-record controls. JSON/SARIF and source-quote checks
+  include the newly rejected cases and their valid neighbors.
+- Existing native suites, Ruff fatal/W/B checks and full-source mypy PASS.
+- Final full offline/distribution checks and current-commit CI are pending.

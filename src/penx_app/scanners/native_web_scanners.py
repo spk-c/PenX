@@ -244,6 +244,19 @@ def _summary_url(value: object, limit: int = 200, *,
         return "[INVALID URL]"
 
 
+def _unique_json_fields(pairs):
+    fields = {}
+    for key, value in pairs:
+        if key in fields:
+            raise ValueError("Duplicate scanner JSON field")
+        fields[key] = value
+    return fields
+
+
+def _reject_json_constant(value):
+    raise ValueError("Non-finite scanner JSON number")
+
+
 def summarize_output(scanner: str, raw: str, *, max_items: int = 60,
                      diagnostics: dict[str, int] | None = None) -> tuple[str, bool]:
     """Remove huge raw HTTP bodies and never treat empty results as vulnerabilities."""
@@ -258,7 +271,8 @@ def summarize_output(scanner: str, raw: str, *, max_items: int = 60,
             discarded += 1
             continue
         try:
-            item = json.loads(line)
+            item = json.loads(line, object_pairs_hook=_unique_json_fields,
+                              parse_constant=_reject_json_constant)
         except (ValueError, TypeError):
             discarded += 1
             continue
