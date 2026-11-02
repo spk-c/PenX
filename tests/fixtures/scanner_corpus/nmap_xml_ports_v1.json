@@ -1,0 +1,96 @@
+{
+  "schema": "penx-nmap-xml-corpus-v1",
+  "provenance": {
+    "kind": "hand-authored-synthetic",
+    "note": "RFC 5737 host fixture; no real network scanners or product validation",
+    "baseline": "PenX v0.6.0 plus PR #128"
+  },
+  "cases": [
+    {
+      "id": "valid-tcp-ssh",
+      "xml": "<nmaprun scanner=\"nmap\"><host><address addr=\"192.0.2.10\" addrtype=\"ipv4\"/><ports><port protocol=\"tcp\" portid=\"22\"><state state=\"open\"/><service name=\"ssh\" product=\"OpenSSH\" version=\"9.2\"><cpe>cpe:/a:openbsd:openssh:9.2</cpe></service></port></ports></host></nmaprun>",
+      "products": [
+        "22/tcp"
+      ],
+      "inventory": [
+        "22/tcp"
+      ]
+    },
+    {
+      "id": "valid-udp-dns",
+      "xml": "<nmaprun scanner=\"nmap\"><host><address addr=\"192.0.2.10\" addrtype=\"ipv4\"/><ports><port protocol=\"udp\" portid=\"53\"><state state=\"open\"/><service name=\"ssh\" product=\"OpenSSH\" version=\"9.2\"><cpe>cpe:/a:openbsd:openssh:9.2</cpe></service></port></ports></host></nmaprun>",
+      "products": [
+        "53/udp"
+      ],
+      "inventory": [
+        "53/udp"
+      ]
+    },
+    {
+      "id": "invalid-zero-port",
+      "xml": "<nmaprun scanner=\"nmap\"><host><address addr=\"192.0.2.10\" addrtype=\"ipv4\"/><ports><port protocol=\"tcp\" portid=\"0\"><state state=\"open\"/><service name=\"ssh\" product=\"OpenSSH\" version=\"9.2\"><cpe>cpe:/a:openbsd:openssh:9.2</cpe></service></port></ports></host></nmaprun>",
+      "products": [],
+      "inventory": []
+    },
+    {
+      "id": "invalid-out-of-range",
+      "xml": "<nmaprun scanner=\"nmap\"><host><address addr=\"192.0.2.10\" addrtype=\"ipv4\"/><ports><port protocol=\"tcp\" portid=\"65536\"><state state=\"open\"/><service name=\"ssh\" product=\"OpenSSH\" version=\"9.2\"><cpe>cpe:/a:openbsd:openssh:9.2</cpe></service></port></ports></host></nmaprun>",
+      "products": [],
+      "inventory": []
+    },
+    {
+      "id": "invalid-negative",
+      "xml": "<nmaprun scanner=\"nmap\"><host><address addr=\"192.0.2.10\" addrtype=\"ipv4\"/><ports><port protocol=\"tcp\" portid=\"-1\"><state state=\"open\"/><service name=\"ssh\" product=\"OpenSSH\" version=\"9.2\"><cpe>cpe:/a:openbsd:openssh:9.2</cpe></service></port></ports></host></nmaprun>",
+      "products": [],
+      "inventory": []
+    },
+    {
+      "id": "invalid-nonnumeric",
+      "xml": "<nmaprun scanner=\"nmap\"><host><address addr=\"192.0.2.10\" addrtype=\"ipv4\"/><ports><port protocol=\"tcp\" portid=\"22garbage\"><state state=\"open\"/><service name=\"ssh\" product=\"OpenSSH\" version=\"9.2\"><cpe>cpe:/a:openbsd:openssh:9.2</cpe></service></port></ports></host></nmaprun>",
+      "products": [],
+      "inventory": []
+    },
+    {
+      "id": "invalid-unicode-decimal",
+      "xml": "<nmaprun scanner=\"nmap\"><host><address addr=\"192.0.2.10\" addrtype=\"ipv4\"/><ports><port protocol=\"tcp\" portid=\"２２\"><state state=\"open\"/><service name=\"ssh\" product=\"OpenSSH\" version=\"9.2\"><cpe>cpe:/a:openbsd:openssh:9.2</cpe></service></port></ports></host></nmaprun>",
+      "products": [],
+      "inventory": []
+    },
+    {
+      "id": "invalid-protocol",
+      "xml": "<nmaprun scanner=\"nmap\"><host><address addr=\"192.0.2.10\" addrtype=\"ipv4\"/><ports><port protocol=\"icmp\" portid=\"22\"><state state=\"open\"/><service name=\"ssh\" product=\"OpenSSH\" version=\"9.2\"><cpe>cpe:/a:openbsd:openssh:9.2</cpe></service></port></ports></host></nmaprun>",
+      "products": [],
+      "inventory": []
+    },
+    {
+      "id": "invalid-blank-protocol",
+      "xml": "<nmaprun scanner=\"nmap\"><host><address addr=\"192.0.2.10\" addrtype=\"ipv4\"/><ports><port protocol=\"\" portid=\"22\"><state state=\"open\"/><service name=\"ssh\" product=\"OpenSSH\" version=\"9.2\"><cpe>cpe:/a:openbsd:openssh:9.2</cpe></service></port></ports></host></nmaprun>",
+      "products": [],
+      "inventory": []
+    },
+    {
+      "id": "closed-port",
+      "xml": "<nmaprun scanner=\"nmap\"><host><address addr=\"192.0.2.10\" addrtype=\"ipv4\"/><ports><port protocol=\"tcp\" portid=\"22\"><state state=\"closed\"/><service name=\"ssh\" product=\"OpenSSH\" version=\"9.2\"><cpe>cpe:/a:openbsd:openssh:9.2</cpe></service></port></ports></host></nmaprun>",
+      "products": [],
+      "inventory": []
+    },
+    {
+      "id": "contradictory-service-version",
+      "xml": "<nmaprun scanner=\"nmap\"><host><address addr=\"192.0.2.10\" addrtype=\"ipv4\"/><ports><port protocol=\"tcp\" portid=\"22\"><state state=\"open\"/><service name=\"ssh\" product=\"OpenSSH\" version=\"9.2\"><cpe>cpe:/a:openbsd:openssh:9.8</cpe></service></port></ports></host></nmaprun>",
+      "products": [],
+      "inventory": [
+        "22/tcp"
+      ]
+    },
+    {
+      "id": "mixed-valid-invalid",
+      "xml": "<nmaprun scanner=\"nmap\"><host><address addr=\"192.0.2.10\" addrtype=\"ipv4\"/><ports><port protocol=\"tcp\" portid=\"0\"><state state=\"open\"/><service name=\"ssh\" product=\"OpenSSH\" version=\"9.2\"><cpe>cpe:/a:openbsd:openssh:9.2</cpe></service></port><port protocol=\"tcp\" portid=\"22\"><state state=\"open\"/><service name=\"ssh\" product=\"OpenSSH\" version=\"9.2\"><cpe>cpe:/a:openbsd:openssh:9.2</cpe></service></port><port protocol=\"sctp\" portid=\"443\"><state state=\"open\"/><service name=\"ssh\" product=\"OpenSSH\" version=\"9.2\"><cpe>cpe:/a:openbsd:openssh:9.2</cpe></service></port></ports></host></nmaprun>",
+      "products": [
+        "22/tcp"
+      ],
+      "inventory": [
+        "22/tcp"
+      ]
+    }
+  ]
+}
