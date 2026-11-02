@@ -85,7 +85,7 @@ class FirstRunSetupTests(unittest.TestCase):
         with patch.object(first_run, "is_windows", return_value=False), \
              patch.object(first_run.install_scanners_windows, "main") as installer:
             self.assertEqual(first_run.run_setup(), 0)
-            self.assertEqual(first_run.run_setup(force=True), 2)
+            self.assertEqual(first_run.run_setup(force=True), 0)
             installer.assert_not_called()
 
     def test_source_mode_does_not_offer_first_run_installer(self):

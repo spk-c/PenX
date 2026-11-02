@@ -1,4 +1,4 @@
-"""Bounded Windows-native web scanner argument builders and JSONL summaries.
+"""Bounded cross-platform web scanner argument builders and JSONL summaries.
 
 No shell, no caller-supplied flags, no auto-downloads, no user-supplied arbitrary
 URLs inside template/wordlist arguments. These helpers never run commands.
@@ -15,6 +15,7 @@ import subprocess
 from urllib.parse import urlsplit
 
 from penx_app.app_paths import APP_ROOT
+from penx_app.scanners.process_runner import _child_env
 from penx_app.scanners.endpoint_inventory import _safe_probe_path
 
 DEFAULT_FFUF_PATHS = (
@@ -33,27 +34,34 @@ def find_native(name: str) -> str | None:
     override = os.getenv(f"PENX_{name.upper()}_PATH", "").strip().strip('"')
     if override:
         path = Path(override)
-        return str(path) if path.is_file() else None
+        return str(path) if path.is_file() and (os.name == "nt" or os.access(path, os.X_OK)) else None
     suffix = ".exe" if os.name == "nt" else ""
     for place in (APP_ROOT / "vendor" / "bin" / (name + suffix),
                   APP_ROOT / "bin" / (name + suffix)):
-        if place.is_file():
+        if place.is_file() and (os.name == "nt" or os.access(place, os.X_OK)):
             return str(place)
-    candidate = shutil.which(name)
-    if candidate and name == "httpx":
-        # The Python HTTPX package installs a different command with this name.
-        # Accept PATH entries only after identifying ProjectDiscovery's CLI.
-        try:
-            check = subprocess.run([candidate, "-version"], shell=False,
-                                   capture_output=True, text=True, timeout=5, check=False)
-            signature = (check.stdout or "") + "\n" + (check.stderr or "")
-            if check.returncode or not re.search(
-                r"(?i)(?:projectdiscovery|current version:\s*v?\d|httpx version:\s*v?\d)", signature
-            ):
-                return None
-        except (OSError, subprocess.TimeoutExpired):
-            return None
-    return candidate
+    # Kali packages ProjectDiscovery HTTPx as httpx-toolkit to avoid the
+    # unrelated Python HTTPX CLI. Test both and reject the Python executable.
+    candidates = [shutil.which(name)]
+    if name == "httpx" and os.name != "nt":
+        candidates.append(shutil.which("httpx-toolkit"))
+    for candidate in candidates:
+        if not candidate:
+            continue
+        if name == "httpx":
+            try:
+                check = subprocess.run([candidate, "-version"], shell=False,
+                                       capture_output=True, text=True, timeout=5, check=False,
+                                       env=_child_env(None))
+                signature = (check.stdout or "") + "\n" + (check.stderr or "")
+                if check.returncode or not re.search(
+                    r"(?i)(?:projectdiscovery|current version:\s*v?\d|httpx version:?\s*v?\d)", signature
+                ):
+                    continue
+            except (OSError, subprocess.TimeoutExpired):
+                continue
+        return candidate
+    return None
 
 
 def web_endpoint(value: str, validate_web_target) -> str:

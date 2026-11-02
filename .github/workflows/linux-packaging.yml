@@ -1,0 +1,95 @@
+name: Linux packaging and smoke
+
+on:
+  pull_request:
+    paths:
+      - 'src/**'
+      - 'scripts/build_linux.py'
+      - 'packaging/linux/**'
+      - 'install-linux.sh'
+      - 'requirements*.txt'
+      - 'pyproject.toml'
+      - '.github/workflows/linux-packaging.yml'
+      - 'tests/test_linux_portability.py'
+      - 'tests/test_preflight.py'
+      - 'tests/kali_local_scanner_acceptance.py'
+      - 'LINUX.md'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  linux-package:
+    name: Linux onedir and Debian package (amd64)
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.13'
+          cache: pip
+          cache-dependency-path: |
+            requirements.lock.txt
+            requirements-build.txt
+      - name: Install verified runtime and build dependencies
+        run: |
+          python -m pip install --disable-pip-version-check --require-hashes -r requirements.lock.txt
+          python -m pip install --disable-pip-version-check -r requirements-build.txt
+          python -m pip check
+      - name: Linux packaging and source regression
+        run: |
+          python -m unittest discover -s tests -p test_linux_portability.py -v
+          python scripts/build_linux.py
+          test -x dist/PenX/PenX
+          test -s dist/PenX/_internal/whois/data/public_suffix_list.dat
+          dist/PenX/PenX --version
+          dist/PenX/PenX --setup-status
+          dist/PenX/PenX --check
+          test -f dist/PenX/.env.example
+          cmp .env.example dist/PenX/.env.example
+          python packaging/linux/build_packages.py
+          dpkg-deb --info artifacts/penx_*.deb
+          tar -tzf artifacts/PenX-Linux-x86_64.tar.gz | grep -q '^PenX/PenX$'
+      - name: Debian installation smoke
+        run: |
+          sudo dpkg -i artifacts/penx_*.deb
+          penx --version
+          penx --setup-status
+          penx --check
+          export XDG_DATA_HOME="$(mktemp -d)"
+          penx --setup
+          test -s "$XDG_DATA_HOME/PenX/.env"
+          cmp .env.example "$XDG_DATA_HOME/PenX/.env"
+          test "$(stat -c %a "$XDG_DATA_HOME/PenX/.env")" = 600
+          rm -rf "$XDG_DATA_HOME"
+          sudo dpkg -r penx
+      - name: Python wheel installation smoke
+        run: |
+          python -m pip wheel --no-deps . --wheel-dir /tmp/penx-wheels
+          python -c 'from glob import glob; from zipfile import ZipFile; wheel = glob("/tmp/penx-wheels/penx-*.whl")[0]; assert "penx_app/resources/.env.example" in ZipFile(wheel).namelist()'
+          python -m pip install --no-deps --force-reinstall /tmp/penx-wheels/penx-*.whl
+          export XDG_DATA_HOME="$(mktemp -d)"
+          penx --version
+          penx --setup
+          test -s "$XDG_DATA_HOME/PenX/.env"
+          cmp .env.example "$XDG_DATA_HOME/PenX/.env"
+          test "$(stat -c %a "$XDG_DATA_HOME/PenX/.env")" = 600
+          rm -rf "$XDG_DATA_HOME"
+      - name: Kali rolling packaged CLI smoke
+        run: |
+          docker run --rm --pull=always \
+            -v "$PWD/artifacts:/artifacts:ro" \
+            -v "$PWD/tests/kali_local_scanner_acceptance.py:/kali_acceptance.py:ro" \
+            kalilinux/kali-rolling:latest \
+            bash -euo pipefail -c 'export DEBIAN_FRONTEND=noninteractive; apt-get update; apt-get install -y /artifacts/penx_*.deb python3 openssl nmap whatweb nikto nuclei httpx-toolkit ffuf katana subfinder; penx --version; penx --check; penx --setup-status; export XDG_DATA_HOME="$(mktemp -d)"; penx --setup; test -s "$XDG_DATA_HOME/PenX/.env"; test "$(stat -c %a "$XDG_DATA_HOME/PenX/.env")" = 600; python3 /kali_acceptance.py'
+      - name: Record artifact hashes
+        run: cd artifacts && sha256sum *.deb *.tar.gz > SHA256SUMS.txt
+      - name: Upload preview build for review
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v7
+        with:
+          name: PenX-Linux-amd64-preview
+          path: artifacts/
+          retention-days: 7

@@ -53,6 +53,7 @@ class ReleaseMetadataRegressionTests(unittest.TestCase):
                                           "https://github.com/spk-c/PenX/releases")
             with patch.object(updates, "APP_ROOT", Path(folder)), \
                  patch.object(updates, "installed_mode", return_value=True), \
+                 patch.object(updates, "is_windows", return_value=True), \
                  patch.object(updates.time, "time", return_value=1000), \
                  patch.dict(os.environ, {"PENX_AUTO_UPDATE_CHECK": "on"}), \
                  patch.object(updates, "fetch_latest", return_value=old_release) as fetch:

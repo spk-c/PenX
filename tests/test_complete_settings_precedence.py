@@ -98,7 +98,8 @@ class SettingsMigrationMatrix(unittest.TestCase):
             exe.write_bytes(b"fixture (never executed)")
             with patch.object(app_paths.sys, "executable", str(exe)), \
                  patch.object(app_paths.sys, "frozen", True, create=True), \
-                 patch.dict(app_paths.os.environ, {"LOCALAPPDATA": str(root / "User Data")}):
+                 patch.dict(app_paths.os.environ, {"LOCALAPPDATA": str(root / "User Data"),
+                                                   "XDG_DATA_HOME": str(root / "User Data")}):
                 # Without Inno's sentinel, portable mode stays next to EXE.
                 self.assertEqual(app_paths.application_root(), root.resolve())
                 (root / ".penx-installed").write_text("", encoding="utf-8")

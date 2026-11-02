@@ -58,7 +58,7 @@ class InstallerUpdateTests(unittest.TestCase):
             local = root / "AppData"
             with patch.object(app_paths.sys, "frozen", True, create=True), \
                  patch.object(app_paths.sys, "executable", str(exe)), \
-                 patch.dict(os.environ, {"LOCALAPPDATA": str(local)}):
+                 patch.dict(os.environ, {"LOCALAPPDATA": str(local), "XDG_DATA_HOME": str(local)}):
                 self.assertFalse(app_paths.installed_mode())
                 self.assertEqual(app_paths.application_root(), exe.parent.resolve())
                 (exe.parent / ".penx-installed").write_text("installed", encoding="ascii")

@@ -1,4 +1,5 @@
 """Ensure the public entrypoints work after the source/test folder split."""
+import os
 import subprocess
 import sys
 import unittest
@@ -21,7 +22,7 @@ class RepositoryLayoutTests(unittest.TestCase):
         proc = subprocess.run([sys.executable, str(ROOT / "penx.py"), "--version"],
                               cwd=ROOT, text=True, capture_output=True, timeout=30)
         self.assertEqual(proc.returncode, 0, proc.stderr)
-        self.assertIn("PenX Windows", proc.stdout)
+        self.assertIn("PenX Windows" if os.name == "nt" else "PenX Linux", proc.stdout)
 
     def test_utility_entrypoint_imports(self):
         proc = subprocess.run([sys.executable, str(ROOT / "cve_quality.py"), "--help"],

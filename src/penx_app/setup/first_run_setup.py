@@ -44,7 +44,7 @@ def is_windows() -> bool:
 
 def scanner_status() -> dict[str, bool]:
     """Quick, local presence checks only. No downloads, scans or subprocesses."""
-    return {
+    status = {
         "Nmap": bool(find_nmap(NMAP_PATH)),
         "Npcap": npcap_present() if is_windows() else False,
         "Ruby": bool(find_runtime("ruby")),
@@ -57,6 +57,13 @@ def scanner_status() -> dict[str, bool]:
         "Subfinder": bool(find_native("subfinder")),
         "Katana": bool(find_native("katana")),
     }
+    if not is_windows():
+        status.pop("Npcap")
+        status.pop("Strawberry Perl")
+        status["Perl"] = bool(find_runtime("perl"))
+        status["WhatWeb"] = status["WhatWeb"] or bool(shutil.which("whatweb"))
+        status["Nikto"] = status["Nikto"] or bool(shutil.which("nikto"))
+    return status
 
 
 def missing_scanners() -> list[str]:
@@ -67,8 +74,12 @@ def print_status() -> None:
     print("PenX scanner components (presence checks, not full compatibility tests):")
     for name, present in scanner_status().items():
         print(f"  [{'OK' if present else 'MISSING'}] {name}")
-    print("Use PenX.exe --setup to install or repair all scanner components.")
-    print("Use PenX.exe --setup-native to install Nuclei, httpx, ffuf, Subfinder and Katana.")
+    if is_windows():
+        print("Use PenX.exe --setup to install or repair all scanner components.")
+        print("Use PenX.exe --setup-native to install Nuclei, httpx, ffuf, Subfinder and Katana.")
+    else:
+        print("Install missing tools with apt or official scanner packages.")
+        print("See LINUX.md; --setup-status performs no network requests.")
 
 
 def ensure_private_env() -> None:
@@ -79,6 +90,12 @@ def ensure_private_env() -> None:
         # The installed edition keeps read-only templates under Program Files
         # (or per-user Programs) but stores private settings under LocalAppData.
         template = Path(sys.executable).resolve().parent / ".env.example"
+    if not template.is_file():
+        # Wheels ship the same example as package data; no repository checkout
+        # or writable program directory is required after pip installation.
+        candidate = Path(__file__).resolve().parents[1] / "resources" / ".env.example"
+        if candidate.is_file():
+            template = candidate
     if target.exists():
         return
     if not template.is_file():
@@ -86,9 +103,12 @@ def ensure_private_env() -> None:
         return
     try:
         target.parent.mkdir(parents=True, exist_ok=True)
-        # Do not overwrite an existing private configuration, including races.
-        with template.open("rb") as source, target.open("xb") as destination:
-            shutil.copyfileobj(source, destination)
+        # Exclusive create with a restrictive mode avoids a world-readable
+        # permissions window on POSIX; no existing config can be overwritten.
+        with template.open("rb") as source:
+            fd = os.open(target, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+            with os.fdopen(fd, "wb") as destination:
+                shutil.copyfileobj(source, destination)
     except FileExistsError:
         return
     except OSError as exc:
@@ -116,8 +136,9 @@ def run_setup(*, force: bool = False) -> int:
     """
     if not is_windows():
         if force:
-            print("[ERROR] The scanner installer is for Windows 10/11.")
-            return 2
+            ensure_private_env()
+            print_status()
+            print("Linux setup does not modify system packages. See LINUX.md.")
         return 0
     if not force and not getattr(sys, "frozen", False):
         # The source installation already has install-windows.bat.

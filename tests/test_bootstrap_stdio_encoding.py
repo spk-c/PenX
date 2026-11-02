@@ -4,8 +4,10 @@ German Windows redirects stdout to cp1252 ("charmap"); non-Latin characters in
 scanner or model output must not crash a scan run or a dispatch path.
 """
 import io
+import os
 import sys
 import unittest
+from unittest.mock import patch
 
 
 def _cp1252_stream() -> io.TextIOWrapper:
@@ -43,7 +45,7 @@ class ForceUtf8StreamsTests(unittest.TestCase):
         stream.close()
         self.assertEqual(rc, 0)
         self.assertEqual(stream.encoding, "utf-8")
-        self.assertIn("PenX Windows", data)
+        self.assertIn("PenX Windows" if os.name == "nt" else "PenX Linux", data)
 
 
 class LiveLineEmissionTests(unittest.TestCase):
@@ -80,6 +82,22 @@ class ChildProcessUtf8Tests(unittest.TestCase):
     non-Latin scanner/model output never crashes a Windows helper running on a
     cp1252/cp936 console (otherwise print() raises UnicodeEncodeError and
     run_tool surfaces a spurious tool failure)."""
+
+    @unittest.skipIf(os.name == "nt", "Linux shared-library isolation")
+    def test_frozen_linux_child_restores_original_loader_path(self):
+        from penx_app.scanners import process_runner
+        with patch.object(process_runner.sys, "frozen", True, create=True):
+            original = {
+                "LD_LIBRARY_PATH": "/opt/penx/PenX/_internal",
+                "LD_LIBRARY_PATH_ORIG": "/usr/local/lib",
+            }
+            result = process_runner._child_env(original)
+            self.assertEqual(result["LD_LIBRARY_PATH"], "/usr/local/lib")
+            self.assertEqual(original["LD_LIBRARY_PATH"], "/opt/penx/PenX/_internal")
+            result = process_runner._child_env({
+                "LD_LIBRARY_PATH": "/opt/penx/PenX/_internal",
+            })
+            self.assertNotIn("LD_LIBRARY_PATH", result)
 
     def test_child_env_pins_utf8_by_default(self):
         from penx_app.scanners.process_runner import _child_env

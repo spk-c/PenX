@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""PenX reconnaissance: Windows-native adapters with portable Python fallbacks.
+"""PenX reconnaissance: cross-platform adapters with portable Python fallbacks.
 
 External scanners are never auto-installed or silently replaced with equivalent-
 looking results. Fallback Python implementations clearly identify themselves.
@@ -94,6 +94,10 @@ def tool_path(tool: str) -> str | None:
     scanner would use.
     """
     override = os.environ.get(f'PENX_{tool.upper()}_PATH', '').strip().strip('"')
+    if tool == 'httpx':
+        # The Linux distribution may expose the correct binary as
+        # httpx-toolkit, while an unrelated Python httpx is also on PATH.
+        return find_native('httpx')
     return _executable(tool, override)
 
 
@@ -106,16 +110,18 @@ def tool_status() -> dict[str, str]:
         'nmap': (_executable('nmap', NMAP_PATH) or 'not installed') +
                 (' (Npcap detected)' if npcap_present() else ' (Npcap not detected; some scan types may fail)' if os.name == 'nt' else ''),
         'nikto': f'installed: {NIKTO_PATH} (Perl: {perl})' if nikto and perl
-                 else 'missing Perl' if nikto else 'not installed (run install-windows.bat)',
+                 else ('missing Perl' if nikto else
+                       (_executable('nikto') or ('not installed (run install-windows.bat)'
+                         if os.name == 'nt' else 'not installed (see LINUX.md)'))),
         'whatweb': f'installed: {WHATWEB_PATH} (Ruby: {ruby})' if whatweb and ruby
-                   else 'missing Ruby; Python fallback only' if whatweb
-                   else 'not installed; limited Python fallback',
+                   else ('missing Ruby; Python fallback only' if whatweb else
+                         (_executable('whatweb') or 'not installed; limited Python fallback')),
         'whois': 'Python WHOIS',
         'http': 'Python requests',
         'dns': 'dnspython',
-        'nuclei': find_native('nuclei') or 'not installed (Windows native scanner)',
+        'nuclei': find_native('nuclei') or 'not installed (native scanner)',
         'httpx': find_native('httpx') or 'not installed (ProjectDiscovery HTTPx)',
-        'ffuf': find_native('ffuf') or 'not installed (Windows native scanner)',
+        'ffuf': find_native('ffuf') or 'not installed (native scanner)',
     }
 
 
@@ -279,12 +285,14 @@ def run_whatweb(target: str, *, cancel_event=None) -> str:
             return result
         timed_out = str(result) + '\n'
 
-    lines = ['[Windows Python fingerprint fallback — limited; NOT an actual WhatWeb scan]']
+    lines = [('[Windows Python fingerprint fallback — limited; NOT an actual WhatWeb scan]'
+              if os.name == 'nt' else
+              '[Python fingerprint fallback — limited; NOT an actual WhatWeb scan]')]
     observed = 0
     for url in _urls(target):
         try:
             response = requests.get(url, timeout=(5, 10), allow_redirects=False,
-                                    headers={'User-Agent': 'PenX/Windows'},
+                                    headers={'User-Agent': 'PenX'},
                                     stream=True)
             try:
                 body = response.raw.read(262144, decode_content=True)
@@ -495,9 +503,9 @@ def run_nikto(target: str, *, cancel_event=None) -> str:
         exe = _executable('nikto')
         if not exe:
             return ScannerOutput(
-                '[!] Nikto unavailable. Run install-windows.bat to install Strawberry Perl '
-                'and the genuine Nikto scanner, or set PENX_NIKTO_PATH manually. '
-                'No vulnerability scan was performed.',
+                '[!] Nikto unavailable. Install the genuine Nikto scanner '
+                '(Windows: install-windows.bat; Linux: apt install nikto), '
+                'or set PENX_NIKTO_PATH manually. No vulnerability scan was performed.',
                 status="FAILED", evidence=False)
         result = _process_outcome(_run_external([exe, *nikto_args], timeout=_scanner_timeout("nikto", 300),
                                              cancel_event=cancel_event))

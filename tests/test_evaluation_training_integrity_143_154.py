@@ -110,6 +110,7 @@ class IntegrityRegressions(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder, \
              patch.object(updates, "APP_ROOT", Path(folder)), \
              patch.object(updates, "installed_mode", return_value=True), \
+             patch.object(updates, "is_windows", return_value=True), \
              patch.object(updates, "fetch_latest", side_effect=[
                  OSError("offline"), Mock(tag="v0.4.6", page_url="https://github.com/SLP-DEV1/PenX")
              ]) as fetch, \

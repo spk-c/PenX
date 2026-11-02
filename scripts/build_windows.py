@@ -27,6 +27,7 @@ PYINSTALLER_ARGS = (
     "--hidden-import=penx_app.setup.llm_setup",
     "--hidden-import=penx_app.setup.install_scanners_windows",
     "--hidden-import=whois",
+    "--collect-data=whois",
     "--hidden-import=dns.resolver",
     "--collect-all", "reportlab",
     "--collect-all", "ddgs",

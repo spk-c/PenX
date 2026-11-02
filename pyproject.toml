@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "penx"
 version = "0.5.0"
-description = "Windows-first security reconnaissance and evidence-based local AI review"
+description = "Cross-platform security reconnaissance and evidence-based local AI review"
 readme = "README.md"
 requires-python = ">=3.10,<3.14"
 license = {file = "LICENSE"}
@@ -16,6 +16,9 @@ penx = "penx_app.bootstrap:main"
 
 [tool.setuptools.dynamic]
 dependencies = {file = ["requirements.txt"]}
+
+[tool.setuptools.package-data]
+penx_app = ["resources/.env.example"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
