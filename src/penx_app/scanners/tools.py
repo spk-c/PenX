@@ -33,6 +33,7 @@ from penx_app.scanners.scanner_targets import normalize_host, normalize_web_targ
 from penx_app.scanners.scanner_runtime import find_runtime, executable_env, find_nmap, npcap_present
 from penx_app.scanners.native_web_scanners import find_native, web_endpoint, nuclei_args, httpx_args, ffuf_args, ffuf_words, nuclei_templates, subfinder_args, katana_args, summarize_output
 from penx_app.scanners.endpoint_inventory import EndpointInventory, load_inventory, save_inventory, normalize_discovery
+from penx_app.scanners.jsonl import load_record
 
 
 from penx_app.domain.scan_models import ScannerOutput
@@ -570,6 +571,15 @@ def _run_native_web_scanner(scanner: str, target: str, *, cancel_event=None) -> 
         return ScannerOutput(f'[!] {scanner}: {exc}', status="FAILED", evidence=False)
 
 
+def _incomplete_native_output(scanner: str, outcome: ScannerOutput) -> ScannerOutput:
+    # Native diagnostics can contain credential-bearing URLs or headers.
+    return ScannerOutput(
+        f"[!] {scanner} did not complete ({outcome.status}); "
+        "raw scanner diagnostics omitted because they may contain secrets.",
+        status=outcome.status, evidence=False,
+    )
+
+
 def _summarize_native_run(scanner: str, result: str) -> ScannerOutput:
     outcome = _process_outcome(result)
     timeout_notice = False
@@ -603,14 +613,7 @@ def _summarize_native_run(scanner: str, result: str) -> ScannerOutput:
         return ScannerOutput(summary, status="FAILED" if scanner == "httpx" else "COMPLETE",
                              evidence=False)
     if outcome.status != "COMPLETE":
-        # External tools sometimes include signed URLs and authentication
-        # values in crash dumps or their command-line diagnostics. The raw
-        # error is not suitable for the persisted assessment or LLM prompt.
-        return ScannerOutput(
-            f"[!] {scanner} did not complete ({outcome.status}); "
-            "raw scanner diagnostics omitted because they may contain secrets.",
-            status=outcome.status, evidence=False,
-        )
+        return _incomplete_native_output(scanner, outcome)
     parsing: dict[str, int] = {}
     summary, evidence = summarize_output(scanner, str(outcome), diagnostics=parsing)
     if not evidence:
@@ -649,7 +652,6 @@ def run_subfinder(target: str, *, cancel_event=None) -> ScannerOutput:
         return cancelled
     try:
         from urllib.parse import urlsplit
-        import json
         origin = web_endpoint(target, _web_target)
         domain = (urlsplit(origin).hostname or "").rstrip(".").lower()
         if not domain or not re.fullmatch(r"[a-z0-9.-]+", domain):
@@ -669,7 +671,7 @@ def run_subfinder(target: str, *, cancel_event=None) -> ScannerOutput:
             return ScannerOutput("[*] Subfinder completed; no in-scope subdomains discovered.",
                                  status="COMPLETE", evidence=False)
         if outcome.status != "COMPLETE":
-            return ScannerOutput(str(outcome)[:2000], status=outcome.status, evidence=False)
+            return _incomplete_native_output('subfinder', outcome)
         found = set()
         malformed = 0
         valid_rows = 0
@@ -677,7 +679,7 @@ def run_subfinder(target: str, *, cancel_event=None) -> ScannerOutput:
             if not line.strip():
                 continue
             try:
-                item = json.loads(line)
+                item = load_record(line)
             except ValueError:
                 malformed += 1
                 continue
@@ -720,7 +722,6 @@ def run_katana(target: str, *, cancel_event=None) -> ScannerOutput:
     if cancelled is not None:
         return cancelled
     try:
-        import json
         from urllib.parse import urlsplit
         origin = web_endpoint(target, _web_target)
         executable = find_native("katana")
@@ -729,7 +730,7 @@ def run_katana(target: str, *, cancel_event=None) -> ScannerOutput:
         outcome = _process_outcome(_run_external(katana_args(executable, origin), timeout=90,
                                                cancel_event=cancel_event))
         if outcome.status != "COMPLETE":
-            return ScannerOutput(str(outcome)[:2000], status=outcome.status, evidence=False)
+            return _incomplete_native_output('katana', outcome)
         found = set()
         failures = 0
         malformed = 0
@@ -738,7 +739,7 @@ def run_katana(target: str, *, cancel_event=None) -> ScannerOutput:
             if not line.strip():
                 continue
             try:
-                item = json.loads(line)
+                item = load_record(line)
             except ValueError:
                 malformed += 1
                 continue
@@ -833,7 +834,7 @@ def run_endpoint_mapping(target: str, *, cancel_event=None) -> ScannerOutput:
                                  status="PARTIAL", evidence=False)
         if crawl.status != "COMPLETE":
             return ScannerOutput("[!] Katana mapping did not complete; no ffuf probes "
-                                 "were started.\n" + str(crawl)[:1200],
+                                 "were started.\n" + str(_incomplete_native_output('katana', crawl)),
                                  status=crawl.status, evidence=False)
         discovered, malformed = current.collect_jsonl(str(crawl), "katana")
         if not discovered:
@@ -908,7 +909,8 @@ def run_endpoint_mapping(target: str, *, cancel_event=None) -> ScannerOutput:
                         notes.append(f"[*] No ffuf matches reported for {parent}.")
                         continue
                     partial = True
-                    notes.append(f"[!] ffuf incomplete at {parent}: {str(result)[:220]}")
+                    notes.append(f"[!] ffuf incomplete at {parent}: "
+                                 + str(_incomplete_native_output('ffuf', result)))
                     break
                 count, rejected = current.collect_jsonl(str(result), "ffuf")
                 notes.append(f"[*] ffuf at {parent}: {count} in-scope result(s)")

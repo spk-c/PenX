@@ -1,0 +1,212 @@
+{
+  "schema": "penx-scanner-corpus-v1",
+  "provenance": {
+    "kind": "hand-authored-synthetic",
+    "source": "Synthetic discovery records, never copied from a scanner or provider run.",
+    "purpose": "PX-003 discovery ambiguity, process failure privacy, outcome and export contracts."
+  },
+  "cases": [
+    {
+      "id": "subfinder-response",
+      "scanner": "subfinder",
+      "stdout": [
+        "{\"host\":\"www.example.test\"}"
+      ],
+      "sha256": "e0bd4e90907a45a77de3dad7f572a9d35ea79d63289a1f9836d6cf895ac616b1",
+      "process_status": "COMPLETE",
+      "expected": {
+        "status": "COMPLETE",
+        "evidence": true,
+        "summary": "[PASSIVE SUBDOMAIN INVENTORY \u2014 NOT ACTIVELY VERIFIED]\nwww.example.test",
+        "coverage": "COMPLETE",
+        "rules": []
+      },
+      "must_not_publish": [
+        "CORPUS_SECRET",
+        "outside.other.test"
+      ]
+    },
+    {
+      "id": "subfinder-duplicate-fields",
+      "scanner": "subfinder",
+      "stdout": [
+        "{\"host\":\"outside.other.test\",\"host\":\"ambiguous.example.test\"}"
+      ],
+      "sha256": "c7336dba4a629de93c687fb28c8fb1f724b644371a7e2bf61d89202d34c3b1f2",
+      "process_status": "COMPLETE",
+      "expected": {
+        "status": "FAILED",
+        "evidence": false,
+        "summary": "[!] Subfinder emitted 1 malformed JSONL record(s); discovery incomplete.",
+        "coverage": "PARTIAL",
+        "rules": []
+      },
+      "must_not_publish": [
+        "CORPUS_SECRET",
+        "outside.other.test"
+      ]
+    },
+    {
+      "id": "subfinder-mixed-duplicate-fields",
+      "scanner": "subfinder",
+      "stdout": [
+        "{\"host\":\"www.example.test\"}",
+        "{\"host\":\"outside.other.test\",\"host\":\"ambiguous.example.test\"}"
+      ],
+      "sha256": "28dd7393401459096fce31752400b67d1ed4de1c17c6cb627263a7eb77f1acdc",
+      "process_status": "COMPLETE",
+      "expected": {
+        "status": "PARTIAL",
+        "evidence": true,
+        "summary": "[!] Subfinder emitted 1 malformed JSONL record(s); discovery incomplete.\n[PASSIVE SUBDOMAIN INVENTORY \u2014 NOT ACTIVELY VERIFIED]\nwww.example.test",
+        "coverage": "PARTIAL",
+        "rules": []
+      },
+      "must_not_publish": [
+        "CORPUS_SECRET",
+        "outside.other.test"
+      ]
+    },
+    {
+      "id": "subfinder-process-failed",
+      "scanner": "subfinder",
+      "stdout": [
+        "GET https://example.test/private?token=CORPUS_SECRET"
+      ],
+      "sha256": "9188a0b98d57ab3f7c11a3636e4104824c13c0a6494e5fe5a1a44fe938ecb072",
+      "process_status": "FAILED",
+      "expected": {
+        "status": "FAILED",
+        "evidence": false,
+        "summary": "[!] subfinder did not complete (FAILED); raw scanner diagnostics omitted because they may contain secrets.",
+        "coverage": "PARTIAL",
+        "rules": []
+      },
+      "must_not_publish": [
+        "CORPUS_SECRET",
+        "outside.other.test"
+      ]
+    },
+    {
+      "id": "subfinder-process-partial",
+      "scanner": "subfinder",
+      "stdout": [
+        "GET https://example.test/private?token=CORPUS_SECRET"
+      ],
+      "sha256": "9188a0b98d57ab3f7c11a3636e4104824c13c0a6494e5fe5a1a44fe938ecb072",
+      "process_status": "PARTIAL",
+      "expected": {
+        "status": "PARTIAL",
+        "evidence": false,
+        "summary": "[!] subfinder did not complete (PARTIAL); raw scanner diagnostics omitted because they may contain secrets.",
+        "coverage": "PARTIAL",
+        "rules": []
+      },
+      "must_not_publish": [
+        "CORPUS_SECRET",
+        "outside.other.test"
+      ]
+    },
+    {
+      "id": "katana-response",
+      "scanner": "katana",
+      "stdout": [
+        "{\"request\":{\"endpoint\":\"https://example.test/safe?token=CORPUS_SECRET\"}}"
+      ],
+      "sha256": "83f62278beaab19d6592afd9160c271a05bbf554742bbba73ef47378a133eed0",
+      "process_status": "COMPLETE",
+      "expected": {
+        "status": "COMPLETE",
+        "evidence": true,
+        "summary": "[SAME-HOST CRAWL INVENTORY]\nhttps://example.test/safe",
+        "coverage": "COMPLETE",
+        "rules": []
+      },
+      "must_not_publish": [
+        "CORPUS_SECRET",
+        "outside.other.test"
+      ]
+    },
+    {
+      "id": "katana-duplicate-fields",
+      "scanner": "katana",
+      "stdout": [
+        "{\"request\":{\"endpoint\":\"https://example.test/ambiguous\"},\"error\":\"timeout CORPUS_SECRET\",\"error\":\"\"}"
+      ],
+      "sha256": "c9e348ceeaebfea4c91d464de6426f847070562925cb1b6e6a7ef741303103c0",
+      "process_status": "COMPLETE",
+      "expected": {
+        "status": "FAILED",
+        "evidence": false,
+        "summary": "[!] Katana had 1 malformed JSONL record(s); crawl incomplete.",
+        "coverage": "PARTIAL",
+        "rules": []
+      },
+      "must_not_publish": [
+        "CORPUS_SECRET",
+        "outside.other.test"
+      ]
+    },
+    {
+      "id": "katana-mixed-duplicate-fields",
+      "scanner": "katana",
+      "stdout": [
+        "{\"request\":{\"endpoint\":\"https://example.test/safe?token=CORPUS_SECRET\"}}",
+        "{\"request\":{\"endpoint\":\"https://example.test/ambiguous\"},\"error\":\"timeout CORPUS_SECRET\",\"error\":\"\"}"
+      ],
+      "sha256": "17e789b675a01b0cca490cdf5d419f04e425daaf5949b54b5b8b8d32de05f2d2",
+      "process_status": "COMPLETE",
+      "expected": {
+        "status": "PARTIAL",
+        "evidence": true,
+        "summary": "[!] Katana had 1 malformed JSONL record(s); crawl incomplete.\n[SAME-HOST CRAWL INVENTORY]\nhttps://example.test/safe",
+        "coverage": "PARTIAL",
+        "rules": []
+      },
+      "must_not_publish": [
+        "CORPUS_SECRET",
+        "outside.other.test"
+      ]
+    },
+    {
+      "id": "katana-process-failed",
+      "scanner": "katana",
+      "stdout": [
+        "GET https://example.test/private?token=CORPUS_SECRET"
+      ],
+      "sha256": "9188a0b98d57ab3f7c11a3636e4104824c13c0a6494e5fe5a1a44fe938ecb072",
+      "process_status": "FAILED",
+      "expected": {
+        "status": "FAILED",
+        "evidence": false,
+        "summary": "[!] katana did not complete (FAILED); raw scanner diagnostics omitted because they may contain secrets.",
+        "coverage": "PARTIAL",
+        "rules": []
+      },
+      "must_not_publish": [
+        "CORPUS_SECRET",
+        "outside.other.test"
+      ]
+    },
+    {
+      "id": "katana-process-partial",
+      "scanner": "katana",
+      "stdout": [
+        "GET https://example.test/private?token=CORPUS_SECRET"
+      ],
+      "sha256": "9188a0b98d57ab3f7c11a3636e4104824c13c0a6494e5fe5a1a44fe938ecb072",
+      "process_status": "PARTIAL",
+      "expected": {
+        "status": "PARTIAL",
+        "evidence": false,
+        "summary": "[!] katana did not complete (PARTIAL); raw scanner diagnostics omitted because they may contain secrets.",
+        "coverage": "PARTIAL",
+        "rules": []
+      },
+      "must_not_publish": [
+        "CORPUS_SECRET",
+        "outside.other.test"
+      ]
+    }
+  ]
+}

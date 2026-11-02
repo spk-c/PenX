@@ -40,8 +40,8 @@ fixture for that adapter. References are existing test modules under `tests/`.
 | Nuclei / JSONL | native_parser_audit, native_loss_audit | shared runner; native_cancel_dispatch | malformed, severity, identity clipping, templates/dependencies covered | baseline pack |
 | HTTPx / JSONL | native_web_scanners, native_parser_audit | shared runner; native_cancel_dispatch | missing/wrong CLI covered; missing/invalid status and failed rows are a confirmed gap | baseline + adversarial cases |
 | ffuf / JSONL | native_web_scanners, native_loss_audit | native time-limit regression; native_cancel_dispatch | wordlist/dependency covered; standalone parser accepts invalid status although endpoint mapping rejects it | baseline + adversarial cases |
-| Subfinder / JSONL hosts | native_discovery_jsonl_integrity | shared runner; native_cancel_dispatch | invalid host, mixed JSON, scope and empty output covered | deferred |
-| Katana / JSONL requests | native_discovery_jsonl_integrity, discovery_tls | failed request and native_cancel_dispatch | malformed endpoints, scope, dependency covered | deferred |
+| Subfinder / JSONL hosts | native_discovery_jsonl_integrity | shared runner; native_cancel_dispatch | invalid host, mixed JSON, scope and empty output covered | discovery pack (follow-up) |
+| Katana / JSONL requests | native_discovery_jsonl_integrity, discovery_tls | failed request and native_cancel_dispatch | malformed endpoints, scope, dependency covered | discovery pack (follow-up) |
 | TLS / verified socket + certificate | discovery_tls | python_scanner_cancel | protocol/certificate failures covered; malformed certificate corpus deferred | deferred |
 | Endpoint mapping / Katana then ffuf | endpoint_inventory_mapping, scanner_audit_20261019 | cancelled stages, shared timeout | strict status codes, same-origin/wordlist/budget/persistence covered | deferred |
 

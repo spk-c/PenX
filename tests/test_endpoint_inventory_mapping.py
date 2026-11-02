@@ -110,6 +110,12 @@ class EndpointInventoryContracts(unittest.TestCase):
         self.assertEqual(inv.collect_jsonl(raw, "ffuf"), (1, 3))
         self.assertEqual(list(inv.entries), [ORIGIN + "/good"])
 
+    def test_duplicate_ffuf_status_cannot_create_inventory_evidence(self):
+        inv = EndpointInventory(ORIGIN)
+        raw = '{"url":"https://example.test/fake","status":0,"status":200}'
+        self.assertEqual(inv.collect_jsonl(raw, 'ffuf'), (0, 1))
+        self.assertEqual(inv.entries, {})
+
     def test_bounded_atomic_persistence_and_invalid_file(self):
         with tempfile.TemporaryDirectory() as folder:
             path = Path(folder)
@@ -164,6 +170,36 @@ class EndpointMappingExecutionContracts(unittest.TestCase):
              patch.object(tools.time, "sleep", return_value=None):
             output = tools.run_endpoint_mapping(ORIGIN, cancel_event=cancel_event)
         return output, calls
+
+    def test_ambiguous_katana_error_never_authorizes_ffuf(self):
+        raw = ('{"request":{"endpoint":"https://example.test/api/users"},'
+               '"error":"timeout CORPUS_SECRET","error":""}')
+        output, calls = self.run_mapping(raw)
+        self.assertEqual(len(calls), 1)
+        self.assertFalse(output.evidence)
+        self.assertEqual(output.status, 'PARTIAL')
+        self.assertNotIn('CORPUS_SECRET', str(output))
+
+    def test_mapping_process_failures_omit_raw_credentials(self):
+        for stage in ('katana', 'ffuf'):
+            for status in ('FAILED', 'PARTIAL'):
+                failure = ScannerOutput('GET https://example.test/?token=CORPUS_SECRET',
+                                        status=status, evidence=False)
+                crawl = ScannerOutput(katana_row(ORIGIN + '/safe'))
+                results = [failure] if stage == 'katana' else [crawl, failure]
+                with self.subTest(stage=stage, status=status):
+                    with patch.object(tools, 'find_native', return_value='fixture-scanner'), \
+                         patch.object(tools, '_run_external', side_effect=results) as execute, \
+                         patch.object(tools.time, 'sleep'), \
+                         patch.object(tools, 'load_inventory', return_value=EndpointInventory(ORIGIN)), \
+                         patch.object(tools, 'save_inventory', return_value=Path('fixture.json')) as save:
+                        output = tools.run_endpoint_mapping(ORIGIN)
+                    self.assertNotIn('CORPUS_SECRET', str(output))
+                    self.assertEqual(execute.call_count, len(results))
+                    self.assertEqual(output.status, status if stage == 'katana' else 'PARTIAL')
+                    self.assertEqual(output.evidence, stage == 'ffuf')
+                    if stage == 'katana':
+                        save.assert_not_called()
 
     def test_opt_in_pipeline_scopes_both_tools_and_reserves_global_budget(self):
         raw = "\n".join([

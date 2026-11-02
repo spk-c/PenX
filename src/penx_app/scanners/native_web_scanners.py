@@ -5,7 +5,6 @@ URLs inside template/wordlist arguments. These helpers never run commands.
 """
 from __future__ import annotations
 
-import json
 import os
 from pathlib import Path
 import re
@@ -17,6 +16,7 @@ from urllib.parse import urlsplit
 from penx_app.app_paths import APP_ROOT
 from penx_app.scanners.process_runner import _child_env
 from penx_app.scanners.endpoint_inventory import _safe_probe_path
+from penx_app.scanners.jsonl import load_record
 
 DEFAULT_FFUF_PATHS = (
     "robots.txt", "sitemap.xml", ".well-known/security.txt", "admin",
@@ -244,19 +244,6 @@ def _summary_url(value: object, limit: int = 200, *,
         return "[INVALID URL]"
 
 
-def _unique_json_fields(pairs):
-    fields = {}
-    for key, value in pairs:
-        if key in fields:
-            raise ValueError("Duplicate scanner JSON field")
-        fields[key] = value
-    return fields
-
-
-def _reject_json_constant(value):
-    raise ValueError("Non-finite scanner JSON number")
-
-
 def summarize_output(scanner: str, raw: str, *, max_items: int = 60,
                      diagnostics: dict[str, int] | None = None) -> tuple[str, bool]:
     """Remove huge raw HTTP bodies and never treat empty results as vulnerabilities."""
@@ -271,8 +258,7 @@ def summarize_output(scanner: str, raw: str, *, max_items: int = 60,
             discarded += 1
             continue
         try:
-            item = json.loads(line, object_pairs_hook=_unique_json_fields,
-                              parse_constant=_reject_json_constant)
+            item = load_record(line)
         except (ValueError, TypeError):
             discarded += 1
             continue
