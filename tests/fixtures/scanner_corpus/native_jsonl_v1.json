@@ -1,0 +1,87 @@
+{
+  "schema": "penx-scanner-corpus-v1",
+  "provenance": {
+    "kind": "hand-authored-synthetic",
+    "source": "Documented native JSONL fields already exercised by repository tests; not a live scanner capture.",
+    "purpose": "PX-003 standalone response-evidence and JSON/SARIF outcome contracts."
+  },
+  "cases": [
+    {
+      "id": "nuclei-match",
+      "scanner": "nuclei",
+      "stdout": [
+        "{\"template-id\":\"fixture-check\",\"info\":{\"severity\":\"low\",\"name\":\"Synthetic finding\"},\"matched-at\":\"https://example.test/\"}"
+      ],
+      "sha256": "eec8081f8d533720a6cf4a4c316c394c5c3800248a85c956c26d4fb74c2bdd93",
+      "expected": {
+        "status": "COMPLETE",
+        "evidence": true,
+        "summary": "TEMPLATE fixture-check | low | Synthetic finding | https://example.test/",
+        "coverage": "COMPLETE",
+        "rules": [
+          "PENX-NUCLEI-fixture-check"
+        ]
+      }
+    },
+    {
+      "id": "httpx-response",
+      "scanner": "httpx",
+      "stdout": [
+        "{\"url\":\"https://example.test/\",\"status_code\":200}"
+      ],
+      "sha256": "12d67817978236ff3a131737c57ba8aea2adcaece6beec3621147b1ff63e0947",
+      "expected": {
+        "status": "COMPLETE",
+        "evidence": true,
+        "summary": "HTTP 200 | https://example.test/ |  |  | technologies: ",
+        "coverage": "COMPLETE",
+        "rules": []
+      }
+    },
+    {
+      "id": "httpx-rate-limited",
+      "scanner": "httpx",
+      "stdout": [
+        "{\"url\":\"https://example.test/\",\"status_code\":429}"
+      ],
+      "sha256": "764e9af70b64d673606a46dcc6b3d94adc2979399eafc63ee656457ce07cf47e",
+      "expected": {
+        "status": "COMPLETE",
+        "evidence": true,
+        "summary": "HTTP 429 | https://example.test/ |  |  | technologies: ",
+        "coverage": "COMPLETE",
+        "rules": []
+      }
+    },
+    {
+      "id": "ffuf-response",
+      "scanner": "ffuf",
+      "stdout": [
+        "{\"url\":\"https://example.test/admin\",\"status\":403}"
+      ],
+      "sha256": "7b49dea2578ac12fd319b3477b9667d1b6cc6ba131da6f8bda0fd5be4034e81b",
+      "expected": {
+        "status": "COMPLETE",
+        "evidence": true,
+        "summary": "ENDPOINT HTTP 403 | https://example.test/admin",
+        "coverage": "COMPLETE",
+        "rules": []
+      }
+    },
+    {
+      "id": "ffuf-rate-limited",
+      "scanner": "ffuf",
+      "stdout": [
+        "{\"url\":\"https://example.test/admin\",\"status\":429}"
+      ],
+      "sha256": "e4ae9a8d2b4736c2ff531c1dba133d2701c346914fa5149326947463413ee45b",
+      "expected": {
+        "status": "COMPLETE",
+        "evidence": true,
+        "summary": "ENDPOINT HTTP 429 | https://example.test/admin",
+        "coverage": "COMPLETE",
+        "rules": []
+      }
+    }
+  ]
+}
