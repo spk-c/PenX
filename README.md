@@ -207,6 +207,8 @@ The v0.6.0 release passed Windows and Kali build/packaging tests, including cont
 | [Local AI & CVE](docs/LOCAL_AI_AND_CVE.md) | Model endpoints, candidate advisories and provider limits |
 | [Demo](docs/DEMO.md) | Illustrative workflow and safe synthetic sample reports |
 | [Development](docs/DEVELOPMENT.md) | Architecture, tests and CI |
+| [Development roadmap](docs/ROADMAP.md) | 36 prioritized features, architecture targets and acceptance criteria for Codex |
+| [Codex execution guide](docs/CODEX_EXECUTION.md) | First sprint, small PR workflow and test checklist |
 | [Packaging](docs/PACKAGING.md) | Verified GitHub assets, draft Scoop/WinGet/PyPI workflow |
 | [Maintenance](docs/MAINTENANCE_STATUS.md) | Released versions, CI evidence and acceptance limits |
 | [Contributing](CONTRIBUTING.md) | Changes, tests and PR guidelines |
