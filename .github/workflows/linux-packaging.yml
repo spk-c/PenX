@@ -43,6 +43,8 @@ jobs:
           dist/PenX/PenX --version
           dist/PenX/PenX --setup-status
           dist/PenX/PenX --check
+          test -f dist/PenX/.env.example
+          cmp .env.example dist/PenX/.env.example
           python packaging/linux/build_packages.py
           dpkg-deb --info artifacts/penx_*.deb
           tar -tzf artifacts/PenX-Linux-x86_64.tar.gz | grep -q '^PenX/PenX$'
@@ -52,14 +54,19 @@ jobs:
           penx --version
           penx --setup-status
           penx --check
+          export XDG_DATA_HOME="$(mktemp -d)"
+          penx --setup
+          test -s "$XDG_DATA_HOME/PenX/.env"
+          cmp .env.example "$XDG_DATA_HOME/PenX/.env"
+          test "$(stat -c %a "$XDG_DATA_HOME/PenX/.env")" = 600
+          rm -rf "$XDG_DATA_HOME"
           sudo dpkg -r penx
-      - name: Kali rolling packaged CLI smoke (manual)
-        if: github.event_name == 'workflow_dispatch'
+      - name: Kali rolling packaged CLI smoke
         run: |
           docker run --rm --pull=always \
             -v "$PWD/artifacts:/artifacts:ro" \
             kalilinux/kali-rolling:latest \
-            bash -euo pipefail -c 'export DEBIAN_FRONTEND=noninteractive; apt-get update; apt-get install -y /artifacts/penx_*.deb; penx --version; penx --check; penx --setup-status'
+            bash -euo pipefail -c 'export DEBIAN_FRONTEND=noninteractive; apt-get update; apt-get install -y /artifacts/penx_*.deb; penx --version; penx --check; penx --setup-status; export XDG_DATA_HOME="$(mktemp -d)"; penx --setup; test -s "$XDG_DATA_HOME/PenX/.env"; test "$(stat -c %a "$XDG_DATA_HOME/PenX/.env")" = 600'
       - name: Record artifact hashes
         run: cd artifacts && sha256sum *.deb *.tar.gz > SHA256SUMS.txt
       - name: Upload preview build for review

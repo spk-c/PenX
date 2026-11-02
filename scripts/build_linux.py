@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import shutil
 from pathlib import Path
 import subprocess
 import sys
@@ -18,7 +19,6 @@ PYINSTALLER_ARGS = (
     "--onedir", "--noconfirm", "--console",
     "--name", "PenX",
     "--contents-directory", "_internal",
-    "--add-data", ".env.example:.",
     "--hidden-import=penx_app.setup.linux_check",
     "--hidden-import=penx_app.setup.llm_setup",
     "--hidden-import=whois",
@@ -47,7 +47,14 @@ def main(argv: list[str] | None = None) -> int:
         print("Linux packages must be built on a Linux host", file=sys.stderr)
         return 2
     try:
-        return subprocess.run(build_command(clean=args.clean), cwd=ROOT, check=False).returncode
+        result = subprocess.run(build_command(clean=args.clean), cwd=ROOT, check=False)
+        if result.returncode:
+            return result.returncode
+        # PyInstaller puts --add-data inside _internal, but the installer
+        # reads the template beside the executable in read-only /opt/penx.
+        destination = ROOT / "dist" / "PenX" / ".env.example"
+        shutil.copyfile(ROOT / ".env.example", destination)
+        return 0
     except OSError as exc:
         print(f"PyInstaller failed to launch: {exc}", file=sys.stderr)
         return 1

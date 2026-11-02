@@ -17,6 +17,9 @@ penx = "penx_app.bootstrap:main"
 [tool.setuptools.dynamic]
 dependencies = {file = ["requirements.txt"]}
 
+[tool.setuptools.package-data]
+penx_app = ["resources/.env.example"]
+
 [tool.setuptools.packages.find]
 where = ["src"]
 include = ["penx", "penx.*", "penx_app", "penx_app.*"]

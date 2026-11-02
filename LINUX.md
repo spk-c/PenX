@@ -47,6 +47,8 @@ on PATH. For `httpx`, PenX verifies the executable is the ProjectDiscovery
 scanner, not the unrelated Python `httpx` utility. Override with
 `PENX_HTTPX_PATH` if needed.
 
+The Linux package includes an example configuration. Running `penx --setup` creates a private per-user `.env` file with permissions `0600` without invoking any scanner or package manager. The same sample is bundled with Python-wheel installations.
+
 The shell setup installs Python dependencies into **.venv** only. It does not
 perform any security scan and will not modify system packages unless you
 explicitly pass `--with-scanners`.
@@ -97,6 +99,7 @@ and reports missing scanner binaries, without installing any OS packages.
 - Linux `--update` is **not** a package manager; upgrade via apt/dpkg.
 - A passing Ubuntu offline test does **not** prove Nmap raw sockets, all 12
   scanner adapters, sudo, LLM connectivity or Kali-specific integrations work.
+- CI runs a Kali rolling container package smoke test without real network target scanning. This does not replace manual acceptance of real scanner workflows.
 - Verify the CLI on Kali, Ubuntu and Debian using explicitly authorized test
   targets. Check tool presence, cancellation/timeouts, HTML/PDF/JSON/SARIF
   exports, SQLite recovery and local AI before calling the port production-ready.

@@ -90,6 +90,12 @@ def ensure_private_env() -> None:
         # The installed edition keeps read-only templates under Program Files
         # (or per-user Programs) but stores private settings under LocalAppData.
         template = Path(sys.executable).resolve().parent / ".env.example"
+    if not template.is_file():
+        # Wheels ship the same example as package data; no repository checkout
+        # or writable program directory is required after pip installation.
+        candidate = Path(__file__).resolve().parents[1] / "resources" / ".env.example"
+        if candidate.is_file():
+            template = candidate
     if target.exists():
         return
     if not template.is_file():
@@ -97,11 +103,12 @@ def ensure_private_env() -> None:
         return
     try:
         target.parent.mkdir(parents=True, exist_ok=True)
-        # Do not overwrite an existing private configuration, including races.
-        with template.open("rb") as source, target.open("xb") as destination:
-            shutil.copyfileobj(source, destination)
-        if os.name != "nt":
-            target.chmod(0o600)
+        # Exclusive create with a restrictive mode avoids a world-readable
+        # permissions window on POSIX; no existing config can be overwritten.
+        with template.open("rb") as source:
+            fd = os.open(target, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+            with os.fdopen(fd, "wb") as destination:
+                shutil.copyfileobj(source, destination)
     except FileExistsError:
         return
     except OSError as exc:

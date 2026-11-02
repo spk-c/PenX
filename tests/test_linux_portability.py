@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import contextlib
-import importlib.util
 import io
 import os
 from pathlib import Path
@@ -75,6 +74,27 @@ class LinuxPortabilityTests(unittest.TestCase):
             binary.chmod(0o700)
             with patch.dict(os.environ, {"PENX_FFUF_PATH": str(binary)}):
                 self.assertEqual(native_web_scanners.find_native("ffuf"), str(binary))
+
+    @unittest.skipIf(os.name == "nt", "Linux-specific file mode")
+    def test_private_env_is_created_atomically_with_0600_mode(self):
+        with tempfile.TemporaryDirectory() as work:
+            root = Path(work)
+            (root / ".env.example").write_text("PENX_MODEL=fixture\\n", encoding="utf-8")
+            with patch.object(first_run_setup, "APP_ROOT", root):
+                first_run_setup.ensure_private_env()
+                self.assertEqual((root / ".env").stat().st_mode & 0o777, 0o600)
+                self.assertEqual((root / ".env").read_text(encoding="utf-8"),
+                                 "PENX_MODEL=fixture\\n")
+                (root / ".env").write_text("operator-secret", encoding="utf-8")
+                first_run_setup.ensure_private_env()
+                self.assertEqual((root / ".env").read_text(encoding="utf-8"),
+                                 "operator-secret")
+
+    def test_installed_package_has_example_config(self):
+        self.assertEqual(
+            (ROOT / "src/penx_app/resources/.env.example").read_bytes(),
+            (ROOT / ".env.example").read_bytes()
+        )
 
     def test_linux_packaging_sources_are_present(self):
         for filename in ("LINUX.md", "install-linux.sh",
