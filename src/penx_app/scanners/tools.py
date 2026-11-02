@@ -645,6 +645,14 @@ def run_ffuf(target: str, *, cancel_event=None) -> ScannerOutput:
     return _run_native_web_scanner('ffuf', target, cancel_event=cancel_event)
 
 
+def _discovery_preview(found: set[str]) -> tuple[str, str]:
+    capped = len(found) > 100
+    text = '\n'.join(sorted(found)[:100])
+    if capped:
+        text += '\n[Results capped for display]'
+    return text, 'Discovery inventory truncated for display' if capped else ''
+
+
 def run_subfinder(target: str, *, cancel_event=None) -> ScannerOutput:
     """Passive discovery only; return hostnames, never start scans on discoveries."""
     cancelled = _cancelled_before_start(cancel_event)
@@ -701,17 +709,19 @@ def run_subfinder(target: str, *, cancel_event=None) -> ScannerOutput:
             valid_rows += 1
             if host == domain or host.endswith("." + domain):
                 found.add(host)
+        preview, diagnostics = _discovery_preview(found)
         if malformed:
             note = f"[!] Subfinder emitted {malformed} malformed JSONL record(s); discovery incomplete."
             inventory = ("\n[PASSIVE SUBDOMAIN INVENTORY — NOT ACTIVELY VERIFIED]\n"
-                         + "\n".join(sorted(found)[:100])) if found else ""
+                         + preview) if found else ""
             return ScannerOutput(note + inventory,
                                  status="PARTIAL" if valid_rows else "FAILED",
-                                 evidence=bool(found))
+                                 evidence=bool(found), diagnostics=diagnostics)
         if not found:
             return ScannerOutput("[*] No in-scope subdomains discovered.", evidence=False)
         return ScannerOutput("[PASSIVE SUBDOMAIN INVENTORY — NOT ACTIVELY VERIFIED]\n" +
-                             "\n".join(sorted(found)[:100]), evidence=True)
+                             preview, status='PARTIAL' if diagnostics else 'COMPLETE',
+                             evidence=True, diagnostics=diagnostics)
     except (ValueError, OSError) as exc:
         return ScannerOutput(f"[!] subfinder: {exc}", status="FAILED", evidence=False)
 
@@ -734,6 +744,7 @@ def run_katana(target: str, *, cancel_event=None) -> ScannerOutput:
         found = set()
         failures = 0
         malformed = 0
+        oversized = 0
         valid_rows = 0
         for line in str(outcome).splitlines():
             if not line.strip():
@@ -772,24 +783,33 @@ def run_katana(target: str, *, cancel_event=None) -> ScannerOutput:
                 continue
             valid_rows += 1
             if normalized is not None:
-                found.add(normalized[0][:350])
-        if failures or malformed:
+                if len(normalized[0]) > 350:
+                    oversized += 1
+                else:
+                    found.add(normalized[0])
+        preview, diagnostics = _discovery_preview(found)
+        if oversized:
+            diagnostics = '; '.join(filter(None, (diagnostics, 'Katana omitted overlong URL identities')))
+        if failures or malformed or oversized:
             notes = []
             if failures:
                 notes.append(f"{failures} failed HTTP request(s), e.g. timeout")
             if malformed:
                 notes.append(f"{malformed} malformed JSONL record(s)")
+            if oversized:
+                notes.append(f"{oversized} overlong URL(s) omitted")
             note = "[!] Katana had " + " and ".join(notes) + "; crawl incomplete."
-            urls = "\n".join(sorted(found)[:100])
+            urls = preview
             return ScannerOutput(
                 note + ("\n[SAME-HOST CRAWL INVENTORY]\n" + urls if urls else ""),
                 status="PARTIAL" if valid_rows or failures else "FAILED",
-                evidence=bool(found),
+                evidence=bool(found), diagnostics=diagnostics,
             )
         if not found:
             return ScannerOutput("[*] No in-scope URLs discovered (no pages verified).", evidence=False)
         return ScannerOutput("[SAME-HOST CRAWL INVENTORY]\n" +
-                             "\n".join(sorted(found)[:100]), evidence=True)
+                             preview, status='PARTIAL' if diagnostics else 'COMPLETE',
+                             evidence=True, diagnostics=diagnostics)
     except (ValueError, OSError) as exc:
         return ScannerOutput(f"[!] katana: {exc}", status="FAILED", evidence=False)
 
@@ -916,7 +936,7 @@ def run_endpoint_mapping(target: str, *, cancel_event=None) -> ScannerOutput:
                 notes.append(f"[*] ffuf at {parent}: {count} in-scope result(s)")
                 if rejected:
                     partial = True
-                    notes.append(f"[!] ffuf rejected {rejected} malformed/out-of-scope rows.")
+                    notes.append(f"[!] ffuf rejected {rejected} unusable or unprocessed rows.")
         # Merge only verified same-origin metadata; not requests, secrets,
         # and especially not older URLs as new scan targets.
         try:
