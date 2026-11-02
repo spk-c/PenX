@@ -10,6 +10,7 @@ import json
 import os
 from pathlib import Path
 import shutil
+import socketserver
 import ssl
 import subprocess
 import tempfile
@@ -21,6 +22,41 @@ URL = f"http://127.0.0.1:{PORT}"
 TLS_URL = f"https://127.0.0.1:{TLS_PORT}"
 TARGET = "127.0.0.1"
 AVAILABLE_PATHS = {"/", "/robots.txt", "/admin", "/docs"}
+
+
+class LocalDNS(socketserver.BaseRequestHandler):
+    """Minimal authoritative UDP fixture for penx-ci.test, never a forwarder."""
+    def handle(self):
+        request, conn = self.request
+        if len(request) < 17:
+            return
+        index = 12
+        labels = []
+        while index < len(request):
+            size = request[index]
+            if size == 0:
+                index += 1
+                break
+            if size > 63 or index + size >= len(request):
+                return
+            labels.append(request[index + 1:index + 1 + size].lower())
+            index += size + 1
+        if index + 4 > len(request):
+            return
+        question = request[12:index + 4]
+        record_type = int.from_bytes(request[index:index + 2], "big")
+        record_class = int.from_bytes(request[index + 2:index + 4], "big")
+        has_a = labels == [b"penx-ci", b"test"] and record_type == 1 and record_class == 1
+        header = (
+            request[:2] + b"\\x81\\x80" + b"\\x00\\x01" +
+            (b"\\x00\\x01" if has_a else b"\\x00\\x00") +
+            b"\\x00\\x00\\x00\\x00"
+        )
+        answer = (
+            b"\\xc0\\x0c\\x00\\x01\\x00\\x01\\x00\\x00\\x00\\x3c"
+            b"\\x00\\x04\\x7f\\x00\\x00\\x01"
+        ) if has_a else b""
+        conn.sendto(header + question + answer, self.client_address)
 
 
 class LocalFixture(BaseHTTPRequestHandler):
@@ -179,6 +215,27 @@ http:
                 failures.append("Nikto did not emit its scanner banner")
             if failures:
                 raise AssertionError("Kali localhost acceptance failures: " + "; ".join(failures))
+            # Bind a real UDP DNS resolver to loopback only. Modify the
+            # disposable container's resolver configuration for this scan,
+            # restoring it even on failure. No query leaves this container.
+            dns_server = socketserver.ThreadingUDPServer(("127.0.0.1", 53), LocalDNS)
+            dns_thread = threading.Thread(target=dns_server.serve_forever, daemon=True)
+            dns_thread.start()
+            resolv_conf = Path("/etc/resolv.conf")
+            original_resolv = resolv_conf.read_bytes()
+            try:
+                resolv_conf.write_text(
+                    "nameserver 127.0.0.1\\noptions timeout:1 attempts:1\\n",
+                    encoding="ascii",
+                )
+                assert_local_scan("dns", "5", "penx-ci.test",
+                                  fixture_root, timeout=55)
+            finally:
+                resolv_conf.write_bytes(original_resolv)
+                dns_server.shutdown()
+                dns_server.server_close()
+                dns_thread.join(timeout=10)
+
             # Subfinder is passive and needs online sources to produce real
             # discoveries. Prove its installed binary is found, and verify
             # a literal IP is rejected rather than sent to outside providers.
@@ -194,10 +251,10 @@ http:
             if failures:
                 raise AssertionError("Kali localhost acceptance failures: " + "; ".join(failures))
             print("[PASS] Kali localhost: Nmap, WhatWeb, Nikto, HTTP headers,"
-                  " Nuclei, httpx, ffuf, Katana, endpoint mapping and"
-                  " verified TLS;", flush=True)
-            print("[LIMITATION] WHOIS/Subfinder live providers and DNS are not"
-                  " verified by an isolated loopback HTTP fixture.", flush=True)
+                  " Nuclei, httpx, ffuf, Katana, endpoint mapping,"
+                  " verified TLS and DNS;", flush=True)
+            print("[LIMITATION] WHOIS/Subfinder live provider queries are not"
+                  " verified using loopback-only fixtures.", flush=True)
     finally:
         if previous_ca is None:
             os.environ.pop("SSL_CERT_FILE", None)
