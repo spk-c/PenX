@@ -1,20 +1,19 @@
 # PenX — maintenance and release status
 
-## v0.6.0 preparation (2 November 2026)
+## Current release: v0.6.0 (2 November 2026)
 
-The **v0.6.0 source-only release candidate** is reviewed in [release PR #120](https://github.com/spk-c/PenX/pull/120). Binary **publication is pending** successful Windows/Linux builds, the merged main CI and a new immutable `v0.6.0` tag. The last *published* download remains v0.5.0 until the tagged workflow publishes and verifies v0.6.0. The eleven Kali loopback scanner adapter tests and additional operator checks are documented in [Linux acceptance](LINUX_ACCEPTANCE_2026-11-02.md); independent field acceptance is **NOT SIGNED OFF**.
+**Published:** [PenX v0.6.0 for Windows and Kali/Linux](https://github.com/spk-c/PenX/releases/tag/v0.6.0). Release PR [#120](https://github.com/spk-c/PenX/pull/120) was merged into `main`. The new immutable `v0.6.0` tag resolves to reviewed commit `eb22080352a4137cd4324be7f48244ad649dc8ea`. The [tagged multi-platform release workflow](https://github.com/spk-c/PenX/actions/runs/41518241245) finished with **success**.
 
-### Historical published release
+**Downloads:** Windows installer `PenX-Setup-x64.exe`, portable `PenX-Windows-x64.zip`, Linux amd64 `penx_0.6.0_amd64.deb`, portable `PenX-Linux-x86_64.tar.gz`, `SHA256SUMS.txt`, `SHA256SUMS-Linux.txt`, `CVE-QUALITY.json`. GitHub additionally generates source archives, which are not packaged applications.
 
-Verified on **1 November 2026**: [PenX v0.5.0](https://github.com/spk-c/PenX/releases/tag/v0.5.0) is **published** with official Windows installer, portable ZIP, CVE-quality fixtures, and SHA-256 checksums. The [tagged Windows Release workflow](https://github.com/spk-c/PenX/actions/runs/41293851523) succeeded for the immutable tagged commit `42b143ec21ced57a95e24909ffe4a143f17ad932`. Independent operator field acceptance remains **NOT SIGNED OFF**; a published installer is not certification of all real environments.
+- **Windows ZIP SHA-256:** `0851e9fb77ee222ec48b229876893bd588472337b9064ad1868182ab039a14a0`.
+- **Windows installer SHA-256:** `2560cdc2b0ff239f148da1508f07243af907c90fbc7516e3395c7f5bcad03f5f`.
+- **Linux Debian SHA-256:** `e023a0d48f570cdf80c46b941b70d76a747574579352e95c2c57ca488179defb`.
+- **Linux TAR.GZ SHA-256:** `036106a138636c93dd3284218975b56b7de06a15230015a0b4fb4bab35caa3df`.
+- **Packaging manifests:** Scoop and WinGet **drafts** now reference the verified published v0.6.0 Windows ZIP. They are not distributed through the community registries.
+- **Field evidence:** Eleven Kali scanner adapters were tested against controlled local fixtures. Owner-authorized passive provider checks, local AI, SQLite crash recovery, and report checks are detailed in [Linux acceptance](LINUX_ACCEPTANCE_2026-11-02.md). Independent field acceptance remains **NOT SIGNED OFF** for all environments.
 
-## Release status
-
-- **Latest published Windows release: [v0.5.0](https://github.com/spk-c/PenX/releases/tag/v0.5.0)** (published 1 November 2026), reviewed through [release PR #117](https://github.com/spk-c/PenX/pull/117), with Linux and Windows offline tests, packaged app and installer smoke checks, and the tagged Windows Release workflow all green.
-- The historic v0.5.0 release tag resolves to reviewed commit `42b143ec21ced57a95e24909ffe4a143f17ad932`. The **v0.6.0** candidate now updates the source, Python packaging and Inno Setup together; do not move either immutable tag or confuse source-code archives with executable builds.
-- Published assets: `PenX-Setup-x64.exe`, `PenX-Windows-x64.zip`, `SHA256SUMS.txt`, `CVE-QUALITY.json`. The official release checksum file and GitHub asset digests agree: ZIP SHA-256 `79d70936093d239698c9ec9c2a48ff696693d2b8c70cb8dd387e02ff7e34e84c`; installer SHA-256 `74660a19d25607982e676659aa2c969739f7656375ed869f669bbe93b3047a2e`.
-- The **Scoop and WinGet draft manifests** now pin the actual published v0.5.0 ZIP and SHA-256. These are still only drafts, not community-registry submissions or proof of native package-manager installation/upgrade/rollback.
-- The earlier published [v0.4.11](https://github.com/spk-c/PenX/releases/tag/v0.4.11) remains available as historical release. Issues [#81](https://github.com/spk-c/PenX/issues/81) and [#82](https://github.com/spk-c/PenX/issues/82) were closed on 22 October 2026, but the separate [field acceptance checklist](FIELD_ACCEPTANCE.md) still states **NOT SIGNED OFF**.
+**Historical releases:** [v0.5.0](https://github.com/spk-c/PenX/releases/tag/v0.5.0) (1 November 2026) and [v0.4.11](https://github.com/spk-c/PenX/releases/tag/v0.4.11) remain available. Do not move existing release tags or confuse source archives with executable downloads. Existing security issues [#81](https://github.com/spk-c/PenX/issues/81) and [#82](https://github.com/spk-c/PenX/issues/82) were closed historically but are not evidence that all manual field checks are complete.
 
 ## Outstanding independent acceptance
 
@@ -29,7 +28,7 @@ Verified on **1 November 2026**: [PenX v0.5.0](https://github.com/spk-c/PenX/rel
 
 ## Repository hygiene
 
-- **Main protection:** GitHub reported the `PenX protect main (PR + CI)` ruleset active on 22 October 2026; its tracked template is at [`.github/rulesets/protect-main.json`](../.github/rulesets/protect-main.json). Verify continued server-side enforcement through repository Settings → Rules. Required PR checks include Linux offline tests, Windows placeholder checks and Gitleaks; manual Windows field checks are independent.
+- **Main protection:** GitHub reported the `PenX protect main (PR + CI)` ruleset active on 22 October 2026; its tracked template is at [`.github/rulesets/protect-main.json`](../.github/rulesets/protect-main.json). Verify continued server-side enforcement through repository Settings → Rules. Required PR checks include Linux offline tests, Windows checks and Gitleaks; manual Windows field checks are independent.
 - **CI:** Pull requests run Linux offline/test/lint checks and every push to `main` receives post-merge Linux verification. `release/*` PRs also run Windows offline regression and packaged installer smoke tests; tagged releases run the Windows release pipeline. Physical Windows/Npcap scanner and backup/recovery field acceptance remains manual and unsigned.
 - **Documentation:** `docs/REFACTOR_ACCEPTANCE.md` was intentionally deleted in [#79](https://github.com/spk-c/PenX/pull/79); [FIELD_ACCEPTANCE.md](FIELD_ACCEPTANCE.md) is now the single operator field acceptance checklist. Historical refactor, audit and release notes are available through Git history, merged pull requests and tagged [GitHub Releases](https://github.com/spk-c/PenX/releases), rather than duplicated in current public documentation.
 - **Branches:** The original 17 stale topic branches were removed on 22 October 2026. New temporary feature/release branches may appear while PRs are being reviewed. The [branch-prune helper](../scripts/prune_merged_github_branches.ps1) requires explicit `-Apply`, validates merged or ancestor status and live SHA, and leaves `main` untouched. GitHub's delete-ref API has no atomic SHA lease; avoid concurrent pushes during cleanup.
@@ -37,9 +36,9 @@ Verified on **1 November 2026**: [PenX v0.5.0](https://github.com/spk-c/PenX/rel
 
 ## Next release checklist
 
-1. For the **next version after v0.5.0**, update the application, packaging, installer version and reviewed release notes together; do not move the immutable `v0.4.11` tag.
+1. For the **next version after v0.6.0**, update the application, packaging, installer version and reviewed release notes together; do not move existing immutable release tags.
 2. Use a protected `release/*` PR, confirm successful Linux/Windows packaged-app, Security and applicable path-filtered package checks, then the exact `main` post-merge CI.
-3. Create a **new** version tag only after the reviewed source commit is green. Publish and verify the official Windows installer, portable ZIP and SHA-256 checksums using the tagged Windows Release workflow.
+3. Create a **new** version tag only after the reviewed source commit is green. Publish and verify Windows/Linux assets and both SHA-256 checksum files using the tagged release workflow.
 4. Only **after the next version's assets exist**, update WinGet/Scoop draft manifests and public documentation to verified URLs and checksums. Keep Windows/Npcap, installer upgrade/rollback, database recovery and visual report field acceptance explicitly **NOT SIGNED OFF** until supported by independent operator evidence.
 
 No production scanner targets, private credentials or customer databases are required for documentation/CI maintenance.

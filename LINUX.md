@@ -58,16 +58,13 @@ The shell setup installs Python dependencies into **.venv** only. It does not
 perform any security scan and will not modify system packages unless you
 explicitly pass `--with-scanners`.
 
-### Install packaged build
+### Install packaged build (v0.6.0, amd64)
 
-A Linux CI build produces `PenX-Linux-x86_64.tar.gz` (or ARM64) and
-`penx_<version>_amd64.deb` (or arm64). The latest **published** release
-should be consulted for official downloadable assets; development CI artifacts
-are not signed releases.
+Download the officially published [Debian package](https://github.com/spk-c/PenX/releases/download/v0.6.0/penx_0.6.0_amd64.deb) or [portable TAR.GZ](https://github.com/spk-c/PenX/releases/download/v0.6.0/PenX-Linux-x86_64.tar.gz). Verify both using [SHA256SUMS-Linux.txt](https://github.com/spk-c/PenX/releases/download/v0.6.0/SHA256SUMS-Linux.txt) from the same release. Only **amd64** prebuilt packages are published; ARM64 needs a compatible machine for source packaging.
 
 ```bash
-# After obtaining a release .deb and verifying its SHA-256:
-sudo apt install ./penx_*.deb
+# After downloading v0.6.0 and verifying SHA-256:
+sudo apt install ./penx_0.6.0_amd64.deb
 penx --version
 penx --check
 ```
@@ -107,7 +104,7 @@ Actual Kali VM, provider, local AI, report and recovery checks are recorded in
 - Linux `--update` is **not** a package manager; upgrade via apt/dpkg.
 - A passing Ubuntu offline test does **not** prove Nmap raw sockets, all 12
   scanner adapters, sudo, LLM connectivity or Kali-specific integrations work.
-- CI runs a Kali rolling container package smoke test without real network target scanning. This does not replace manual acceptance of real scanner workflows.
+- CI executes real scanner adapters against isolated loopback fixtures in a Kali rolling container; a separate Kali VM acceptance record includes limited owner-authorized passive provider checks. Neither proves arbitrary external-target detection accuracy.
 - Verify the CLI on Kali, Ubuntu and Debian using explicitly authorized test
   targets. Check tool presence, cancellation/timeouts, HTML/PDF/JSON/SARIF
   exports, SQLite recovery and local AI before calling the port production-ready.
