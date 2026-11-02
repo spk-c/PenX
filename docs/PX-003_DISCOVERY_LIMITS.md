@@ -23,3 +23,21 @@ into this branch before retargeting. No merge or release is part of this task.
 
 Other adapter families, HTML/PDF parity and raw-byte evidence anchors remain
 open. These synthetic checks are not independent field sign-off.
+
+## Executed evidence
+
+- Six failing cases reproduced before correction: two preview overflows,
+  two overlong-identity cases and two unread mapping-tail cases. All six
+  complementary exact-boundary/duplicate/redaction controls already passed.
+- `python tests/test_discovery_limits_corpus.py -v` — PASS on Windows and
+  Kali; twelve bounded recipes verify status, retained identities, diagnostic
+  propagation, JSON/SARIF parity and summary-bound quote matching.
+- Existing golden replay (six tests), mapping (18) and native suites (68,
+  two Linux-only skips on Windows) PASS unchanged.
+- `python offline_tests.py` — all 230 suites PASS on Windows and Kali.
+  `python scripts/validate_distributions.py` — PASS on both platforms.
+- Ruff fatal/W/B and unused-import checks, full-source mypy and diff
+  whitespace — PASS. Final-commit CI is tracked in
+  [PR #127](https://github.com/spk-c/PenX/pull/127).
+- Windows installer smoke remains NOT RUN for this feature branch. No
+  external target, provider query, release or independent field sign-off.
