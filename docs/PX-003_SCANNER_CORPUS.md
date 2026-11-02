@@ -70,3 +70,26 @@ HTML/PDF parity, and richer raw-JSONL-to-summary provenance remain open.
 Current quote checks bind exported findings to the actual adapter summary;
 they do not invent byte offsets into the pre-summary JSONL stream.
 No real scanner, external target or model is invoked by this pack.
+
+## Executed validation and delta
+
+- Baseline Windows: `python offline_tests.py` — all 227 suites PASS;
+  `python scripts/validate_distributions.py` — PASS.
+- First checkpoint: five normal/rate-limited snapshots passed using the old
+  parser. Seven added adversarial snapshots then failed before the correction.
+- Corrected corpus: `python tests/test_scanner_golden_corpus.py -v` — four
+  tests PASS, replaying 12 snapshots plus 36 status/failure-field mutations.
+  All seven reproduced outcome regressions are corrected.
+- Existing native suites: `python -m unittest discover -s tests -p 'test_native*.py'`
+  — 68 tests PASS, two Linux-only skips on Windows.
+- Final Windows: `python offline_tests.py` — all 228 suites PASS;
+  `python scripts/validate_distributions.py` — PASS. UTF-8 mode matches CI.
+- Ruff fatal/W/B checks, source unused-import checks, full-source mypy and
+  `git diff --check` — PASS after binding the corpus callback's loop value.
+- Kali VM replay — NOT RUN: SSH connection timed out. This is not a parser
+  failure or field sign-off. Ubuntu regression and existing loopback-only
+  Kali package smoke are tracked separately in PR CI results.
+
+No roadmap completion checkbox is changed. The delta is one discoverable
+offline suite and stricter response evidence for two existing parsers;
+the all-adapter golden corpus remains partial.

@@ -29,7 +29,8 @@ class ScannerGoldenCorpusTests(unittest.TestCase):
         self.stack = ExitStack()
         self.addCleanup(self.stack.close)
         for name in ('socket.socket.connect', 'socket.socket.connect_ex',
-                     'socket.getaddrinfo', 'subprocess.Popen', 'requests.Session.request'):
+                     'socket.socket.sendto', 'socket.getaddrinfo',
+                     'subprocess.Popen', 'requests.Session.request'):
             guard = self.stack.enter_context(patch(name, side_effect=AssertionError('Offline corpus I/O')))
             self.guards.append(guard)
 
@@ -68,7 +69,7 @@ class ScannerGoldenCorpusTests(unittest.TestCase):
                 key = keys[scanner]
                 result = run_selected_structured(
                     ScanRequest('example.test', (key,), active_consent=True),
-                    menu={key: (scanner, lambda _target: output)})
+                    menu={key: (scanner, lambda _target, captured=output: captured)})
                 plan = build_custom_plan('example.test', (key,), active_consent=True)
                 report = scan_report(plan, result)
                 # Snapshot only stable public fields, excluding timestamps.
