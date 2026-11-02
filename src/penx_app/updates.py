@@ -30,6 +30,10 @@ VERSION_RE = re.compile(r"^v(\d+)\.(\d+)\.(\d+)$")
 CHECK_INTERVAL = 24 * 60 * 60
 
 
+def is_windows() -> bool:
+    return os.name == "nt"
+
+
 @dataclass(frozen=True)
 class Release:
     tag: str
@@ -175,7 +179,7 @@ def update_interactive() -> bool:
     latest = check_update()
     if latest is None:
         return False
-    if os.name != "nt" or not installed_mode() or not latest.installer_url:
+    if not is_windows() or not installed_mode() or not latest.installer_url:
         print(f"Open {latest.page_url} for the available download.")
         print("Automatic installation is only supported for the installed Windows edition.")
         return False
@@ -197,7 +201,7 @@ def update_interactive() -> bool:
 
 def startup_notice() -> None:
     """Best-effort once-per-day notice; no install/download and no portable traffic."""
-    if os.name != "nt" or not installed_mode() or os.environ.get("PENX_AUTO_UPDATE_CHECK", "on").lower() in (
+    if not is_windows() or not installed_mode() or os.environ.get("PENX_AUTO_UPDATE_CHECK", "on").lower() in (
         "off", "0", "false", "no"
     ):
         return
