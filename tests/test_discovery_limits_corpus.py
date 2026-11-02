@@ -120,12 +120,17 @@ class DiscoveryLimitsCorpusTests(unittest.TestCase):
                     menu={key: (scanner, lambda _target, result=output: result)})
                 report = scan_report(build_custom_plan(target, (key,), active_consent=True), typed)
                 run = sarif_from_report(report)['runs'][0]
+                self.assertEqual(report['adapters'][0]['diagnostics'], expected['diagnostics'])
                 self.assertEqual(report['coverage']['status'], expected['coverage'])
                 self.assertEqual(run['properties']['coverage'], report['coverage'])
                 self.assertEqual(run['invocations'][0]['executionSuccessful'],
                                  expected['status'] == 'COMPLETE')
                 self.assertEqual(report['findings'], [])
                 self.assertEqual(run['results'], [])
+                if expected['diagnostics']:
+                    notifications = run['invocations'][0]['toolExecutionNotifications']
+                    self.assertIn(expected['diagnostics'], notifications[0]['message']['text'])
+                self.assertNotIn('CORPUS_SECRET', json.dumps([report, run]))
                 self.assertEqual(bool(typed.results[0].evidence_records), expected['evidence'])
                 for record in typed.results[0].evidence_records:
                     self.assertTrue(record.matches(typed.results[0]))
