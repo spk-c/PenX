@@ -10,6 +10,8 @@ import re
 
 from reportlab.lib import colors
 
+from penx_app.reporting.scan_coverage import COVERAGE_EXPLANATION
+
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.units import mm
@@ -294,7 +296,7 @@ def render_terminal_pdf(r, destination, paragraph, severity, counts, summary, se
         ]))
         story.append(status_table)
         story.append(safe(
-            "COLLECTED means scanner evidence exists; it does not prove safety.",
+            COVERAGE_EXPLANATION,
             "small"
         ))
 

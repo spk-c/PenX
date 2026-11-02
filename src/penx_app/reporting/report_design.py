@@ -10,7 +10,7 @@ from collections import Counter
 from datetime import datetime
 from html import escape
 from penx_app.cli.terminal_theme import TERMINAL_CSS
-from penx_app.reporting.scan_coverage import coverage
+from penx_app.reporting.scan_coverage import COVERAGE_EXPLANATION, coverage
 from penx_app.reporting.terminal_pdf import render_terminal_pdf
 from pathlib import Path
 import re
@@ -367,7 +367,7 @@ def export_html(data: dict, output_dir: str, *, mode: str = "technical") -> str:
  <h2>Scan summary</h2><span class="mono">REPORT / 01</span></div>
  <div class="executive-metrics">{overview_html}</div><p>{_h(_summary(r))}</p><p class="risk-explanation">AI risk is an overall model assessment. It is not calculated by counting confirmed vulnerabilities. Confirmed and potential findings are intentionally shown separately; incomplete scanners limit the conclusions.</p><p>Scanner coverage: {_h(r["coverage"]["status"])}; incomplete: {_h(", ".join(r["coverage"]["failed"]) or "none")}</p><p class="coverage-note">Availability: {_h(r["availability"])}. AI risk is a separate assessment, not a confirmed exploitable vulnerability count.</p><p class="coverage-note">{_h(limitations)}</p>{warning_html}<p class="metric-caption">Confirmed findings by severity (potential findings are counted separately above)</p><div class="metrics">{summary_metrics}</div></section>
 <section class="coverage-panel" id="coverage"><div class="section-head"><span class="section-no">[+]</span><h2>Scanner coverage</h2><small>{_h(r["coverage"]["status"])}</small></div>
-<p class="coverage-intro">These statuses describe collected evidence, not proof of security. Unselected scanners are not included.</p>
+<p class="coverage-intro">{_h(COVERAGE_EXPLANATION)}</p>
 <div class="scanner-grid">{scanner_cards}</div></section>
 {php2shell_html}
 <nav aria-label="Report sections"><a href="#overview">Overview</a><a href="#coverage">Scanner coverage</a><a href="#findings">01 / Findings</a><a href="#recommendations">02 / Recommendations</a>

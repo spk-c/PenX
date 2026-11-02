@@ -7,6 +7,14 @@ from __future__ import annotations
 import re
 from penx_app.domain.scan_models import ReconText, ScanResult
 
+# A COMPLETE adapter can legitimately return evidence=False (e.g. empty DNS results).
+# This exact explanation is shared by printable and browser reports.
+COVERAGE_EXPLANATION = (
+    "COLLECTED means the selected adapter completed; it does not assert usable evidence "
+    "or absence of findings. INCOMPLETE means the adapter did not complete. "
+    "Unselected adapters are not included."
+)
+
 HEAD = re.compile(r"(?m)^\[[ \t]*([A-Za-z0-9_ /(),.-]+?)[ \t]+OUTPUT[ \t]*\]\r?$")
 # Trusted adapter metadata appears immediately after the formatted section header.
 # Legacy saved reports without it continue through conservative diagnostics.
