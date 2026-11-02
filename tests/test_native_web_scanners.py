@@ -150,6 +150,24 @@ class NativeWebScannerTests(unittest.TestCase):
             self.assertEqual(native.find_native("httpx"), "/usr/bin/httpx-toolkit")
             self.assertEqual(tools.tool_path("httpx"), "/usr/bin/httpx-toolkit")
 
+    @unittest.skipIf(os.name == "nt", "Linux shared-library isolation")
+    def test_frozen_httpx_discovery_uses_original_library_path(self):
+        import subprocess
+        import sys
+        from penx_app.scanners import native_web_scanners as native
+        with tempfile.TemporaryDirectory() as folder, \
+             patch.object(native, "APP_ROOT", Path(folder)), \
+             patch.object(sys, "frozen", True, create=True), \
+             patch.dict(os.environ, {"PENX_HTTPX_PATH": "",
+                                     "LD_LIBRARY_PATH": "/opt/penx/PenX/_internal",
+                                     "LD_LIBRARY_PATH_ORIG": "/usr/local/lib"}), \
+             patch.object(native.shutil, "which", return_value="/usr/bin/httpx-toolkit"), \
+             patch.object(native.subprocess, "run", return_value=subprocess.CompletedProcess(
+                 [], 0, stdout="httpx version v1.9.0", stderr="")) as run:
+            self.assertEqual(native.find_native("httpx"), "/usr/bin/httpx-toolkit")
+            self.assertEqual(run.call_args.kwargs["env"]["LD_LIBRARY_PATH"], "/usr/local/lib")
+            self.assertEqual(os.environ["LD_LIBRARY_PATH"], "/opt/penx/PenX/_internal")
+
     def test_python_httpx_collision_not_used(self):
         import types
         from penx_app.scanners import native_web_scanners as native

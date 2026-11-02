@@ -43,6 +43,7 @@ jobs:
           python -m unittest discover -s tests -p test_linux_portability.py -v
           python scripts/build_linux.py
           test -x dist/PenX/PenX
+          test -s dist/PenX/_internal/whois/data/public_suffix_list.dat
           dist/PenX/PenX --version
           dist/PenX/PenX --setup-status
           dist/PenX/PenX --check

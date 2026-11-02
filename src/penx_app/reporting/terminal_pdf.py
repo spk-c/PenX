@@ -410,7 +410,7 @@ def render_terminal_pdf(r, destination, paragraph, severity, counts, summary, se
         canvas.setFont("Courier", 8.1)
         canvas.setFillColor(_c(muted_color))
         canvas.drawString(margin, page_h-31*mm,
-                          "AI Security Assessment | Local LLM | Windows 10/11")
+                          "AI Security Assessment | Local LLM | Windows / Linux")
 
         box_w, box_h = 51*mm, 14*mm
         right = page_w-margin

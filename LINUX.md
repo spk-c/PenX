@@ -98,6 +98,9 @@ and reports missing scanner binaries, without installing any OS packages.
 
 ### Known limitations and acceptance
 
+Actual Kali VM, provider, local AI, report and recovery checks are recorded in
+[the 2026-11-02 acceptance record](docs/LINUX_ACCEPTANCE_2026-11-02.md).
+
 - Linux `--update` is **not** a package manager; upgrade via apt/dpkg.
 - A passing Ubuntu offline test does **not** prove Nmap raw sockets, all 12
   scanner adapters, sudo, LLM connectivity or Kali-specific integrations work.

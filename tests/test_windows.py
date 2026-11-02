@@ -118,7 +118,9 @@ class PortTests(unittest.TestCase):
             url = f'http://127.0.0.1:{server.server_port}'
             head = run_curl_headers(url)
             self.assertIn('X-Powered-By: TestServer/1.0', head)
-            fp = run_whatweb(url)
+            with patch('penx_app.scanners.tools._executable', return_value=None), \
+                 patch('penx_app.scanners.tools.WHATWEB_PATH', ''):
+                fp = run_whatweb(url)
             self.assertIn('UnitTest CMS', fp)
             self.assertIn('NOT an actual WhatWeb scan', fp)
         finally:

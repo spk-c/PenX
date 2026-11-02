@@ -15,6 +15,7 @@ import subprocess
 from urllib.parse import urlsplit
 
 from penx_app.app_paths import APP_ROOT
+from penx_app.scanners.process_runner import _child_env
 from penx_app.scanners.endpoint_inventory import _safe_probe_path
 
 DEFAULT_FFUF_PATHS = (
@@ -50,7 +51,8 @@ def find_native(name: str) -> str | None:
         if name == "httpx":
             try:
                 check = subprocess.run([candidate, "-version"], shell=False,
-                                       capture_output=True, text=True, timeout=5, check=False)
+                                       capture_output=True, text=True, timeout=5, check=False,
+                                       env=_child_env(None))
                 signature = (check.stdout or "") + "\n" + (check.stderr or "")
                 if check.returncode or not re.search(
                     r"(?i)(?:projectdiscovery|current version:\s*v?\d|httpx version:?\s*v?\d)", signature

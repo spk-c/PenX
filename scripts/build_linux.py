@@ -22,6 +22,7 @@ PYINSTALLER_ARGS = (
     "--hidden-import=penx_app.setup.linux_check",
     "--hidden-import=penx_app.setup.llm_setup",
     "--hidden-import=whois",
+    "--collect-data=whois",
     "--hidden-import=dns.resolver",
     "--collect-all", "reportlab",
     "--collect-all", "ddgs",

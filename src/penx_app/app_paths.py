@@ -17,7 +17,9 @@ def user_data_base() -> Path:
     if os.name == "nt":
         return Path(os.environ.get("LOCALAPPDATA", str(Path.home() / "AppData" / "Local")))
     xdg = os.environ.get("XDG_DATA_HOME", "").strip()
-    return Path(xdg).expanduser() if xdg else Path.home() / ".local" / "share"
+    if xdg and Path(xdg).is_absolute():
+        return Path(xdg)
+    return Path.home() / ".local" / "share"
 
 
 def application_root() -> Path:

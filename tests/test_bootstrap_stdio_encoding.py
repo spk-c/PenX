@@ -5,7 +5,6 @@ scanner or model output must not crash a scan run or a dispatch path.
 """
 import io
 import os
-import os
 import sys
 import unittest
 from unittest.mock import patch

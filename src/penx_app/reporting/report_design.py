@@ -351,7 +351,7 @@ def export_html(data: dict, output_dir: str, *, mode: str = "technical") -> str:
 </head><body><main class="container">
 <header class="topbar">
  <div class="brand"><div class="brandmark">X</div><div><div class="brandname" aria-label="PenX">PEN<em>X</em></div>
- <div class="brandcap">LOCAL AI / SECURITY RECON | AI Security Assessment | Local LLM | Windows 10/11</div></div></div>
+ <div class="brandcap">LOCAL AI / SECURITY RECON | AI Security Assessment | Local LLM | Windows / Linux</div></div></div>
  <div class="top-meta">ASSESSMENT REPORT<strong>SESSION SL#{_h(r['id'])}</strong></div>
 </header>
 <div class="hero"><div><div class="eyebrow">&gt; PENX / SECURITY INTELLIGENCE</div>

@@ -154,12 +154,13 @@ jobs:
           python -m pip install --disable-pip-version-check --prefer-binary -r requirements-build.txt
           python scripts/build_windows.py
           if ($LASTEXITCODE -ne 0) { throw "PyInstaller failed" }
+          if (-not (Test-Path .\dist\PenX\_internal\whois\data\public_suffix_list.dat)) { throw "Packaged WHOIS data missing" }
           & .\dist\PenX\PenX.exe --version
           if ($LASTEXITCODE -ne 0) { throw "Packaged EXE import/version smoke failed" }
           & .\dist\PenX\PenX.exe --setup-status
           if ($LASTEXITCODE -ne 0) { throw "Packaged EXE setup-status smoke failed" }
       - name: Windows installer build and installed EXE smoke test (manual) or release PR
-        if: github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && startsWith(github.head_ref, 'release/'))
+        if: github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && (startsWith(github.head_ref, 'release/') || startsWith(github.head_ref, 'feature/linux-')))
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'

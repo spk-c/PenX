@@ -28,6 +28,10 @@ class LinuxPortabilityTests(unittest.TestCase):
             with patch.dict(os.environ, {"XDG_DATA_HOME": ""}):
                 self.assertEqual(app_paths.user_data_base(),
                                  Path.home() / ".local" / "share")
+            for invalid in ("relative-data", "~/relative-data"):
+                with self.subTest(xdg=invalid), patch.dict(os.environ, {"XDG_DATA_HOME": invalid}):
+                    self.assertEqual(app_paths.user_data_base(),
+                                     Path.home() / ".local" / "share")
 
     def test_linux_scanner_status_has_no_npcap_and_finds_distro_bins(self):
         def runtime(name):
