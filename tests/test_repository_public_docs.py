@@ -61,6 +61,12 @@ class RepositoryPublicDocsTests(unittest.TestCase):
         topics = re.search(r"```text\n([^\n`]+(?:\n[^\n`]+)*)\n```", doc)
         self.assertIsNotNone(topics)
         values = topics.group(1).splitlines()
+        profile = json.loads(
+            (ROOT / "docs/repository-profile.json").read_text(encoding="utf-8")
+        )
+        self.assertEqual(profile["repository"], "spk-c/PenX")
+        self.assertEqual(values, profile["topics"])
+        self.assertIn(profile["description"], doc)
         self.assertLessEqual(len(values), 20)
         self.assertEqual(len(values), len(set(values)))
         self.assertTrue({"kali-linux", "linux", "windows", "local-ai", "nmap", "nuclei"}.issubset(values))
