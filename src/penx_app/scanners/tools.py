@@ -243,8 +243,11 @@ def run_whois(target: str, *, cancel_event=None) -> str:
         cancelled = _cancelled_after_io(cancel_event)
         if cancelled is not None:
             return cancelled
-        return ScannerOutput(f'[!] WHOIS lookup failed: {exc}',
-                             status="FAILED", evidence=False)
+        # Provider exceptions may contain tokenized request URLs or
+        # local resolver credentials; never persist the raw exception text.
+        return ScannerOutput(
+            f'[!] WHOIS lookup failed ({type(exc).__name__}); provider details omitted.',
+            status="FAILED", evidence=False)
 
 
 
@@ -463,7 +466,9 @@ def run_dig(target: str, *, cancel_event=None) -> str:
         except (dns.resolver.NoAnswer, dns.resolver.NXDOMAIN):
             values = ['(no record)']
         except dns.exception.DNSException as exc:
-            values = [f'(!) {exc}']
+            # DNS provider diagnostics can embed secrets and private URLs.
+            # Preserve the failure category, never the untrusted error body.
+            values = [f'(!) DNS query failed ({type(exc).__name__}); provider details omitted.']
             failed += 1
         cancelled = _cancelled_after_io(cancel_event)
         if cancelled is not None:
