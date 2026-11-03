@@ -16,13 +16,14 @@ from penx_app.domain.scan_plan import ScanPlan, assert_valid_plan
 from penx_app.scanners.project_rate import ProjectRateLimiter
 
 
-# These native-only adapters do not traverse a remote HTTP redirect. Reject
-# other adapters until their external process/redirect behavior is proven.
-# Existing standalone scans are unaffected.
-PROJECT_SAFE_SCANNERS = frozenset({'4', '5', 'd'})
-# DNS works only on hostname, not a host-specific port. The direct HTTPS/TLS
-# adapters honor explicitly specified URL port values.
-PROJECT_PORT_SCANNERS = frozenset({'4', 'd'})
+# These audited adapters do not traverse a remote HTTP redirect and never
+# expand beyond the approved target. Reject other adapters until their
+# external process/redirect behavior is proven. Existing standalone scans
+# are unaffected.
+PROJECT_SAFE_SCANNERS = frozenset({'4', '5', '8', 'd'})
+# DNS works only on hostname, not a host-specific port. The direct
+# HTTPS/TLS and httpx adapters honor explicitly specified URL port values.
+PROJECT_PORT_SCANNERS = frozenset({'4', '8', 'd'})
 
 
 class ProjectScopeDenied(ValueError):
