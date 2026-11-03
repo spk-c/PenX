@@ -222,6 +222,23 @@ jobs:
             $actual = (Get-FileHash "linux-assets/$name" -Algorithm SHA256).Hash.ToLowerInvariant()
             if ($expected -ne $actual) { throw "SHA256 mismatch: $name" }
           }
+      # Stage a clean copy of every published asset (the workspace holds
+      # duplicates, e.g. dist/PenX-Setup-x64.exe) so the offline bundle
+      # verification sees each asset exactly once.
+      - name: Generate SBOM, build manifest, and verify the release bundle
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          New-Item -Type Directory -Force release-bundle/linux-assets | Out-Null
+          Copy-Item PenX-Windows-x64.zip, PenX-Setup-x64.exe, SHA256SUMS.txt release-bundle/
+          Copy-Item linux-assets/PenX-Linux-x86_64.tar.gz, linux-assets/penx_0.6.0_amd64.deb, linux-assets/SHA256SUMS-Linux.txt release-bundle/linux-assets/
+          $env:PYTHONPATH = 'src'
+          python release_supply_chain.py sbom --output release-bundle/PenX-SBOM.json
+          if ($LASTEXITCODE -ne 0) { throw "SBOM generation failed" }
+          python release_supply_chain.py manifest --output release-bundle/PenX-BUILD-MANIFEST.json --sbom release-bundle/PenX-SBOM.json --asset release-bundle/PenX-Windows-x64.zip --asset release-bundle/PenX-Setup-x64.exe --asset release-bundle/linux-assets/PenX-Linux-x86_64.tar.gz --asset release-bundle/linux-assets/penx_0.6.0_amd64.deb
+          if ($LASTEXITCODE -ne 0) { throw "Build manifest generation failed" }
+          python release_supply_chain.py verify-release release-bundle
+          if ($LASTEXITCODE -ne 0) { throw "Release bundle verification failed" }
       # Tagged releases already store the ZIP/quality report permanently.
       # Keep a short-lived Actions artifact only for manual preview runs.
       - name: Upload manual workflow artifact
@@ -234,6 +251,8 @@ jobs:
             PenX-Setup-x64.exe
             SHA256SUMS.txt
             CVE-QUALITY.json
+            release-bundle/PenX-SBOM.json
+            release-bundle/PenX-BUILD-MANIFEST.json
           if-no-files-found: error
           retention-days: 3
       - name: Publish tagged GitHub Release
@@ -266,5 +285,5 @@ jobs:
                     ($generated -join [Environment]::NewLine)
           }
           [System.IO.File]::WriteAllText((Join-Path (Get-Location) "RELEASE-NOTES.md"), $body, [System.Text.UTF8Encoding]::new($false))
-          gh release create "$env:TAG" PenX-Windows-x64.zip PenX-Setup-x64.exe SHA256SUMS.txt CVE-QUALITY.json linux-assets/PenX-Linux-x86_64.tar.gz linux-assets/penx_0.6.0_amd64.deb linux-assets/SHA256SUMS-Linux.txt --verify-tag --title "PenX $env:TAG" --notes-file RELEASE-NOTES.md
+          gh release create "$env:TAG" PenX-Windows-x64.zip PenX-Setup-x64.exe SHA256SUMS.txt CVE-QUALITY.json linux-assets/PenX-Linux-x86_64.tar.gz linux-assets/penx_0.6.0_amd64.deb linux-assets/SHA256SUMS-Linux.txt release-bundle/PenX-SBOM.json release-bundle/PenX-BUILD-MANIFEST.json --verify-tag --title "PenX $env:TAG" --notes-file RELEASE-NOTES.md
           if ($LASTEXITCODE -ne 0) { throw "GitHub release publication failed" }

@@ -13,6 +13,46 @@
 
 Historical v0.5.0 [release](https://github.com/spk-c/PenX/releases/tag/v0.5.0) and its manifest versions remain retrievable from Git history. No package is published to PyPI or npm.
 
+## Supply-chain verification (SBOM and build manifest)
+
+Tagged releases and manual dispatch builds publish two extra assets alongside
+the archives:
+
+- `PenX-SBOM.json` — a deterministic CycloneDX 1.5 SBOM generated from
+  `requirements.lock.txt` (exact package versions and SHA-256 hashes) and
+  `requirements-build.txt` (declared build-tool specifiers, which are not
+  hash-locked). Byte-identical inputs produce byte-identical output; the
+  document carries no serial number or timestamp.
+- `PenX-BUILD-MANIFEST.json` (`penx-build-manifest-v1`) — records the exact
+  commit, tag/ref, workflow event, build workflow path, Python version, and
+  the size and SHA-256 of every published asset plus the SBOM's own hash.
+
+The manifest explicitly records `"signing": {"scheme": "none"}`: no
+Authenticode, sigstore, or other cryptographic signature is claimed.
+Verification is SHA-256 based against the manifest.
+
+To verify a downloaded release bundle offline, stage all published assets,
+both `SHA256SUMS*.txt` files, the manifest, and the SBOM in one directory
+(keeping the `linux-assets/` subfolder layout), then run:
+
+```powershell
+python release_supply_chain.py verify-release <bundle-directory>
+# Optional pins:
+python release_supply_chain.py verify-release <bundle-directory> --expect-version 0.6.0 --expect-commit <40-hex-commit>
+```
+
+Exit code 0 means every check passed; 1 means at least one check failed;
+2 is a usage error. The verifier re-hashes every asset, enforces that each
+asset, the manifest, the SBOM, and each SHA256SUMS file appear exactly once,
+that each SHA256SUMS file covers exactly its platform's assets, that the
+SBOM is valid CycloneDX 1.5, and that the SBOM's runtime inventory matches
+`requirements.lock.txt` (override with `--lockfile`). The same commands
+`sbom` and `manifest` regenerate both documents locally.
+
+The release workflow generates and verifies the bundle before publishing;
+the in-app updater is unaffected and still uses only the stable
+`PenX-Setup-x64.exe` + `SHA256SUMS.txt` pair.
+
 ## WinGet (community repository)
 
 1. Promote a **tested, stable** Windows release first; verify the ZIP includes `PenX/PenX.exe`.
