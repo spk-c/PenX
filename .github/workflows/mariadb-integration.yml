@@ -11,6 +11,10 @@ on:
       - 'src/db_training.py'
       - 'migrations/**'
       - 'tests/mariadb_integration.py'
+      - 'tests/mariadb_backup_integration.py'
+      - 'tests/test_px004_mariadb_logical_backup.py'
+      - 'src/penx_app/application/mariadb_backup.py'
+      - 'src/penx_app/application/backup_service.py'
       - '.github/workflows/mariadb-integration.yml'
   workflow_dispatch:
 
@@ -24,7 +28,7 @@ concurrency:
 jobs:
   integration:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     services:
       mariadb:
         image: mariadb:13.0
@@ -60,8 +64,16 @@ jobs:
         run: |
           python -m pip install --disable-pip-version-check --prefer-binary -r requirements.txt
           python -m pip install --disable-pip-version-check --prefer-binary "mysql-connector-python>=9,<10"
+      - name: Install MariaDB client for isolated native dump
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq mariadb-client
       - name: Exercise real MariaDB migrations and CRUD
         run: python tests/mariadb_integration.py
+      - name: Native PenX dump and restore into separate disposable schema
+        env:
+          PENX_MARIADB_CONTAINER: ${{ job.services.mariadb.id }}
+        run: python tests/mariadb_backup_integration.py
       - name: Backup and restore synthetic MariaDB assessment on isolated CI server
         shell: bash
         env:

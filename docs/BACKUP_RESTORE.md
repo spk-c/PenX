@@ -88,8 +88,12 @@ blocks the v3 migration until the rows are reconciled).
 
 ## MariaDB
 
-`penx backup` operates on SQLite files. With the MariaDB engine, pass the
-SQLite file explicitly with `--db`, or keep the default SQLite engine.
+Existing `penx backup create/verify/preview/restore` operations remain **SQLite-only**.
+Separate opt-in `mariadb-create`, `mariadb-verify` and `mariadb-preview`
+commands are documented in [PX004_MARIADB_BACKUP.md](PX004_MARIADB_BACKUP.md).
+A MariaDB logical dump is an unencrypted SQL file with a hash-bound manifest;
+verification is **file integrity only**. In-place MariaDB restoration is not
+implemented; the CI restores solely into a fresh, isolated test schema.
 
 ## Recommended upgrade workflow
 

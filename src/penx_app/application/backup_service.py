@@ -8,6 +8,8 @@ Exit codes:
 from __future__ import annotations
 
 import argparse
+import json
+import os
 from pathlib import Path
 import sys
 from typing import Any
@@ -120,6 +122,44 @@ def _cmd_restore(args: argparse.Namespace) -> int:
     return 0
 
 
+
+def _mariadb_result(kind: str, args: argparse.Namespace) -> int:
+    """Separate, opt-in logical dump commands; never invoke SQLite restore."""
+    from penx_app.application import mariadb_backup
+
+    try:
+        if kind == "create":
+            password = os.environ.get("PENX_MARIADB_BACKUP_PASSWORD", "")
+            if not password:
+                raise ValueError("Dedicated MariaDB backup credential required")
+            result = mariadb_backup.create_logical_backup(
+                host=args.host, port=args.port, database=args.database,
+                user=args.user, password=password, directory=args.output_dir)
+        elif kind == "verify":
+            result = mariadb_backup.verify_logical_backup(args.file)
+        else:
+            result = mariadb_backup.preview_logical_backup(args.file)
+    except Exception:
+        # SQL server error text, argv, filenames and credentials are
+        # intentionally never reflected in CLI output on failure.
+        print(json.dumps({"status": "unverified",
+                          "error": "mariadb-backup-check-failed"}))
+        return 2
+    print(json.dumps(result, sort_keys=True))
+    return 0
+
+
+def _cmd_mariadb_create(args: argparse.Namespace) -> int:
+    return _mariadb_result("create", args)
+
+
+def _cmd_mariadb_verify(args: argparse.Namespace) -> int:
+    return _mariadb_result("verify", args)
+
+
+def _cmd_mariadb_preview(args: argparse.Namespace) -> int:
+    return _mariadb_result("preview", args)
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="penx backup",
@@ -143,6 +183,22 @@ def main(argv: list[str] | None = None) -> int:
     p_restore.add_argument("--output-dir", default=None, help="Directory for the mandatory pre-restore backup")
     p_restore.add_argument("--confirm", action="store_true", help="Explicitly approve the restore")
 
+    # These subcommands are NOT automatic for mariadb-engine users.
+    # No in-place MariaDB restore subcommand is exposed.
+    p_maria = sub.add_parser(
+        "mariadb-create", help="Opt-in local MariaDB dump to a hash-bound file pair")
+    p_maria.add_argument("--host", required=True, help="127.0.0.1, localhost, or ::1 only")
+    p_maria.add_argument("--port", type=int, default=3306)
+    p_maria.add_argument("--database", required=True, help="Existing PenX MariaDB database")
+    p_maria.add_argument("--user", required=True, help="Dedicated SELECT-only backup account")
+    p_maria.add_argument("--output-dir", required=True,
+                         help="Existing private backup directory")
+    p_mv = sub.add_parser("mariadb-verify", help="Check SQL dump bytes and manifest offline")
+    p_mv.add_argument("--file", required=True, help="Explicit .sql or .json backup")
+    p_mp = sub.add_parser("mariadb-preview",
+                          help="Offline preview only; never imports SQL")
+    p_mp.add_argument("--file", required=True, help="Explicit .sql or .json backup")
+
     try:
         args = parser.parse_args(argv)
     except SystemExit:
@@ -152,5 +208,8 @@ def main(argv: list[str] | None = None) -> int:
         "verify": _cmd_verify,
         "preview": _cmd_preview,
         "restore": _cmd_restore,
+        "mariadb-create": _cmd_mariadb_create,
+        "mariadb-verify": _cmd_mariadb_verify,
+        "mariadb-preview": _cmd_mariadb_preview,
     }
     return handlers[args.command](args)
