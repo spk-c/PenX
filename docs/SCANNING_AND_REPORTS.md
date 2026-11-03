@@ -67,6 +67,18 @@ not forcibly terminate it; this is **menu navigation only**.
 
 Select individual tools or a group. Some operations can take longer, especially a Nikto-inclusive scan.
 
+### Stable scanner outcome reasons in parallel scans
+
+The planned scanner executor records a **closed, versioned outcome reason**
+along with status, evidence flag, lifecycle events and duration. When an
+adapter worker raises an exception, **both** the immediately completed-future
+path and the post-wait completion path classify the result as
+**FAILED / error**, without evidence. The error reason must survive the
+metadata round-trip and appear consistently in headless JSON and SARIF
+notifications. Each scanner ID in the registry (currently **13**) is covered
+by a synthetic, strictly offline worker-failure matrix. This is not a claim
+that every real third-party scanner/OS failure mode has been field-tested.
+
 ### Native web-scanner result provenance
 
 For manually selected Nuclei, ProjectDiscovery HTTPx and ffuf scans, PenX
