@@ -54,6 +54,29 @@ match, **not** that the executable SQL is authentic, semantically valid
 or guaranteed to restore. A forged dump and forged manifest can match.
 The preview explicitly returns `restore_available: false`.
 
+## New: non-executable scratch restore plan
+
+The `mariadb-restore-plan` subcommand accepts a verified backup and a
+proposed `penx_restore_<32 lowercase hex>` scratch database name:
+
+~~~powershell
+python penx.py backup mariadb-restore-plan --file "C:\PenX\private-backups\YOUR-BACKUP.sql" --target-schema penx_restore_0123456789abcdef0123456789abcdef
+~~~
+
+It returns a deterministic SHA-256 plan identity linking the backup
+digest to the proposed destination. **It never connects to MariaDB,
+checks target existence, starts a maintenance lock, creates tables, or
+executes SQL.** It explicitly returns `restore_available: false`,
+`target_existence: not-checked` and `sql_semantics_verified: false`.
+The plan can be invalidated by later backup changes; a future
+implementation must reverify the backup and server state at execution.
+
+A separate CI-only aborted-import test uses a fixed scratch schema,
+deliberately causes an SQL error after a table is created, verifies that
+the source database remains unchanged, and removes **only** that known
+disposable scratch schema. It demonstrates why SQL imports cannot be
+treated as atomic rollback. No user database is modified.
+
 ## Restore acceptance and remaining work
 
 PenX does **not** offer a MariaDB in-place restore command. The new

@@ -160,6 +160,23 @@ def _cmd_mariadb_verify(args: argparse.Namespace) -> int:
 def _cmd_mariadb_preview(args: argparse.Namespace) -> int:
     return _mariadb_result("preview", args)
 
+
+def _cmd_mariadb_restore_plan(args: argparse.Namespace) -> int:
+    """Non-mutating intent; MariaDB import remains unsupported."""
+    from penx_app.application.mariadb_restore_plan import plan_scratch_restore
+
+    try:
+        result = plan_scratch_restore(
+            args.file, target_schema=args.target_schema)
+    except (OSError, ValueError, TypeError, KeyError):
+        print(json.dumps({
+            "status": "unverified",
+            "error": "mariadb-restore-plan-failed",
+        }))
+        return 2
+    print(json.dumps(result, sort_keys=True))
+    return 0
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="penx backup",
@@ -199,6 +216,14 @@ def main(argv: list[str] | None = None) -> int:
                           help="Offline preview only; never imports SQL")
     p_mp.add_argument("--file", required=True, help="Explicit .sql or .json backup")
 
+    p_plan = sub.add_parser(
+        "mariadb-restore-plan",
+        help="Offline recovery intent for a NEW scratch schema; no import")
+    p_plan.add_argument("--file", required=True, help="Verified MariaDB SQL file")
+    p_plan.add_argument(
+        "--target-schema", required=True,
+        help="Proposed penx_restore_<32-hex> name; existence not checked")
+
     try:
         args = parser.parse_args(argv)
     except SystemExit:
@@ -211,5 +236,6 @@ def main(argv: list[str] | None = None) -> int:
         "mariadb-create": _cmd_mariadb_create,
         "mariadb-verify": _cmd_mariadb_verify,
         "mariadb-preview": _cmd_mariadb_preview,
+        "mariadb-restore-plan": _cmd_mariadb_restore_plan,
     }
     return handlers[args.command](args)

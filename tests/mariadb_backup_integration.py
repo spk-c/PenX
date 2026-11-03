@@ -46,6 +46,51 @@ class MariaDBLogicalBackupIntegration(unittest.TestCase):
                     check=True, timeout=60)
         return result.stdout.decode("utf-8").strip()
 
+    def test_failed_scratch_import_is_isolated_and_explicitly_discarded(self):
+        """A failed import may leave a partial DB, never a verified restore."""
+        scratch = "penx_ci_interrupted_restore_test"
+        self.assertNotEqual(scratch, db_backend.DB_NAME)
+        before = self.root_query(
+            "-N", "-B", "-e",
+            "SELECT COUNT(*) FROM penx_ci_test.history")
+        with tempfile.TemporaryDirectory(prefix="px004-aborted-") as folder:
+            bad_sql = Path(folder) / "broken.sql"
+            bad_sql.write_bytes(
+                b"CREATE TABLE interrupted_fixture (id INT);\n"
+                b"THIS IS INTENTIONALLY INVALID SQL;\n")
+            # CREATE (never IF NOT EXISTS) prevents accidental reuse.
+            self.root_query("-e", "CREATE DATABASE " + scratch)
+            try:
+                with self.assertRaises(subprocess.CalledProcessError):
+                    self.root_query(scratch, stdin_file=bad_sql)
+                partial = self.root_query(
+                    "-N", "-B", "-e",
+                    "SELECT COUNT(*) FROM information_schema.TABLES "
+                    "WHERE TABLE_SCHEMA='" + scratch +
+                    "' AND TABLE_NAME='interrupted_fixture'")
+                self.assertEqual(partial, "1")
+                with self.assertRaises(subprocess.CalledProcessError):
+                    self.root_query("-e", "CREATE DATABASE " + scratch)
+                self.assertEqual(
+                    self.root_query(
+                        "-N", "-B", "-e",
+                        "SELECT COUNT(*) FROM penx_ci_test.history"),
+                    before)
+            finally:
+                # Only this fixed scratch schema in isolated CI is removed.
+                self.root_query("-e", "DROP DATABASE " + scratch)
+        self.assertEqual(
+            self.root_query(
+                "-N", "-B", "-e",
+                "SELECT COUNT(*) FROM information_schema.SCHEMATA "
+                "WHERE SCHEMA_NAME='" + scratch + "'"),
+            "0")
+        self.assertEqual(
+            self.root_query(
+                "-N", "-B", "-e",
+                "SELECT COUNT(*) FROM penx_ci_test.history"),
+            before)
+
     def test_native_dump_restores_to_new_disposable_schema(self):
         sl = db.create_session("native-backup-fixture.invalid", status="pending")
         try:

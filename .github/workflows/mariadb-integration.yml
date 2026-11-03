@@ -13,6 +13,8 @@ on:
       - 'tests/mariadb_integration.py'
       - 'tests/mariadb_backup_integration.py'
       - 'tests/test_px004_mariadb_logical_backup.py'
+      - 'tests/test_px004_mariadb_restore_plan.py'
+      - 'src/penx_app/application/mariadb_restore_plan.py'
       - 'src/penx_app/application/mariadb_backup.py'
       - 'src/penx_app/application/backup_service.py'
       - '.github/workflows/mariadb-integration.yml'
