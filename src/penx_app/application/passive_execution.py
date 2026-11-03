@@ -57,6 +57,7 @@ def run_passive_plan(plan, *, cancel_event=None, clock=time.monotonic,
         if project_policy is not None:
             if project_policy.rate_limiter is not None:
                 project_policy.rate_limiter.acquire(event)
+            check()  # Expiry/revocation during rate wait must not launch I/O.
         value = _query_json(url, control=check, **kwargs)
         check()
         return value

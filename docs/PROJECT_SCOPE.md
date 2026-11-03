@@ -40,7 +40,9 @@ python penx.py scan --project owned-assessment --target example.test --profile p
   the selected adapters require them.
 - A fresh database lookup checks approval before the first scanner and before
   **each** later adapter, with a second check in each worker. Passive collection
-  rechecks before outbound provider requests. An expired/revoked/ambiguous
+  rechecks before outbound provider requests. The audited Python adapters
+  recheck before **each** outbound call (including HEAD-to-GET fallback and
+  retry) and after a project rate wait. An expired/revoked/ambiguous
   grant, a candidate-only target, unreadable database or modified scan plan
   blocks further collection. In-flight I/O is cooperative; immediate revocation
   cannot retroactively cancel a blocking OS operation.

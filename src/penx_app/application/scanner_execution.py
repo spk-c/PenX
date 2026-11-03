@@ -92,6 +92,16 @@ def _run_adapter(name: str, runner, target: str, emit,
             reason=output.reason,
         )
     except Exception as exc:
+        from penx_app.application.project_dispatch import ProjectScopeDenied
+        if isinstance(exc, ProjectScopeDenied):
+            # A grant revoked between two outbound calls of the same adapter
+            # is incomplete coverage, not a scanner crash or validated finding.
+            return ScannerOutput(
+                f"[!] {name}: project approval revoked before further I/O.",
+                status="PARTIAL", evidence=False, scanner_id=scanner_id,
+                duration_seconds=time.monotonic() - started,
+                diagnostics="Project scope denied before outbound request",
+                reason="scope_denied")
         # A cooperative project request limiter may be cancelled while
         # waiting. This is incomplete coverage, not an adapter failure.
         if isinstance(exc, InterruptedError) and cancel_event is not None and cancel_event.is_set():

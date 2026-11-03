@@ -264,7 +264,9 @@ def _run_plan_scheduled(plan: ScanPlan, *, menu: dict, emit,
                         diagnostics="Project scope denied before adapter dispatch",
                         reason="scope_denied")
                 from penx_app.scanners.project_rate import project_rate_context
-                with project_rate_context(project_policy.rate_limiter):
+                with project_rate_context(
+                        project_policy.rate_limiter,
+                        guard=lambda: project_policy.check(plan.target)):
                     return _run_adapter(names[key], menu[key][1], plan.target,
                                         safe_emit, node_events[key], ids[key])
             return _run_adapter(names[key], menu[key][1], plan.target,
