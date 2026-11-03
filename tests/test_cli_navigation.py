@@ -19,17 +19,29 @@ class NavigationTests(unittest.TestCase):
         for value in ("", "example.test", "10", "1", "not back"):
             self.assertFalse(is_back(value))
 
-    def test_back_menu_entry_is_clean_and_consistent(self):
+    def test_back_menu_entry_is_plain_when_redirected(self):
+        """Redirected stdout is the noninteractive contract: no ANSI."""
         from contextlib import redirect_stdout
         from io import StringIO
 
         output = StringIO()
         with redirect_stdout(output):
             show_back()
-        self.assertEqual(
-            output.getvalue(),
-            "  \x1b[92m[Esc]\x1b[0m  Back to main menu\n",
-        )
+        self.assertEqual(output.getvalue(), "  [Esc]  Back to main menu\n")
+
+    def test_back_menu_entry_is_colored_on_interactive_tty(self):
+        import io
+        import sys
+
+        class _TTY(io.StringIO):
+            def isatty(self):
+                return True
+
+        stream = _TTY()
+        with patch("sys.stdout", stream):
+            show_back()
+        self.assertEqual(stream.getvalue(),
+                         "  \x1b[92m[Esc]\x1b[0m  Back to main menu\n")
 
     def test_failed_scan_requires_acknowledgement_before_menu_redraw(self):
         from penx_app.application.scan_outcome import ScanOutcome
