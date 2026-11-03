@@ -10,7 +10,9 @@ import unittest
 from unittest.mock import Mock, patch
 
 from penx_app.application.headless_scan import main as scan_main
-from penx_app.application.project_dispatch import ProjectDispatchPolicy, ProjectScopeDenied
+from penx_app.application.project_dispatch import (PROJECT_SAFE_SCANNERS,
+                                                  ProjectDispatchPolicy,
+                                                  ProjectScopeDenied)
 from penx_app.application.project_service import ProjectService
 from penx_app.application.scan_planner import run_plan
 from penx_app.application.scan_profiles import build_custom_plan
@@ -216,7 +218,7 @@ class ProjectDispatchTests(unittest.TestCase):
                                     "--scanners", "4"], connection_factory=self.factory)
                 self.assertEqual(rc, 2)
         for key in "123456789esc":
-            if key in "45d":
+            if key in PROJECT_SAFE_SCANNERS:
                 continue
             with self.subTest(key=key), \
                     patch("penx_app.application.headless_scan.run_plan") as runner:
@@ -238,6 +240,53 @@ class ProjectDispatchTests(unittest.TestCase):
                 self.policy().prepare(self.plan(target, keys))
         self.assertFalse(matching_approved_assets(self.service.scope("audit"),
                                                   "example.test:443"))
+
+    def test_httpx_project_dispatch_preserves_explicit_port(self):
+        self.add("example.test:8443")
+        policy=self.policy()
+        plan=policy.prepare(self.plan("example.test:8443", keys=("8",)))
+        self.assertEqual(plan.target, "example.test:8443")
+        self.assertEqual(plan.max_parallelism, 1)
+        self.assertEqual(plan.scanner_keys, ("8",))
+
+    def test_httpx_project_dispatch_denies_wrong_port_before_adapter(self):
+        self.add("example.test:8443")
+        with self.assertRaises(ProjectScopeDenied):
+            self.policy().prepare(self.plan("example.test:443", keys=("8",)))
+
+    def test_httpx_project_run_takes_one_rate_slot_before_outbound_process(self):
+        self.add(max_rate=2)
+        policy=self.policy()
+        plan=policy.prepare(self.plan(keys=("8",)))
+        from penx_app.scanners import tools
+        with patch("penx_app.scanners.project_rate.ProjectRateLimiter.acquire") as acquire, \
+                patch.object(tools, "find_native", return_value="httpx.exe"), \
+                patch.object(tools, "run_tool", return_value=(
+                    '{"url":"https://example.test","status_code":200,'
+                    '"title":"Index","tech":[]}')) as run:
+            result=run_plan(plan, menu=tools.TOOLS_MENU, project_policy=policy)
+        acquire.assert_called_once()
+        self.assertEqual(run.call_count, 1)
+        command=run.call_args.args[0]
+        self.assertEqual(command[command.index("-u")+1], "https://example.test")
+        self.assertEqual(result.results[0].status, "COMPLETE")
+
+    def test_httpx_revoke_during_rate_wait_blocks_outbound_process(self):
+        self.add(max_rate=2)
+        policy=self.policy()
+        plan=policy.prepare(self.plan(keys=("8",)))
+        from penx_app.scanners import tools
+        def revoke(*args, **kwargs):
+            self.repo.delete_asset(
+                self.repo.get_project("audit").id, "example.test", "host")
+        with patch("penx_app.scanners.project_rate.ProjectRateLimiter.acquire",
+                   side_effect=revoke), \
+                patch.object(tools, "find_native", return_value="httpx.exe"), \
+                patch.object(tools, "run_tool") as run:
+            result=run_plan(plan, menu=tools.TOOLS_MENU, project_policy=policy)
+        run.assert_not_called()
+        self.assertEqual(result.results[0].status, "PARTIAL")
+        self.assertEqual(result.results[0].reason, "scope_denied")
 
     def test_cidr_wildcard_grants_only_allow_concrete_member_not_network(self):
         self.add("192.168.1.0/30")
