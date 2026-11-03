@@ -110,3 +110,10 @@ database; `mariadb-dump` for MariaDB), and verify its restore on a copy. The
 migration is additive. Do not decrease SQLite `user_version` to bypass version
 checks. To roll back, restore the pre-upgrade backup with the corresponding
 application version. No automatic destructive down migration is provided.
+
+## PX-101 project registry (MariaDB migration 008)
+
+After a consistent backup and successful migrations 001–007, run
+`migrations/008_project_scopes.sql` to create the project registry.
+It is safe to rerun. Apply this migration before using `penx project`
+with `PENX_DB_ENGINE=mariadb`; PenX does not auto-migrate MariaDB.

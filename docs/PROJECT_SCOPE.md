@@ -80,3 +80,13 @@ read time, so a row never silently flips status.
 - Automatic approval of discovered subdomains (they are candidates only).
 - Rate/budget **enforcement** at dispatch time (values are stored, not yet
   applied).
+
+### MariaDB setup
+
+For an existing MariaDB installation, back up the database, then apply
+`migrations/008_project_scopes.sql` after `007_summary_unique.sql`.
+PenX intentionally does not auto-apply MariaDB DDL at startup.
+The migration creates the same project and asset columns, uniqueness
+constraints, and a foreign key; it does not scan, rename, or drop data.
+The MariaDB CI workflow applies all numbered migrations to a disposable
+database and exercises the real ProjectRepository CRUD contract.

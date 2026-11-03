@@ -54,6 +54,32 @@ class MariaDBIntegrationTests(unittest.TestCase):
     def tearDown(self):
         db.delete_full_session(self.sl)
 
+    def test_project_scope_registry_mariadb_crud(self):
+        from penx_app.application.project_service import ProjectService
+        from penx_app.storage.project_repository import ProjectRepository
+
+        repo = ProjectRepository(db_backend.get_connection)
+        service = ProjectService(repo)
+        name = f'ci-project-{self.sl}'
+        project_id = service.create(name)
+        try:
+            self.assertEqual(repo.get_project(name).id, project_id)
+            asset_id = service.add(name, 'example.test:8443', tags='ci,web')
+            self.assertIsInstance(asset_id, int)
+            self.assertTrue(service.check(name, 'example.test:8443'))
+            self.assertFalse(service.check(name, 'example.test:443'))
+            self.assertEqual(repo.asset_count(project_id), 1)
+            with self.assertRaises(ValueError):
+                service.add(name, 'example.test:8443')
+            self.assertTrue(repo.delete_asset(project_id, 'example.test:8443', 'host'))
+            self.assertEqual(repo.asset_count(project_id), 0)
+        finally:
+            with db_backend.get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute('DELETE FROM project_assets WHERE project_id = %s', (project_id,))
+                cursor.execute('DELETE FROM projects WHERE id = %s', (project_id,))
+                conn.commit()
+
     def test_assessment_migrated_schema_and_scoped_edits(self):
         # A pending assessment must not be visible as a completed scan.
         self.assertNotIn(self.sl, [row[0] for row in db.get_all_history()])
