@@ -445,7 +445,7 @@ def _bounded_dns_values(answer, max_records: int,
     records were dropped after the count cap, and how many rendered values
     were clipped. Callers decide how to make the loss visible.
     """
-    values = []
+    values: list[str] = []
     omitted = 0
     truncated = 0
     for rdata in answer:
@@ -1070,16 +1070,31 @@ def run_tls_check(target: str, *, cancel_event=None) -> ScannerOutput:
         expiry = cert.get("notAfter", "") if isinstance(cert, dict) else ""
         if not isinstance(expiry, str):
             expiry = ""
-        expires = datetime.fromtimestamp(ssl.cert_time_to_seconds(expiry), timezone.utc) if expiry else None
+        expires = None
+        expiry_note = ""
+        if expiry:
+            try:
+                expires = datetime.fromtimestamp(ssl.cert_time_to_seconds(expiry), timezone.utc)
+            except ValueError:
+                # A verified handshake is evidence even when the certificate
+                # expiry string cannot be parsed; report the loss explicitly.
+                expiry_note = "Certificate notAfter value could not be parsed; expiry unknown."
         days_left = (expires - datetime.now(timezone.utc)).days if expires else None
+        lines = [
+            f"[VERIFIED TLS HANDSHAKE] {host}:{port}",
+            f"Protocol: {protocol}",
+            f"Cipher: {cipher[0] if cipher else 'unknown'}",
+            f"Certificate expires: {expires.isoformat() if expires else 'unknown'}",
+            f"Days remaining: {days_left if days_left is not None else 'unknown'}",
+        ]
+        if expiry_note:
+            lines.append(expiry_note)
+        lines.append("Note: This is not a full cipher-suite audit.")
         return ScannerOutput(
-            f"[VERIFIED TLS HANDSHAKE] {host}:{port}\n"
-            f"Protocol: {protocol}\n"
-            f"Cipher: {cipher[0] if cipher else 'unknown'}\n"
-            f"Certificate expires: {expires.isoformat() if expires else 'unknown'}\n"
-            f"Days remaining: {days_left if days_left is not None else 'unknown'}\n"
-            "Note: This is not a full cipher-suite audit.",
-            evidence=True)
+            "\n".join(lines),
+            status="COMPLETE" if not expiry_note else "PARTIAL",
+            evidence=True,
+            diagnostics=expiry_note)
     except (OSError, ValueError, ssl.SSLError) as exc:
         cancelled = _cancelled_after_io(cancel_event)
         if cancelled is not None:
