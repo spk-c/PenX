@@ -1,4 +1,4 @@
-﻿"""PX-401 offline no-network model-registry and explicit diagnostic gates."""
+"""PX-401 offline no-network model-registry and explicit diagnostic gates."""
 import contextlib
 import io
 import json
@@ -153,4 +153,3 @@ class ModelRegistryTests(unittest.TestCase):
 
 if __name__=="__main__":
     unittest.main()
-

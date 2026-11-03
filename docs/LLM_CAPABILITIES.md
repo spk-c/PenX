@@ -1,4 +1,4 @@
-﻿# Local model capability diagnostics (PX-401)
+# Local model capability diagnostics (PX-401)
 
 PenX already offers an interactive `--llm-setup` wizard with an opt-in chat,
 streaming and structured-JSON handshake. The noninteractive `llm-info`
@@ -38,4 +38,3 @@ quality and speed are not attested.
 Deterministic tests use injected transports, no real model or external
 host. Live NInfer/Strata/llama.cpp/Ollama field validation is separate.
 This is a partial PX-401 implementation, not a full field sign-off or release.
-
