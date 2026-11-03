@@ -54,9 +54,13 @@ class NativeParserAuditTests(unittest.TestCase):
         report = self.report(_summarize_native_run('nuclei', raw))
         self.assertEqual(len(report['findings']), 4)
 
-    def test_unknown_severity_cannot_be_complete_coverage(self):
+    def test_unknown_severity_cannot_be_evidence_or_complete_coverage(self):
         output = _summarize_native_run('nuclei', self.match(info={'severity': 'unexpected'}))
-        self.assertEqual(output.status, 'PARTIAL')
+        # No valid match survived parsing: fail closed instead of attributing
+        # a fabricated unknown severity observation to the target.
+        self.assertEqual(output.status, 'FAILED')
+        self.assertFalse(output.evidence)
+        self.assertEqual(self.report(output)['findings'], [])
 
     def test_nmap_observations_do_not_silently_stop_at_100(self):
         plan = build_custom_plan('example.test', ('1',), active_consent=False)

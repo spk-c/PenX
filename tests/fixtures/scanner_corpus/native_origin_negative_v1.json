@@ -1,0 +1,412 @@
+{
+  "schema": "penx-scanner-origin-corpus-v1",
+  "provenance": {
+    "kind": "hand-authored-synthetic",
+    "source": "Sanitized, artificial web origins only; no network capture or customer data.",
+    "purpose": "PX-003 scope/source provenance and invalid-record negatives before publishing scanner observations."
+  },
+  "cases": [
+    {
+      "id": "nuclei-accepted-origin",
+      "scanner": "nuclei",
+      "origin": "https://example.test",
+      "stdout": [
+        "{\"info\":{\"name\":\"Synthetic observation\",\"severity\":\"low\"},\"matched-at\":\"https://example.test/\",\"template-id\":\"fixture-check\"}"
+      ],
+      "sha256": "83c349232207d6305fd3c3f308422c96fcbee35c0151fce213fbbfa605a1dbe6",
+      "expected": {
+        "status": "COMPLETE",
+        "evidence": true,
+        "summary": "TEMPLATE fixture-check | low | Synthetic observation | https://example.test/",
+        "rules": [
+          "PENX-NUCLEI-fixture-check"
+        ]
+      },
+      "must_not_publish": []
+    },
+    {
+      "id": "nuclei-invalid-severity",
+      "scanner": "nuclei",
+      "origin": "https://example.test",
+      "stdout": [
+        "{\"info\":{\"name\":\"Synthetic observation\",\"severity\":\"severe\"},\"matched-at\":\"https://example.test/\",\"template-id\":\"fixture-check\"}"
+      ],
+      "sha256": "ecd21464fe1aff4531b80e0d9cdc6187b75c579e6eb35a548e3539141c3c5e82",
+      "expected": {
+        "status": "FAILED",
+        "evidence": false,
+        "summary": "[!] nuclei emitted no parseable JSONL result; unstructured tool output omitted (may include confidential URLs).",
+        "rules": []
+      },
+      "must_not_publish": []
+    },
+    {
+      "id": "nuclei-non-string-severity",
+      "scanner": "nuclei",
+      "origin": "https://example.test",
+      "stdout": [
+        "{\"info\":{\"name\":\"Synthetic observation\",\"severity\":2},\"matched-at\":\"https://example.test/\",\"template-id\":\"fixture-check\"}"
+      ],
+      "sha256": "907727b333914bea90104c5abcc7aa079ed132e296954c8de670de65c2b57bfd",
+      "expected": {
+        "status": "FAILED",
+        "evidence": false,
+        "summary": "[!] nuclei emitted no parseable JSONL result; unstructured tool output omitted (may include confidential URLs).",
+        "rules": []
+      },
+      "must_not_publish": []
+    },
+    {
+      "id": "nuclei-mixed-invalid-severity",
+      "scanner": "nuclei",
+      "origin": "https://example.test",
+      "stdout": [
+        "{\"info\":{\"name\":\"Synthetic observation\",\"severity\":\"low\"},\"matched-at\":\"https://example.test/\",\"template-id\":\"fixture-check\"}",
+        "{\"info\":{\"name\":\"Synthetic observation\",\"severity\":\"bad\"},\"matched-at\":\"https://example.test/\",\"template-id\":\"fixture-check\"}"
+      ],
+      "sha256": "3992b9c9b6f8d29fd4bef506517aaceeb9eafac477615ddfa901d6689e8c2dde",
+      "expected": {
+        "status": "PARTIAL",
+        "evidence": true,
+        "summary": "TEMPLATE fixture-check | low | Synthetic observation | https://example.test/",
+        "rules": [
+          "PENX-NUCLEI-fixture-check"
+        ]
+      },
+      "must_not_publish": []
+    },
+    {
+      "id": "nuclei-other-host",
+      "scanner": "nuclei",
+      "origin": "https://example.test",
+      "stdout": [
+        "{\"info\":{\"name\":\"Synthetic observation\",\"severity\":\"low\"},\"matched-at\":\"https://other.test/x\",\"template-id\":\"fixture-check\"}"
+      ],
+      "sha256": "45fd2698f913ff5b04c7ba31a095f7807e79f820e112e543bb3c4cedfee2f1ea",
+      "expected": {
+        "status": "FAILED",
+        "evidence": false,
+        "summary": "[!] nuclei emitted no parseable JSONL result; unstructured tool output omitted (may include confidential URLs).",
+        "rules": []
+      },
+      "must_not_publish": []
+    },
+    {
+      "id": "nuclei-subdomain",
+      "scanner": "nuclei",
+      "origin": "https://example.test",
+      "stdout": [
+        "{\"info\":{\"name\":\"Synthetic observation\",\"severity\":\"low\"},\"matched-at\":\"https://sub.example.test/\",\"template-id\":\"fixture-check\"}"
+      ],
+      "sha256": "71ec6959234a57a429a4fea5959b8942488c81c5fe5c285312b7f389b8d5ebf0",
+      "expected": {
+        "status": "FAILED",
+        "evidence": false,
+        "summary": "[!] nuclei emitted no parseable JSONL result; unstructured tool output omitted (may include confidential URLs).",
+        "rules": []
+      },
+      "must_not_publish": []
+    },
+    {
+      "id": "nuclei-other-scheme",
+      "scanner": "nuclei",
+      "origin": "https://example.test",
+      "stdout": [
+        "{\"info\":{\"name\":\"Synthetic observation\",\"severity\":\"low\"},\"matched-at\":\"http://example.test/\",\"template-id\":\"fixture-check\"}"
+      ],
+      "sha256": "8cffb6d48d4d5c37e7525473693cbc4aaa39ad0a7ceae76ed2869d0ba012b4e6",
+      "expected": {
+        "status": "FAILED",
+        "evidence": false,
+        "summary": "[!] nuclei emitted no parseable JSONL result; unstructured tool output omitted (may include confidential URLs).",
+        "rules": []
+      },
+      "must_not_publish": []
+    },
+    {
+      "id": "nuclei-other-port",
+      "scanner": "nuclei",
+      "origin": "https://example.test:8443",
+      "stdout": [
+        "{\"info\":{\"name\":\"Synthetic observation\",\"severity\":\"low\"},\"matched-at\":\"https://example.test/path\",\"template-id\":\"fixture-check\"}"
+      ],
+      "sha256": "5c6337da113fad82acd6cf34f2056fcf0ddebf36dc79cad7b0f7f6043a7cf4c8",
+      "expected": {
+        "status": "FAILED",
+        "evidence": false,
+        "summary": "[!] nuclei emitted no parseable JSONL result; unstructured tool output omitted (may include confidential URLs).",
+        "rules": []
+      },
+      "must_not_publish": []
+    },
+    {
+      "id": "nuclei-userinfo",
+      "scanner": "nuclei",
+      "origin": "https://example.test",
+      "stdout": [
+        "{\"info\":{\"name\":\"Synthetic observation\",\"severity\":\"low\"},\"matched-at\":\"https://leaked-user:secret-pass@example.test/\",\"template-id\":\"fixture-check\"}"
+      ],
+      "sha256": "64bfa8702e1ed96e7c764d7574d87f4d158cf7e30382ba57797eb71508296ce5",
+      "expected": {
+        "status": "FAILED",
+        "evidence": false,
+        "summary": "[!] nuclei emitted no parseable JSONL result; unstructured tool output omitted (may include confidential URLs).",
+        "rules": []
+      },
+      "must_not_publish": [
+        "secret-pass",
+        "leaked-user"
+      ]
+    },
+    {
+      "id": "nuclei-query-redacted",
+      "scanner": "nuclei",
+      "origin": "https://example.test",
+      "stdout": [
+        "{\"info\":{\"name\":\"Synthetic observation\",\"severity\":\"low\"},\"matched-at\":\"https://example.test/?access_token=secret-123\",\"template-id\":\"fixture-check\"}"
+      ],
+      "sha256": "5b6b071ad1e0cc6655bc036317bc3b6b1d2f3285898732869dff28c6d11c363b",
+      "expected": {
+        "status": "COMPLETE",
+        "evidence": true,
+        "summary": "TEMPLATE fixture-check | low | Synthetic observation | https://example.test/",
+        "rules": [
+          "PENX-NUCLEI-fixture-check"
+        ]
+      },
+      "must_not_publish": [
+        "secret-123"
+      ]
+    },
+    {
+      "id": "nuclei-ipv6-port",
+      "scanner": "nuclei",
+      "origin": "https://[2001:db8::1]:8443",
+      "stdout": [
+        "{\"info\":{\"name\":\"Synthetic observation\",\"severity\":\"low\"},\"matched-at\":\"https://[2001:db8::1]:8443/path\",\"template-id\":\"fixture-check\"}"
+      ],
+      "sha256": "2c6eb27e599964ba4481b12e636fdc3b6a8fdac6fe43e2999289b7a58176ebb2",
+      "expected": {
+        "status": "COMPLETE",
+        "evidence": true,
+        "summary": "TEMPLATE fixture-check | low | Synthetic observation | https://[2001:db8::1]:8443/path",
+        "rules": [
+          "PENX-NUCLEI-fixture-check"
+        ]
+      },
+      "must_not_publish": []
+    },
+    {
+      "id": "httpx-accepted-origin",
+      "scanner": "httpx",
+      "origin": "https://example.test",
+      "stdout": [
+        "{\"status_code\":200,\"url\":\"https://example.test/\"}"
+      ],
+      "sha256": "5a5567dc2296f074c8855b27aa502c014746493db2986a4328c9f3ac27e17861",
+      "expected": {
+        "status": "COMPLETE",
+        "evidence": true,
+        "summary": "HTTP 200 | https://example.test/ |  |  | technologies: ",
+        "rules": []
+      },
+      "must_not_publish": []
+    },
+    {
+      "id": "httpx-rate-limited",
+      "scanner": "httpx",
+      "origin": "https://example.test",
+      "stdout": [
+        "{\"status_code\":429,\"url\":\"https://example.test/\"}"
+      ],
+      "sha256": "02fba7d8fa525f05b6fae41cecaaa50ccba349c8710fbb13c13ab38ddcd497be",
+      "expected": {
+        "status": "COMPLETE",
+        "evidence": true,
+        "summary": "HTTP 429 | https://example.test/ |  |  | technologies: ",
+        "rules": []
+      },
+      "must_not_publish": []
+    },
+    {
+      "id": "httpx-foreign-host",
+      "scanner": "httpx",
+      "origin": "https://example.test",
+      "stdout": [
+        "{\"status_code\":200,\"url\":\"https://outside.test/\"}"
+      ],
+      "sha256": "1a0340e5e9a687757416ae68f2a5577f13a137e3bf27e26a3a4e8aeedf0054ba",
+      "expected": {
+        "status": "FAILED",
+        "evidence": false,
+        "summary": "[!] httpx emitted no parseable JSONL result; unstructured tool output omitted (may include confidential URLs).",
+        "rules": []
+      },
+      "must_not_publish": []
+    },
+    {
+      "id": "httpx-scheme-mismatch",
+      "scanner": "httpx",
+      "origin": "https://example.test",
+      "stdout": [
+        "{\"status_code\":200,\"url\":\"http://example.test/\"}"
+      ],
+      "sha256": "5687df2efbea4e34b65133fd506d74ddf49f5b3b9f1cfbc2c6a9ec29d0fe3eee",
+      "expected": {
+        "status": "FAILED",
+        "evidence": false,
+        "summary": "[!] httpx emitted no parseable JSONL result; unstructured tool output omitted (may include confidential URLs).",
+        "rules": []
+      },
+      "must_not_publish": []
+    },
+    {
+      "id": "httpx-port-mismatch",
+      "scanner": "httpx",
+      "origin": "https://example.test:9443",
+      "stdout": [
+        "{\"status_code\":200,\"url\":\"https://example.test:443/\"}"
+      ],
+      "sha256": "8bd3e684297203e6a0054ea744becd2a69794792f792d357d0b3468869064671",
+      "expected": {
+        "status": "FAILED",
+        "evidence": false,
+        "summary": "[!] httpx emitted no parseable JSONL result; unstructured tool output omitted (may include confidential URLs).",
+        "rules": []
+      },
+      "must_not_publish": []
+    },
+    {
+      "id": "httpx-mixed-scope",
+      "scanner": "httpx",
+      "origin": "https://example.test",
+      "stdout": [
+        "{\"status_code\":200,\"url\":\"https://example.test/\"}",
+        "{\"status_code\":200,\"url\":\"https://outside.test/\"}"
+      ],
+      "sha256": "cf1b9af14c7017a49ccedaedb767204d5862d01fae91704d0640a285fe993064",
+      "expected": {
+        "status": "PARTIAL",
+        "evidence": true,
+        "summary": "HTTP 200 | https://example.test/ |  |  | technologies: ",
+        "rules": []
+      },
+      "must_not_publish": []
+    },
+    {
+      "id": "httpx-input-bare-not-endpoint-proof",
+      "scanner": "httpx",
+      "origin": "https://example.test",
+      "stdout": [
+        "{\"input\":\"example.test\",\"status_code\":200}"
+      ],
+      "sha256": "a0da83ae76f726b3d78057594cb92d274a636ae11288421d6bb5b0957769587f",
+      "expected": {
+        "status": "FAILED",
+        "evidence": false,
+        "summary": "[!] httpx emitted no parseable JSONL result; unstructured tool output omitted (may include confidential URLs).",
+        "rules": []
+      },
+      "must_not_publish": []
+    },
+    {
+      "id": "ffuf-accepted-origin",
+      "scanner": "ffuf",
+      "origin": "https://example.test",
+      "stdout": [
+        "{\"status\":403,\"url\":\"https://example.test/admin\"}"
+      ],
+      "sha256": "97e09253e7b17fe8d2966f120715125ee31c70adc6214fcd7f4cc60d0d758e20",
+      "expected": {
+        "status": "COMPLETE",
+        "evidence": true,
+        "summary": "ENDPOINT HTTP 403 | https://example.test/admin",
+        "rules": []
+      },
+      "must_not_publish": []
+    },
+    {
+      "id": "ffuf-foreign-host",
+      "scanner": "ffuf",
+      "origin": "https://example.test",
+      "stdout": [
+        "{\"status\":403,\"url\":\"https://another.test/admin\"}"
+      ],
+      "sha256": "fab021d7f777694b5c697eb923851aeef4ec869c50d7c4299ab2298478a9c41a",
+      "expected": {
+        "status": "FAILED",
+        "evidence": false,
+        "summary": "[!] ffuf emitted no parseable JSONL result; unstructured tool output omitted (may include confidential URLs).",
+        "rules": []
+      },
+      "must_not_publish": []
+    },
+    {
+      "id": "ffuf-mixed-scope",
+      "scanner": "ffuf",
+      "origin": "https://example.test",
+      "stdout": [
+        "{\"status\":403,\"url\":\"https://example.test/admin\"}",
+        "{\"status\":403,\"url\":\"https://another.test/admin\"}"
+      ],
+      "sha256": "6908a466bd28cc6e8ca757e70c4756a396663489e66503c20f7f7c8f47aa8a9f",
+      "expected": {
+        "status": "PARTIAL",
+        "evidence": true,
+        "summary": "ENDPOINT HTTP 403 | https://example.test/admin",
+        "rules": []
+      },
+      "must_not_publish": []
+    },
+    {
+      "id": "ffuf-userinfo",
+      "scanner": "ffuf",
+      "origin": "https://example.test",
+      "stdout": [
+        "{\"status\":403,\"url\":\"https://user:token-999@example.test/admin\"}"
+      ],
+      "sha256": "13f4e7cf4253f34121a5040480c0671c9cf4963416f68583c6da2291903b4653",
+      "expected": {
+        "status": "FAILED",
+        "evidence": false,
+        "summary": "[!] ffuf emitted no parseable JSONL result; unstructured tool output omitted (may include confidential URLs).",
+        "rules": []
+      },
+      "must_not_publish": [
+        "token-999"
+      ]
+    },
+    {
+      "id": "ffuf-port-match",
+      "scanner": "ffuf",
+      "origin": "http://example.test:8080",
+      "stdout": [
+        "{\"status\":403,\"url\":\"http://example.test:8080/admin\"}"
+      ],
+      "sha256": "4a0ffad9cb62303ecadf3cd38ffe3196de04c41e67926533521742eef9d70068",
+      "expected": {
+        "status": "COMPLETE",
+        "evidence": true,
+        "summary": "ENDPOINT HTTP 403 | http://example.test:8080/admin",
+        "rules": []
+      },
+      "must_not_publish": []
+    },
+    {
+      "id": "ffuf-ipv6-host-mismatch",
+      "scanner": "ffuf",
+      "origin": "https://[2001:db8::1]:8443",
+      "stdout": [
+        "{\"status\":403,\"url\":\"https://[2001:db8::2]:8443/admin\"}"
+      ],
+      "sha256": "cfb76c114aa8ebd3feb822dc53c58ba598f4ba95e1dd735adc1fcaed82803ffc",
+      "expected": {
+        "status": "FAILED",
+        "evidence": false,
+        "summary": "[!] ffuf emitted no parseable JSONL result; unstructured tool output omitted (may include confidential URLs).",
+        "rules": []
+      },
+      "must_not_publish": []
+    }
+  ]
+}
