@@ -334,6 +334,30 @@ class RestoreTests(BackupFixture):
             report = backup_store.verify_backup(p)
             self.assertTrue(report["valid"], report["reasons"])
 
+    def test_restore_refuses_open_managed_sqlite_connections(self):
+        from unittest.mock import patch
+        from penx_app.storage import db_backend
+
+        live = self.root / "live" / "penx.db"
+        live.parent.mkdir()
+        self.make_current(live)
+        db, _ = self.create_and_verify(live)
+        with patch.object(db_backend, "DB_ENGINE", "sqlite"), patch.object(
+            db_backend, "DB_PATH", str(live)
+        ):
+            first = db_backend.get_connection()
+            second = db_backend.get_connection()
+            try:
+                with self.assertRaisesRegex(backup_store.BackupError, "in use"):
+                    backup_store.restore(db, live, self.dest_dir)
+                first.close()
+                with self.assertRaisesRegex(backup_store.BackupError, "in use"):
+                    backup_store.restore(db, live, self.dest_dir)
+            finally:
+                first.close()
+                second.close()
+        self.assertIsNotNone(backup_store.restore(db, live, self.dest_dir))
+
     def test_restore_invalid_backup_touches_nothing(self):
         live = self.root / "live" / "penx.db"
         live.parent.mkdir()

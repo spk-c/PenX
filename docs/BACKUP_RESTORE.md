@@ -70,6 +70,14 @@ Exit codes: `0` success, `1` backup invalid or migration dry run failed,
 4. If any step fails, the live database is left byte-identical (or absent,
    if it did not exist before).
 
+PenX-managed SQLite connections now hold an OS-level shared lock for their
+lifetime. Restore acquires an exclusive OS lock before copying or replacing
+files, and fails closed if any managed connection is still open. It also
+prevents new managed PenX connections from opening during the replacement.
+**Stop PenX and any other SQLite client before restore:** external clients
+that bypass the PenX lock do not participate. Do not restore a database
+on a network filesystem without verified file-locking semantics.
+
 Restore never overwrites the live database in place, and it is never
 performed without the explicit `--confirm` flag.
 

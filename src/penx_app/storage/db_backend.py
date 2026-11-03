@@ -25,6 +25,7 @@ EVALUATION_COLUMNS = ("id, sl_no, vuln_id, evaluator, evidence_cited, verdict, "
 
 
 from penx_app.storage.schema_migrations import SCHEMA as SCHEMA, initialize_sqlite
+from penx_app.storage.sqlite_use_lock import SQLiteUseLock
 
 
 def _sqlite_sql(query: str) -> str:
@@ -103,8 +104,9 @@ class SQLiteCursor:
 
 
 class SQLiteConnection:
-    def __init__(self, connection: sqlite3.Connection):
+    def __init__(self, connection: sqlite3.Connection, use_lock: SQLiteUseLock | None = None):
         self._connection = connection
+        self._use_lock = use_lock
 
     def cursor(self):
         return SQLiteCursor(self._connection.cursor())
@@ -113,7 +115,12 @@ class SQLiteConnection:
         return self._connection.commit()
 
     def close(self):
-        return self._connection.close()
+        try:
+            return self._connection.close()
+        finally:
+            if self._use_lock is not None:
+                self._use_lock.release()
+                self._use_lock = None
 
     def __getattr__(self, name):
         return getattr(self._connection, name)
@@ -131,12 +138,16 @@ def get_connection():
 
     path = Path(DB_PATH).expanduser()
     path.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(str(path), timeout=30)
-    conn.execute('PRAGMA busy_timeout=30000')
-    conn.execute('PRAGMA foreign_keys=ON')
+    lease = SQLiteUseLock(path, exclusive=False, timeout=30).acquire()
+    conn = None
     try:
+        conn = sqlite3.connect(str(path), timeout=30)
+        conn.execute('PRAGMA busy_timeout=30000')
+        conn.execute('PRAGMA foreign_keys=ON')
         initialize_sqlite(conn)
     except BaseException:
-        conn.close()
+        if conn is not None:
+            conn.close()
+        lease.release()
         raise
-    return SQLiteConnection(conn)
+    return SQLiteConnection(conn, lease)

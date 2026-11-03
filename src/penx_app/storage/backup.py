@@ -31,6 +31,7 @@ from typing import Any
 
 from penx_app.storage.schema_migrations import SCHEMA_VERSION, initialize_sqlite
 from penx_app.storage.session_repository import table_row_counts
+from penx_app.storage.sqlite_use_lock import SQLiteDatabaseInUse, SQLiteUseLock
 
 BACKUP_SCHEMA = "penx-backup-v1"
 _CHUNK_SIZE = 1024 * 1024
@@ -243,6 +244,15 @@ def preview_restore(path: Path) -> dict[str, Any]:
 
 
 def restore(backup: Path, live_db: Path, backup_dir: Path) -> dict[str, Any]:
+    """Fail closed while managed PenX connections still use the live database."""
+    try:
+        with SQLiteUseLock(live_db, exclusive=True, timeout=0.1):
+            return _restore_unlocked(backup, live_db, backup_dir)
+    except SQLiteDatabaseInUse as exc:
+        raise BackupError(str(exc)) from exc
+
+
+def _restore_unlocked(backup: Path, live_db: Path, backup_dir: Path) -> dict[str, Any]:
     """Restore a verified backup over ``live_db`` (atomic, never in place).
 
     If ``live_db`` exists it is backed up into ``backup_dir`` first; the
