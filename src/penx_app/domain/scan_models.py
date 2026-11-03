@@ -168,6 +168,15 @@ class ScanResult:
                 or value['version'] not in (1, 2, 3):
             raise ValueError('Unsupported scanner metadata version')
         version = value['version']
+        # Historical metadata is versioned, not a bag of optional claims.
+        # A v1/v2 payload carrying a v3 'plan' or arbitrary future fields
+        # must fail instead of silently dropping an outcome that changes
+        # assessment coverage. Keep exact v1/v2 shapes readable.
+        allowed_top = {'version', 'adapters'}
+        if version == 3:
+            allowed_top |= {'plan', 'configuration', 'dependencies'}
+        if set(value) - allowed_top:
+            raise ValueError('Unexpected scanner metadata fields for version')
         dependencies = value.get('dependencies', [])
         if (not isinstance(dependencies, list) or len(dependencies) > 169
                 or any(not isinstance(edge, list) for edge in dependencies)
@@ -201,6 +210,13 @@ class ScanResult:
                     or not isinstance(row.get('status'), str)
                     or type(row.get('evidence')) is not bool):
                 raise ValueError('Invalid scanner metadata record')
+            permitted = {'id', 'name', 'status', 'evidence'}
+            if version >= 2:
+                permitted.add('records')
+            if version == 3:
+                permitted |= {'events', 'raw_artifact', 'reason'}
+            if set(row) - permitted:
+                raise ValueError('Unexpected adapter metadata fields for version')
             # Historical anchors are stored claims. Without fresh source text
             # this parser does not independently reverify their raw offsets.
             evidence_records: tuple['EvidenceRecord', ...] = ()
