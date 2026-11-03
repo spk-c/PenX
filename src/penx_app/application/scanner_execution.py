@@ -72,15 +72,24 @@ def _run_adapter(name: str, runner, target: str, emit,
         with scope as process_calls:
             output = _call_adapter(runner, target, cancel_event)
         stdout_capture = None
+        retention_note = ''
         if (stdout_bytes_directory is not None and process_calls is not None
                 and len(process_calls) == 1 and process_calls[0] is not None
                 and isinstance(output, ScannerOutput)
                 and output.status == "COMPLETE" and output.evidence
                 and process_calls[0][1] == str(output)):
             from penx_app.storage.stdout_bytes import retain_stdout_bytes
-            stdout_capture = retain_stdout_bytes(
-                process_calls[0][0], stdout_bytes_directory,
-                decoded_text=str(output))
+            try:
+                stdout_capture = retain_stdout_bytes(
+                    process_calls[0][0], stdout_bytes_directory,
+                    decoded_text=str(output))
+            except (OSError, ValueError) as exc:
+                # Opt-in byte retention failed (disk full, permissions, or a
+                # capture that cannot map onto the displayed text). The scan
+                # itself completed; keep the evidenced row COMPLETE and drop
+                # only the auxiliary stdout proof.
+                retention_note = (
+                    f"stdout-byte-retention-skipped ({type(exc).__name__})")
         if not isinstance(output, ScannerOutput):
             # Legacy adapters may return plain text, but None, false,
             # empty containers and arbitrary object reprs are never
@@ -100,11 +109,15 @@ def _run_adapter(name: str, runner, target: str, emit,
                     evidence=not failed,
                     reason='error' if failed else None,
                 )
+        diagnostics = output.diagnostics
+        if retention_note:
+            diagnostics = (diagnostics + "; " + retention_note
+                           if diagnostics else retention_note)
         return ScannerOutput(
             str(output), status=output.status, evidence=output.evidence,
             scanner_id=scanner_id,
             duration_seconds=time.monotonic() - started,
-            exit_code=output.exit_code, diagnostics=output.diagnostics,
+            exit_code=output.exit_code, diagnostics=diagnostics,
             reason=output.reason, stdout_capture=stdout_capture,
         )
     except Exception as exc:
