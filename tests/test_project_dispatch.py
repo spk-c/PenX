@@ -50,6 +50,42 @@ class ProjectDispatchTests(unittest.TestCase):
             result = scan_main(arguments, connection_factory=self.factory)
         return result, buffer.getvalue()
 
+    def test_revoke_between_head_and_get_blocks_second_http_request(self):
+        self.add()
+        policy=self.policy()
+        plan=policy.prepare(self.plan(target="https://example.test", keys=("4",)))
+        from penx_app.scanners.tools import TOOLS_MENU
+        def first_head(*args, **kwargs):
+            self.repo.delete_asset(
+                self.repo.get_project("audit").id, "example.test", "host")
+            return Mock(status_code=405, url="https://example.test",
+                        headers={"Location": "https://foreign.invalid/"})
+        with patch("requests.head", side_effect=first_head) as head, \
+                patch("requests.get") as get:
+            result=run_plan(plan, menu=TOOLS_MENU, project_policy=policy)
+        head.assert_called_once()
+        get.assert_not_called()
+        self.assertEqual(result.results[0].status, "PARTIAL")
+        self.assertEqual(result.results[0].reason, "scope_denied")
+
+    def test_revoke_while_rate_limiter_waits_blocks_initial_outbound_call(self):
+        self.add(max_rate=2)
+        policy=self.policy()
+        plan=policy.prepare(self.plan(keys=("4",)))
+        from penx_app.scanners.tools import TOOLS_MENU
+        def revoke(*args, **kwargs):
+            self.repo.delete_asset(
+                self.repo.get_project("audit").id, "example.test", "host")
+        with patch("penx_app.scanners.project_rate.ProjectRateLimiter.acquire",
+                   side_effect=revoke) as limiter, \
+                patch("requests.head") as head, patch("requests.get") as get:
+            result=run_plan(plan, menu=TOOLS_MENU, project_policy=policy)
+        limiter.assert_called_once()
+        head.assert_not_called()
+        get.assert_not_called()
+        self.assertEqual(result.results[0].status, "PARTIAL")
+        self.assertEqual(result.results[0].reason, "scope_denied")
+
     def test_direct_run_plan_cannot_bypass_approval_preparation(self):
         self.add()
         plan=self.plan()

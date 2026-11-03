@@ -9,7 +9,7 @@ from contextlib import contextmanager
 from contextvars import ContextVar
 from threading import Event, Lock
 import time
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 
 
 class ProjectRateLimiter:
@@ -40,18 +40,28 @@ class ProjectRateLimiter:
 
 _ACTIVE: ContextVar[ProjectRateLimiter | None] = ContextVar(
     'penx_project_rate_limiter', default=None)
+_GUARD: ContextVar[Callable[[], object] | None] = ContextVar(
+    'penx_project_dispatch_guard', default=None)
 
 
 @contextmanager
-def project_rate_context(limiter: ProjectRateLimiter | None) -> Iterator[None]:
+def project_rate_context(limiter: ProjectRateLimiter | None,
+                         *, guard: Callable[[], object] | None = None) -> Iterator[None]:
     token = _ACTIVE.set(limiter)
+    guard_token = _GUARD.set(guard)
     try:
         yield
     finally:
+        _GUARD.reset(guard_token)
         _ACTIVE.reset(token)
 
 
 def project_rate_before_io(cancel_event: Event | None = None) -> None:
+    guard = _GUARD.get()
+    if guard is not None:
+        guard()  # Fresh grant immediately before starting any rate wait.
     limiter = _ACTIVE.get()
     if limiter is not None:
         limiter.acquire(cancel_event)
+    if guard is not None:
+        guard()  # A grant may expire/revoke during the rate wait.
