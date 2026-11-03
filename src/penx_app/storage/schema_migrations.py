@@ -84,7 +84,32 @@ CREATE TABLE IF NOT EXISTS learned_rules (
 """
 
 
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4
+
+# v4 adds the named project scope registry (PX-101). These statements are
+# idempotent and run inside the same fail-closed transaction as the v3 guards,
+# so legacy (v2/v3) and fresh databases converge on the same schema.
+V4_STATEMENTS = (
+    "CREATE TABLE IF NOT EXISTS projects ("
+    " id INTEGER PRIMARY KEY AUTOINCREMENT,"
+    " name TEXT NOT NULL UNIQUE,"
+    " created_at TEXT NOT NULL)",
+    "CREATE TABLE IF NOT EXISTS project_assets ("
+    " id INTEGER PRIMARY KEY AUTOINCREMENT,"
+    " project_id INTEGER NOT NULL,"
+    " raw TEXT NOT NULL,"
+    " canonical TEXT NOT NULL,"
+    " kind TEXT NOT NULL,"
+    " status TEXT NOT NULL,"
+    " approved_at TEXT NOT NULL,"
+    " expires_at TEXT,"
+    " max_rate REAL,"
+    " max_budget INTEGER,"
+    " tags TEXT NOT NULL DEFAULT '',"
+    " FOREIGN KEY(project_id) REFERENCES projects(id))",
+    "CREATE UNIQUE INDEX IF NOT EXISTS uq_project_asset "
+    "ON project_assets (project_id, canonical, kind)",
+)
 
 
 def _check_summary_integrity(conn):
@@ -175,7 +200,10 @@ def initialize_sqlite(conn):
                 "BEGIN SELECT RAISE(ABORT, "
                 "'summary.sl_no must reference an existing session'); END"
             )
-        conn.execute("PRAGMA user_version=3")
+        # v4: named project scope registry (PX-101); idempotent and additive.
+        for statement in V4_STATEMENTS:
+            conn.execute(statement)
+        conn.execute("PRAGMA user_version=4")
         conn.commit()
     except BaseException:
         conn.rollback()
