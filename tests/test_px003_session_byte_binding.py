@@ -92,6 +92,26 @@ class ScannerSessionByteProvenanceTests(unittest.TestCase):
             result = run_plan(self.plan, menu={"1": ("Nmap", one_process)})
         self.assertIsNone(result.results[0].stdout_capture)
 
+    def test_retention_failure_keeps_completed_row_evidenced(self):
+        # A failed opt-in stdout byte retention (disk full, permissions, or a
+        # capture that cannot map onto the displayed text) must not convert
+        # an actually completed, evidenced adapter row into FAILED/error.
+        for exc in (FileExistsError("synthetic full disk"),
+                    PermissionError("synthetic permission denial"),
+                    ValueError("synthetic text mismatch")):
+            with self.subTest(kind=type(exc).__name__), patch(
+                    "penx_app.storage.stdout_bytes.retain_stdout_bytes",
+                    side_effect=exc):
+                result = self.execute()
+            row = result.results[0]
+            self.assertEqual(row.status, "COMPLETE")
+            self.assertTrue(row.evidence)
+            self.assertIsNone(row.stdout_capture)
+            self.assertNotEqual(row.reason, "error")
+            self.assertIn("stdout-byte-retention-skipped", row.diagnostics)
+        self.assertEqual(list(self.raw.iterdir()) if self.raw.exists() else [],
+                         [])
+
     def test_metadata_rejects_forged_ref_wrong_status_and_newer_versions(self):
         result = self.execute()
         serialized = json.loads(result.metadata())
