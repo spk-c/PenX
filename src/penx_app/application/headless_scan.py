@@ -103,6 +103,7 @@ def scan_report(plan, result: ScanResult, *, redact: bool = False) -> dict:
         'coverage': result.coverage(),
         'adapters': [{'id': row.scanner_id, 'status': row.status, 'evidence': row.evidence,
                       'diagnostics': _mask(row.diagnostics, plan.target, redact),
+                      'reason': row.reason,
                       'raw_artifact': asdict(row.raw_artifact) if row.raw_artifact else None}
                      for row in result.results],
         'findings': findings, 'findings_truncated': findings_truncated, 'php2shell': None,
