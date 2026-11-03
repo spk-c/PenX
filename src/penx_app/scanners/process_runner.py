@@ -139,6 +139,7 @@ def _cancelled_result(command: list[str], exit_code: int | None = None) -> Scann
         f"[!] Scanner cancelled by caller: {Path(command[0]).name}",
         status="PARTIAL", evidence=False, exit_code=exit_code,
         diagnostics="Caller requested scanner cancellation",
+        reason="cancelled",
     )
 
 
@@ -208,6 +209,7 @@ def _run_tool_quiet(command: list[str], timeout: int, cwd: str | None,
             + ("\n[STDERR]\n" + err if err else ""),
             status="PARTIAL", evidence=False,
             exit_code=proc.returncode,
+            reason="timeout",
         )
     sections = [text for text in (out, "[STDERR]\n" + err if err else "") if text]
     combined = "\n".join(sections)
@@ -217,12 +219,14 @@ def _run_tool_quiet(command: list[str], timeout: int, cwd: str | None,
             f"per stream; collected results are incomplete.\n{combined}",
             status="PARTIAL", evidence=False,
             exit_code=proc.returncode,
+            reason="truncated",
         )
     if proc.returncode:
         return ScannerOutput(
             f"[EXIT CODE {proc.returncode}]\n{combined}".strip(),
             status="FAILED", evidence=False,
             exit_code=proc.returncode,
+            reason="error",
         )
     if stdout.decode_errors or stderr.decode_errors:
         return ScannerOutput(
@@ -230,6 +234,7 @@ def _run_tool_quiet(command: list[str], timeout: int, cwd: str | None,
             "collected results are incomplete.\n" + combined,
             status="PARTIAL", evidence=False, exit_code=proc.returncode,
             diagnostics="Scanner output contains invalid UTF-8",
+            reason="parse_invalid",
         )
     return ScannerOutput(
         combined or "[!] Tool returned no output.",
@@ -286,11 +291,13 @@ def run_tool(command: list[str], timeout: int = 120, *, cwd: str | None = None,
             or any(not isinstance(arg, str) or not arg or "\x00" in arg
                    for arg in command) or not command[0].strip()):
         return ScannerOutput("[!] Invalid scanner command arguments.",
-                             status="FAILED", evidence=False)
+                             status="FAILED", evidence=False,
+                             reason="error")
     if (not isinstance(timeout, (int, float)) or isinstance(timeout, bool)
             or not 0 < timeout <= 86400):
         return ScannerOutput("[!] Invalid scanner timeout.",
-                             status="FAILED", evidence=False)
+                             status="FAILED", evidence=False,
+                             reason="error")
     if cancel_event is not None and cancel_event.is_set():
         return _cancelled_result(command)
     child_env = _child_env(env)
@@ -300,7 +307,9 @@ def run_tool(command: list[str], timeout: int = 120, *, cwd: str | None = None,
         return _run_tool_quiet(command, timeout, cwd, child_env, cancel_event)
     except FileNotFoundError:
         return ScannerOutput(f"[!] Executable not found: {command[0]}",
-                             status="FAILED", evidence=False)
+                             status="FAILED", evidence=False,
+                             reason="missing_dependency")
     except OSError as exc:
         return ScannerOutput(f"[!] Could not start {command[0]}: {exc}",
-                             status="FAILED", evidence=False)
+                             status="FAILED", evidence=False,
+                             reason="error")
