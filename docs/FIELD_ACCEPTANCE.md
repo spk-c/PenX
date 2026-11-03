@@ -60,7 +60,33 @@ prove hardware, first-run UAC, actual backup recovery or visual PDF quality.
 **Status: NOT SIGNED OFF.** A checklist item is not PASS until its evidence
 and reviewer are recorded. Only scan hosts that you own or are authorized
 to assess.
- 
+
+## Kali Linux field evidence
+
+The same read-only collector also emits two **Kali** sections so a Linux
+field run can be recorded in the operator-owned worksheet:
+
+- **Kali loopback scanner matrix** — the 12 adapter choices (1–9, s, c, d)
+  plus the separately opted-in endpoint mapper (e), exercised against owned
+  loopback fixtures only (no external targets, no passive provider calls).
+- **Kali build, packaging and restore matrix** — Debian build/install, XDG
+  config mode `0600`, remove/reinstall config preservation, WHOIS
+  `python-whois` frozen-bundle data, SQLite WAL kill/`integrity_check`,
+  local-model assessment, and long/short report pagination.
+
+Each Kali row carries its own **OS / arch / kernel** provenance column plus
+the tool/build/backup SHA-256, expected/actual outcome, sanitized evidence
+and independent reviewer/date. A `PASS` row is rejected unless every one of
+those provenance columns is filled in.
+
+The Kali sections are **optional**: a Windows-only worksheet may omit them
+entirely and still validates. Once a Kali section is present, it is fully
+validated (no missing rows, no duplicates, valid statuses, and no `PASS`
+without complete provenance). Running the Kali loopback suite
+(`tests/kali_local_scanner_acceptance.py`) is a practical smoke, not a sign-off;
+it must pass on a disposable Kali VM against loopback fixtures before any row
+is marked `PASS`.
+
 ## Issue #81/#82 evidence worksheet validation
 
 The read-only collector also creates separate rows for the **12 full-preset
