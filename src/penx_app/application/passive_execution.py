@@ -21,10 +21,14 @@ class PassiveStopped(RuntimeError):
         self.reason = reason
 
 
-def run_passive_plan(plan, *, cancel_event=None, clock=time.monotonic) -> ScanResult:
+def run_passive_plan(plan, *, cancel_event=None, clock=time.monotonic,
+                     project_policy=None) -> ScanResult:
     assert_valid_plan(plan)
     if not plan.passive_only:
         raise ValueError('Passive execution requires a passive-only plan')
+    if project_policy is not None:
+        project_policy.ensure_prepared(plan)
+        project_policy.check(plan.target)
     if plan.max_parallelism != 1:
         raise ValueError('Passive providers run sequentially')
     from penx_app.scanners.scanner_targets import normalize_host
@@ -36,6 +40,8 @@ def run_passive_plan(plan, *, cancel_event=None, clock=time.monotonic) -> ScanRe
     provider_deadline = clock() + 15
 
     def check():
+        if project_policy is not None:
+            project_policy.check(plan.target)
         if event.is_set():
             raise PassiveStopped('Caller cancelled passive collection')
         remaining = provider_deadline - clock()
@@ -48,6 +54,9 @@ def run_passive_plan(plan, *, cancel_event=None, clock=time.monotonic) -> ScanRe
 
     def query(url, **kwargs):
         check()
+        if project_policy is not None:
+            if project_policy.rate_limiter is not None:
+                project_policy.rate_limiter.acquire(event)
         value = _query_json(url, control=check, **kwargs)
         check()
         return value
@@ -58,6 +67,8 @@ def run_passive_plan(plan, *, cancel_event=None, clock=time.monotonic) -> ScanRe
         for kind in ('A', 'AAAA', 'MX', 'NS', 'TXT'):
             check()
             try:
+                if project_policy is not None and project_policy.rate_limiter is not None:
+                    project_policy.rate_limiter.acquire(event)
                 answer = dns.resolver.resolve(host, kind, lifetime=min(1, check()))
                 result[kind] = [str(item)[:350] for item in list(answer)[:15]]
             except (dns.resolver.NoAnswer, dns.resolver.NXDOMAIN):
@@ -93,6 +104,7 @@ def run_passive_plan(plan, *, cancel_event=None, clock=time.monotonic) -> ScanRe
             from penx_app.intelligence.shodan_enrichment import normalize_internetdb
             return normalize_internetdb(query('https://internetdb.shodan.io/' + str(address)), str(address))
         providers.append(('passive_internetdb', 'Historical InternetDB', internetdb))
+    from penx_app.application.project_dispatch import ProjectScopeDenied
     results = []
     for index, (identity, name, collect) in enumerate(providers):
         provider_deadline = clock() + 15
@@ -113,6 +125,19 @@ def run_passive_plan(plan, *, cancel_event=None, clock=time.monotonic) -> ScanRe
         except PassiveStopped as exc:
             results.append(ScannerResult(identity, '', 'PARTIAL', False, name, diagnostics=str(exc),
                                          reason=exc.reason))
+        except ProjectScopeDenied:
+            # Preserve earlier provider evidence as partial coverage. No
+            # remaining provider may launch after the approval is revoked.
+            results.append(ScannerResult(
+                identity, '', 'PARTIAL', False, name,
+                diagnostics='Project scope denied before provider completion',
+                reason='scope_denied'))
+            for other_id, other_name, _ in providers[index + 1:]:
+                results.append(ScannerResult(
+                    other_id, '', 'PARTIAL', False, other_name,
+                    diagnostics='Not started: project scope unavailable',
+                    reason='scope_denied'))
+            break
         except Exception as exc:
             # Provider failures do not stop independent providers, and no
             # exception body/URL/key is echoed into diagnostics.

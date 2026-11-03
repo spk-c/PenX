@@ -9,6 +9,7 @@ recorded as candidates and are never implicitly authorized.
 from __future__ import annotations
 
 import ipaddress
+import math
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from enum import Enum
@@ -160,7 +161,7 @@ class Asset:
                 raise ValueError('Asset expiry must be after approval.')
         if self.max_rate is not None and (
                 isinstance(self.max_rate, bool) or not isinstance(self.max_rate, (int, float))
-                or self.max_rate <= 0):
+                or not math.isfinite(self.max_rate) or self.max_rate <= 0):
             raise ValueError('Asset max rate must be a positive number.')
         if self.max_budget is not None and (
                 isinstance(self.max_budget, bool) or not isinstance(self.max_budget, int)
@@ -222,7 +223,8 @@ def authorize(scope: ProjectScope, target: str, *, now: datetime | None = None) 
     if kind is TargetKind.HOST:
         target_host, target_port = _split_authority(canonical)
     for asset in scope.assets:
-        if asset.status is not AssetStatus.APPROVED or is_expired(asset, now):
+        if (asset.status is not AssetStatus.APPROVED or is_expired(asset, now)
+                or asset.approved_at > now):
             continue
         if asset.kind is TargetKind.CIDR:
             if kind is TargetKind.CIDR and asset.canonical == canonical:
@@ -241,6 +243,39 @@ def authorize(scope: ProjectScope, target: str, *, now: datetime | None = None) 
                 asset.canonical, target_host, target_port):
             return True
     return False
+
+
+def matching_approved_assets(scope: ProjectScope, target: str,
+                             *, now: datetime | None = None) -> tuple[Asset, ...]:
+    """Return every applicable *approved* asset for one concrete host/IP.
+
+    Scan dispatch rejects ambiguous overlapping approvals instead of choosing
+    whichever policy happens to appear first. CIDR/wildcard grants may cover a
+    single host, but are never accepted as a scan *target* for this pathway.
+    """
+    now = now or _utc_now()
+    kind, canonical = canonicalize(target)
+    if kind is not TargetKind.HOST:
+        raise ValueError('Project scans require one concrete host or IP target.')
+    host, port = _split_authority(canonical)
+    matches = []
+    for asset in scope.assets:
+        if (asset.status is not AssetStatus.APPROVED or is_expired(asset, now)
+                or asset.approved_at > now):
+            continue
+        matched = False
+        if asset.kind is TargetKind.HOST:
+            matched = _host_matches(asset.canonical, host, port)
+        elif asset.kind is TargetKind.WILDCARD:
+            matched = _wildcard_matches(host, asset.canonical[2:])
+        elif asset.kind is TargetKind.CIDR:
+            try:
+                matched = ipaddress.ip_address(host) in ipaddress.ip_network(asset.canonical)
+            except (ValueError, TypeError):
+                pass
+        if matched:
+            matches.append(asset)
+    return tuple(matches)
 
 
 def expand_cidr_preview(canonical: str, *, limit: int = 32) -> dict:

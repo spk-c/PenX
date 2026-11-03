@@ -129,13 +129,14 @@ def policy_exit(result: ScanResult, findings: list[dict], threshold: str | None,
     return 0
 
 
-def main(argv: list[str]) -> int:
+def main(argv: list[str], *, connection_factory=None) -> int:
     parser = argparse.ArgumentParser(prog='penx scan', description=__doc__)
     parser.add_argument('--target', required=True)
     selection = parser.add_mutually_exclusive_group()
     selection.add_argument('--profile')
     selection.add_argument('--scanners', help='Explicit comma-separated registry keys')
     selection.add_argument('--profile-file', help='Validated local profile JSON (no embedded authorization)')
+    parser.add_argument('--project', help='Require live stored project approval for the exact scan target')
     parser.add_argument('--authorized', action='store_true', help='Confirm authorization for this exact target')
     parser.add_argument('--consent', action='store_true', help='Authorize consent-gated active web checks')
     parser.add_argument('--output', default='./reports')
@@ -167,6 +168,17 @@ def main(argv: list[str]) -> int:
         assert_valid_plan(plan)
         if plan.max_parallelism > 8 or (plan.global_budget_seconds is not None and plan.global_budget_seconds > 3600):
             raise ValueError('Headless limits: at most 8 workers and a 3600-second global budget')
+        project_policy = None
+        if args.project is not None:
+            from penx_app.application.project_dispatch import ProjectDispatchPolicy
+            from penx_app.application.project_service import ProjectService
+            from penx_app.storage.db_backend import get_connection
+            from penx_app.storage.project_repository import ProjectRepository
+
+            factory = connection_factory if connection_factory is not None else get_connection
+            project_policy = ProjectDispatchPolicy(
+                args.project, ProjectService(ProjectRepository(factory)))
+            plan = project_policy.prepare(plan)
         if args.dry_run:
             preflight = build_preflight(plan)
             print(format_report(preflight))
@@ -175,15 +187,25 @@ def main(argv: list[str]) -> int:
             raise ValueError('Pass --authorized only for targets you own or have explicit permission to assess.')
         if plan.passive_only and plan.max_parallelism != 1:
             raise ValueError('Passive providers run sequentially; use max-parallelism 1.')
+        if project_policy is not None:
+            project_policy.check(plan.target)
         dispatched = True
         if plan.passive_only:
             from penx_app.application.passive_execution import run_passive_plan
             with scanner_cancellation() as event:
-                result = run_passive_plan(plan, cancel_event=event)
+                if project_policy is None:
+                    result = run_passive_plan(plan, cancel_event=event)
+                else:
+                    result = run_passive_plan(plan, cancel_event=event,
+                                              project_policy=project_policy)
         else:
             from penx_app.scanners.tools import TOOLS_MENU
             with scanner_cancellation() as event:
-                result = run_plan(plan, menu=TOOLS_MENU, cancel_event=event)
+                if project_policy is None:
+                    result = run_plan(plan, menu=TOOLS_MENU, cancel_event=event)
+                else:
+                    result = run_plan(plan, menu=TOOLS_MENU, cancel_event=event,
+                                      project_policy=project_policy)
         result = replace(result, plan_summary=PlanSummary(
             plan.profile_id, plan.profile_version, plan.max_parallelism, plan.global_budget_seconds))
         if args.raw_artifacts:

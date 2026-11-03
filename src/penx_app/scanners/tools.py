@@ -30,6 +30,7 @@ from bs4 import BeautifulSoup
 
 from penx_app.config import NMAP_PATH, NIKTO_PATH, WHATWEB_PATH
 from penx_app.scanners.scanner_targets import normalize_host, normalize_web_target, target_urls, MAX_CIDR_ADDRESSES
+from penx_app.scanners.project_rate import project_rate_before_io
 from penx_app.scanners.scanner_runtime import find_runtime, executable_env, find_nmap, npcap_present
 from penx_app.scanners.native_web_scanners import find_native, web_endpoint, nuclei_args, httpx_args, ffuf_args, ffuf_words, nuclei_templates, subfinder_args, katana_args, summarize_output
 from penx_app.scanners.endpoint_inventory import EndpointInventory, load_inventory, save_inventory, normalize_discovery
@@ -397,6 +398,7 @@ def run_curl_headers(target: str, *, cancel_event=None) -> str:
             return cancelled
         lines.append(f'[{_safe_http_evidence_url(url)} headers — Python requests]')
         try:
+            project_rate_before_io(cancel_event)
             response = requests.head(url, timeout=(5, 10), allow_redirects=False,
                                      headers={'User-Agent': 'PenX/Windows'})
             if response.status_code in (405, 501):
@@ -404,6 +406,7 @@ def run_curl_headers(target: str, *, cancel_event=None) -> str:
                 cancelled = _cancelled_after_io(cancel_event)
                 if cancelled is not None:
                     return cancelled
+                project_rate_before_io(cancel_event)
                 response = requests.get(url, timeout=(5, 10), allow_redirects=False,
                                         stream=True, headers={'User-Agent': 'PenX/Windows'})
             try:
@@ -515,6 +518,7 @@ def run_dig(target: str, *, cancel_event=None) -> str:
         omitted = 0
         truncated = 0
         try:
+            project_rate_before_io(cancel_event)
             answer = dns.resolver.resolve(host, rrtype, lifetime=8)
             values, omitted, truncated = _bounded_dns_values(answer, 32)
             if values:
@@ -1121,6 +1125,7 @@ def run_tls_check(target: str, *, cancel_event=None) -> ScannerOutput:
             if cancelled is not None:
                 return cancelled
             try:
+                project_rate_before_io(cancel_event)
                 with socket.create_connection((host, port), timeout=6) as raw:
                     raw.settimeout(6)
                     with context.wrap_socket(raw, server_hostname=host) as tls:

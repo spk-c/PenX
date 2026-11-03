@@ -92,6 +92,15 @@ def _run_adapter(name: str, runner, target: str, emit,
             reason=output.reason,
         )
     except Exception as exc:
+        # A cooperative project request limiter may be cancelled while
+        # waiting. This is incomplete coverage, not an adapter failure.
+        if isinstance(exc, InterruptedError) and cancel_event is not None and cancel_event.is_set():
+            return ScannerOutput(
+                f"[!] {name} cancelled before further outbound I/O.",
+                status="PARTIAL", evidence=False, scanner_id=scanner_id,
+                duration_seconds=time.monotonic() - started,
+                diagnostics="Project or caller cancellation during rate wait",
+                reason="cancelled")
         # A broken optional adapter must not discard evidence from earlier
         # scanners or throw the user back to the main menu.
         detail = re.sub(r"[\x00-\x1f\x7f]+", " ", str(exc))[:220]

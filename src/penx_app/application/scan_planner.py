@@ -103,7 +103,8 @@ def resolve_node_timeout(plan: ScanPlan, key: str) -> int:
 
 
 def run_plan(plan: ScanPlan, *, menu: dict, emit=lambda *_: None,
-             cancel_event: threading.Event | None = None) -> ScanResult:
+             cancel_event: threading.Event | None = None,
+             project_policy=None) -> ScanResult:
     """Execute a validated plan; rows always come back in plan order."""
     errors = validate_plan(plan)
     if errors:
@@ -113,6 +114,9 @@ def run_plan(plan: ScanPlan, *, menu: dict, emit=lambda *_: None,
             'Passive collection cannot dispatch active scanner adapters.')
     if any(key not in menu for key in plan.scanner_keys):
         raise ValueError('Invalid scanner selection. No scanners started.')
+    if project_policy is not None:
+        project_policy.ensure_prepared(plan)
+        project_policy.check(plan.target)
     configurations = {item.scanner_key: item for item in plan.scanner_configuration}
     for key, timeout in plan.per_scanner_timeouts.items():
         configurations[key] = replace(configurations.get(key, ScannerConfiguration(key)),
@@ -135,14 +139,17 @@ def run_plan(plan: ScanPlan, *, menu: dict, emit=lambda *_: None,
         plan = replace(plan, per_scanner_timeouts=timeouts)
     if (plan.max_parallelism == 1
             and plan.global_budget_seconds is None
-            and plan.dispatch_interval_seconds is None and not plan.dependencies):
+            and plan.dispatch_interval_seconds is None and not plan.dependencies
+            and project_policy is None):
         if configurations:
-            result = _run_plan_scheduled(plan, menu=menu, emit=emit, cancel_event=cancel_event)
+            result = _run_plan_scheduled(plan, menu=menu, emit=emit, cancel_event=cancel_event,
+                                         project_policy=project_policy)
             return replace(result, scanner_configuration=tuple(configurations[key] for key in sorted(configurations)))
         # Zero-behavior-change path: the existing sequential executor.
         return run_selected_structured(plan.to_request(), menu=menu,
                                        emit=emit, cancel_event=cancel_event)
-    result = _run_plan_scheduled(plan, menu=menu, emit=emit, cancel_event=cancel_event)
+    result = _run_plan_scheduled(plan, menu=menu, emit=emit, cancel_event=cancel_event,
+                                         project_policy=project_policy)
     return replace(result, scanner_configuration=tuple(configurations[key] for key in sorted(configurations)))
 
 
@@ -169,7 +176,8 @@ def _terminal_event(output: ScannerOutput) -> str:
 
 
 def _run_plan_scheduled(plan: ScanPlan, *, menu: dict, emit,
-                        cancel_event: threading.Event | None) -> ScanResult:
+                        cancel_event: threading.Event | None,
+                        project_policy=None) -> ScanResult:
     schedule = build_schedule(plan)
     names = {key: menu[key][0] for key in schedule}
     ids = {key: SCANNERS[key].id for key in schedule}
@@ -245,6 +253,20 @@ def _run_plan_scheduled(plan: ScanPlan, *, menu: dict, emit,
 
     def execute_node(key):
         try:
+            if project_policy is not None:
+                from penx_app.application.project_dispatch import ProjectScopeDenied
+                try:
+                    project_policy.check(plan.target)
+                except ProjectScopeDenied:
+                    return ScannerOutput(
+                        "Not started: project scope approval was revoked.",
+                        status="PARTIAL", evidence=False,
+                        diagnostics="Project scope denied before adapter dispatch",
+                        reason="scope_denied")
+                from penx_app.scanners.project_rate import project_rate_context
+                with project_rate_context(project_policy.rate_limiter):
+                    return _run_adapter(names[key], menu[key][1], plan.target,
+                                        safe_emit, node_events[key], ids[key])
             return _run_adapter(names[key], menu[key][1], plan.target,
                                 safe_emit, node_events[key], ids[key])
         finally:
@@ -372,6 +394,24 @@ def _run_plan_scheduled(plan: ScanPlan, *, menu: dict, emit,
                             wait = min(wait, max(0, deadline - time.monotonic()))
                         effective_cancel.wait(min(wait, 0.05))
                         break  # Reap results/deadlines before another dispatch.
+                if project_policy is not None:
+                    # Last synchronous boundary before worker dispatch.
+                    # Keep already collected evidence, but mark all remaining
+                    # work incomplete if scope expires or storage fails.
+                    from penx_app.application.project_dispatch import ProjectScopeDenied
+                    try:
+                        project_policy.check(plan.target)
+                    except ProjectScopeDenied:
+                        effective_cancel.set()
+                        for remaining in list(pending):
+                            record(remaining, ScannerOutput(
+                                "Not started: project scope approval unavailable.",
+                                status="PARTIAL", evidence=False,
+                                diagnostics="Project scope denied before adapter dispatch",
+                                scanner_id=ids[remaining],
+                                reason="scope_denied"))
+                            pending.remove(remaining)
+                        break
                 last_start = time.monotonic()
                 started_at[key] = last_start
                 events.setdefault(key, []).append(ScannerRunEvent(
