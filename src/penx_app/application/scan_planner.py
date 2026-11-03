@@ -152,6 +152,12 @@ def _terminal_event(output: ScannerOutput) -> str:
         return 'failed'
     if output.status == 'COMPLETE':
         return 'completed'
+    # The machine-readable reason is authoritative when present; legacy
+    # rows without one fall back to the bounded diagnostics text.
+    if output.reason == 'cancelled':
+        return 'cancelled'
+    if output.reason == 'skipped':
+        return 'skipped'
     diagnostics = output.diagnostics
     if 'cancel' in diagnostics.lower():
         return 'cancelled'
@@ -201,7 +207,8 @@ def _run_plan_scheduled(plan: ScanPlan, *, menu: dict, emit,
             if note:
                 return ScannerOutput(note, status='PARTIAL', evidence=False,
                                      scanner_id=ids[key], diagnostics=note,
-                                     duration_seconds=output.duration_seconds, exit_code=output.exit_code)
+                                     duration_seconds=output.duration_seconds, exit_code=output.exit_code,
+                                     reason='timeout')
         return output
 
     def record(key: str, output: ScannerOutput) -> None:
@@ -271,7 +278,8 @@ def _run_plan_scheduled(plan: ScanPlan, *, menu: dict, emit,
                             f"({type(exc).__name__}): {detail}",
                             status="FAILED", evidence=False,
                             scanner_id=ids[key],
-                            diagnostics=detail))
+                            diagnostics=detail,
+                            reason="error"))
                 elif key not in rows and (time.monotonic() - started_at[key]
                       >= node_timeout[key]):
                     # Retain the occupied worker until it actually exits;
@@ -286,7 +294,8 @@ def _run_plan_scheduled(plan: ScanPlan, *, menu: dict, emit,
                         scanner_id=ids[key],
                         diagnostics=(
                             f"Timed out after {timeout} seconds "
-                            "(cooperative stop requested)")))
+                            "(cooperative stop requested)"),
+                        reason="timeout"))
             if in_flight:
                 done, _ = concurrent.futures.wait(
                     list(in_flight.values()),
@@ -334,7 +343,8 @@ def _run_plan_scheduled(plan: ScanPlan, *, menu: dict, emit,
                     record(key, ScannerOutput(
                         note, status="PARTIAL", evidence=False,
                         scanner_id=ids[key],
-                        diagnostics="Not started: global budget exhausted"))
+                        diagnostics="Not started: global budget exhausted",
+                        reason="timeout"))
                     pending.remove(key)
                     continue
                 failed_dependencies = [parent for child, parent in plan.dependencies
@@ -342,7 +352,8 @@ def _run_plan_scheduled(plan: ScanPlan, *, menu: dict, emit,
                 if failed_dependencies:
                     record(key, ScannerOutput('Not started: prerequisite did not complete',
                            status='PARTIAL', evidence=False, scanner_id=ids[key],
-                           diagnostics='Not started: failed prerequisite ' + ','.join(failed_dependencies)))
+                           diagnostics='Not started: failed prerequisite ' + ','.join(failed_dependencies),
+                           reason='skipped'))
                     pending.remove(key)
                     continue
                 if spec.resource_sensitive and _overload_observed(completed):
@@ -384,6 +395,7 @@ def _run_plan_scheduled(plan: ScanPlan, *, menu: dict, emit,
             exit_code=output.exit_code,
             diagnostics=output.diagnostics,
             run_events=tuple(events.get(key, ())),
+            reason=output.reason,
         )
         if row.evidence and row.text.strip():
             anchored = capture_evidence(

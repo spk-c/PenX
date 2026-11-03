@@ -50,14 +50,16 @@ def _process_outcome(value: str) -> ScannerOutput:
     if not isinstance(value, str):
         return ScannerOutput(
             f"[!] Unsupported scanner output type: {type(value).__name__}",
-            status="FAILED", evidence=False,
+            status="FAILED", evidence=False, reason="error",
         )
     text = value
     if text.lstrip().startswith("[!] Timed out"):
-        return ScannerOutput(text, status="PARTIAL", evidence=False)
+        return ScannerOutput(text, status="PARTIAL", evidence=False,
+                             reason="timeout")
     failed = text.lstrip().startswith(("[!", "[EXIT CODE", "[ERROR]", "Traceback "))
     return ScannerOutput(text, status="FAILED" if failed else "COMPLETE",
-                         evidence=bool(text.strip()) and not failed)
+                         evidence=bool(text.strip()) and not failed,
+                         reason="error" if failed else None)
 
 
 
@@ -144,7 +146,8 @@ def _run_external(command, *, timeout, cancel_event=None, **kwargs):
 def _cancelled_before_start(cancel_event) -> ScannerOutput | None:
     if cancel_event is not None and cancel_event.is_set():
         return ScannerOutput("[!] Scanner cancelled before start.", status="PARTIAL",
-                             evidence=False, diagnostics="Caller requested scanner cancellation")
+                             evidence=False, diagnostics="Caller requested scanner cancellation",
+                             reason="cancelled")
     return None
 
 
@@ -155,6 +158,7 @@ def _cancelled_after_io(cancel_event) -> ScannerOutput | None:
             "[!] Scanner cancelled; in-flight network output is not completed evidence.",
             status="PARTIAL", evidence=False,
             diagnostics="Caller requested scanner cancellation during network I/O",
+            reason="cancelled",
         )
     return None
 
@@ -166,13 +170,15 @@ def run_nmap(target: str, *, cancel_event=None) -> str:
     try:
         host = _host(target)
     except ValueError as exc:
-        return ScannerOutput(f'[!] Nmap: {exc}', status="FAILED", evidence=False)
+        return ScannerOutput(f'[!] Nmap: {exc}', status="FAILED", evidence=False,
+                             reason="error")
     path = _executable('nmap', NMAP_PATH)
     if not path:
         return ScannerOutput(
             '[!] Nmap is not installed. On Windows install Nmap from '
             'https://nmap.org/download.html and restart this program. '
-            'Or set PENX_NMAP_PATH.', status="FAILED", evidence=False)
+            'Or set PENX_NMAP_PATH.', status="FAILED", evidence=False,
+            reason="missing_dependency")
     print(f'  [*] nmap -sV -sC -T4 --open {host}')
     # Preserve the normal Nmap output and capture structured CPE/version data
     # in a temporary XML report for the CVE discovery engine.
@@ -201,6 +207,7 @@ def run_nmap(target: str, *, cancel_event=None) -> str:
         return ScannerOutput(
             report, status=outcome.status, evidence=outcome.evidence,
             exit_code=outcome.exit_code, diagnostics=outcome.diagnostics,
+            reason=outcome.reason,
         )
 
 
@@ -211,11 +218,12 @@ def run_whois(target: str, *, cancel_event=None) -> str:
     try:
         host = _host(target)
     except ValueError as exc:
-        return ScannerOutput(f'[!] WHOIS: {exc}', status="FAILED", evidence=False)
+        return ScannerOutput(f'[!] WHOIS: {exc}', status="FAILED", evidence=False,
+                             reason="error")
     if '/' in host:
         return ScannerOutput(
             '[!] Python WHOIS currently supports domains, not IP/CIDR owner lookups.',
-            status="FAILED", evidence=False)
+            status="FAILED", evidence=False, reason="scope_denied")
     try:
         ipaddress.ip_address(host)
     except ValueError:
@@ -223,13 +231,13 @@ def run_whois(target: str, *, cancel_event=None) -> str:
     else:
         return ScannerOutput(
             '[!] Python WHOIS currently supports domains, not IP owner lookups.',
-            status="FAILED", evidence=False)
+            status="FAILED", evidence=False, reason="scope_denied")
     try:
         import whois
     except ImportError:
         return ScannerOutput(
             '[!] Missing python-whois. Run: python -m pip install python-whois',
-            status="FAILED", evidence=False)
+            status="FAILED", evidence=False, reason="missing_dependency")
     try:
         result = whois.whois(host)
         cancelled = _cancelled_after_io(cancel_event)
@@ -238,7 +246,8 @@ def run_whois(target: str, *, cancel_event=None) -> str:
         details = '\n'.join(f'{k}: {v}' for k, v in dict(result).items() if v)
         return ScannerOutput('[Python WHOIS]\n' + (details or 'No registration details returned.'),
                              status="COMPLETE" if details else "FAILED",
-                             evidence=bool(details))
+                             evidence=bool(details),
+                             reason=None if details else "error")
     except Exception as exc:
         cancelled = _cancelled_after_io(cancel_event)
         if cancelled is not None:
@@ -247,7 +256,7 @@ def run_whois(target: str, *, cancel_event=None) -> str:
         # local resolver credentials; never persist the raw exception text.
         return ScannerOutput(
             f'[!] WHOIS lookup failed ({type(exc).__name__}); provider details omitted.',
-            status="FAILED", evidence=False)
+            status="FAILED", evidence=False, reason="error")
 
 
 
@@ -265,13 +274,14 @@ def run_whatweb(target: str, *, cancel_event=None) -> str:
         host = _web_target(target)
     except ValueError as exc:
         return ScannerOutput(f'[!] Web technology fingerprint: {exc}',
-                             status="FAILED", evidence=False)
+                             status="FAILED", evidence=False, reason="error")
     timed_out = ''
     try:
         installed_script = bool(WHATWEB_PATH and Path(WHATWEB_PATH).is_file())
     except OSError as exc:
         return ScannerOutput(f'[!] WhatWeb script is inaccessible: {exc}',
-                             status='FAILED', evidence=False)
+                             status='FAILED', evidence=False,
+                             reason='missing_dependency')
     if installed_script:
         ruby = find_runtime('ruby')
         if ruby:
@@ -334,7 +344,8 @@ def run_whatweb(target: str, *, cancel_event=None) -> str:
     text = '\n'.join(lines) + ('\n' + timed_out if timed_out else '')
     # This is usable *partial* fingerprint evidence, not a full WhatWeb run.
     return ScannerOutput(text, status="PARTIAL" if observed else "FAILED",
-                         evidence=bool(observed))
+                         evidence=bool(observed),
+                         reason="partial" if observed else "error")
 
 def _urls(target: str) -> list[str]:
     """Legacy scanner API; no network requests are performed here."""
@@ -376,7 +387,7 @@ def run_curl_headers(target: str, *, cancel_event=None) -> str:
         urls = _urls(target)
     except ValueError as exc:
         return ScannerOutput(f'[!] HTTP headers: {exc}',
-                             status="FAILED", evidence=False)
+                             status="FAILED", evidence=False, reason="error")
     lines = []
     observed = 0
     php_header_values: list[str] = []
@@ -432,7 +443,12 @@ def run_curl_headers(target: str, *, cancel_event=None) -> str:
     lines.append("PHP2Shell: header-only advisory; no RCE or patch verification.")
     status = ("COMPLETE" if observed == len(urls) else
               "PARTIAL" if observed else "FAILED")
-    return ScannerOutput('\n'.join(lines), status=status, evidence=bool(observed))
+    if status == "COMPLETE":
+        reason = None
+    else:
+        reason = "partial" if observed else "error"
+    return ScannerOutput('\n'.join(lines), status=status, evidence=bool(observed),
+                         reason=reason)
 
 DNS_VALUE_LIMIT = 350
 
@@ -477,15 +493,17 @@ def run_dig(target: str, *, cancel_event=None) -> str:
         host = _host(target)
         if '/' in host:
             return ScannerOutput('[!] DNS expects a single domain/IP, not a subnet.',
-                                 status="FAILED", evidence=False)
+                                 status="FAILED", evidence=False,
+                                 reason="scope_denied")
         import dns.resolver
         import dns.exception
     except ImportError:
         return ScannerOutput(
             '[!] Missing dnspython. Run: python -m pip install dnspython',
-            status="FAILED", evidence=False)
+            status="FAILED", evidence=False, reason="missing_dependency")
     except ValueError as exc:
-        return ScannerOutput(f'[!] DNS: {exc}', status="FAILED", evidence=False)
+        return ScannerOutput(f'[!] DNS: {exc}', status="FAILED", evidence=False,
+                             reason="error")
     lines = ['[Native Python DNS queries]']
     observed = 0
     failed = 0
@@ -527,7 +545,9 @@ def run_dig(target: str, *, cancel_event=None) -> str:
         return ScannerOutput('\n\n'.join(lines), status="PARTIAL", evidence=True,
                              diagnostics='DNS rendering bounded: ' + '; '.join(loss_details))
     status = ("FAILED" if not observed else "PARTIAL" if failed else "COMPLETE")
-    return ScannerOutput('\n\n'.join(lines), status=status, evidence=bool(observed))
+    reason = {"COMPLETE": None, "PARTIAL": "partial", "FAILED": "error"}[status]
+    return ScannerOutput('\n\n'.join(lines), status=status, evidence=bool(observed),
+                         reason=reason)
 
 def run_nikto(target: str, *, cancel_event=None) -> str:
     cancelled = _cancelled_before_start(cancel_event)
@@ -536,7 +556,8 @@ def run_nikto(target: str, *, cancel_event=None) -> str:
     try:
         host = _web_target(target)
     except ValueError as exc:
-        return ScannerOutput(f'[!] Nikto: {exc}', status="FAILED", evidence=False)
+        return ScannerOutput(f'[!] Nikto: {exc}', status="FAILED", evidence=False,
+                             reason="error")
     # Only bare hostname gets an HTTPS default; preserve explicit endpoints.
     explicit_endpoint = "://" in host or "/" in host or (
         ":" in host and not host.startswith("[")
@@ -551,7 +572,8 @@ def run_nikto(target: str, *, cancel_event=None) -> str:
         installed_script = bool(perl and script and script.is_file())
     except OSError as exc:
         return ScannerOutput(f'[!] Nikto script is inaccessible: {exc}',
-                             status='FAILED', evidence=False)
+                             status='FAILED', evidence=False,
+                             reason='missing_dependency')
     if installed_script and perl is not None:
         print(f'  [*] Nikto (Perl): {host}')
         result = _process_outcome(_run_external([perl, str(script), *nikto_args], timeout=_scanner_timeout("nikto", 300),
@@ -564,20 +586,21 @@ def run_nikto(target: str, *, cancel_event=None) -> str:
                 '[!] Nikto unavailable. Install the genuine Nikto scanner '
                 '(Windows: install-windows.bat; Linux: apt install nikto), '
                 'or set PENX_NIKTO_PATH manually. No vulnerability scan was performed.',
-                status="FAILED", evidence=False)
+                status="FAILED", evidence=False, reason="missing_dependency")
         result = _process_outcome(_run_external([exe, *nikto_args], timeout=_scanner_timeout("nikto", 300),
                                              cancel_event=cancel_event))
     # Some Nikto versions return exit 0 despite being unable to connect or load
     # modules. Do not treat a banner by itself as completed vulnerability scanning.
     if re.search(r'(?i)(?:\[FAIL\]\s*Unable to connect|Required module not found|The -port option cannot be used with a full URI)', result):
-        return ScannerOutput(str(result), status="FAILED", evidence=False)
+        return ScannerOutput(str(result), status="FAILED", evidence=False,
+                             reason="error")
     # Nikto can exit normally despite terminating early after TLS errors.
     if re.search(r"(?i)(?:error limit\s*\(\d+\)\s*reached|scan terminated:\s*\d+\s+errors|ssl connect failed)", str(result)):
         # Error/timeout banners are not vulnerability evidence. In particular,
         # never upgrade an already FAILED scanner execution to PARTIAL.
         return ScannerOutput(str(result),
                              status="PARTIAL" if result.status == "COMPLETE" else result.status,
-                             evidence=False)
+                             evidence=False, reason="error")
     return result
 
 
@@ -597,7 +620,8 @@ def _run_native_web_scanner(scanner: str, target: str, *, cancel_event=None) -> 
             return ScannerOutput(
                 f'[!] {scanner} not installed. Download its official Windows release '
                 f'and configure PENX_{scanner.upper()}_PATH or add the EXE to PATH. '
-                'No scan was run.', status="FAILED", evidence=False)
+                'No scan was run.', status="FAILED", evidence=False,
+                reason="missing_dependency")
         if scanner == 'nuclei':
             templates = nuclei_templates()
             if templates is None:
@@ -605,7 +629,8 @@ def _run_native_web_scanner(scanner: str, target: str, *, cancel_event=None) -> 
                     "[!] Nuclei templates are not installed. Run PenX.exe --setup-native "
                     "to install templates with consent, or set PENX_NUCLEI_TEMPLATES "
                     "to a vetted local templates directory. No Nuclei scan was run.",
-                    status="FAILED", evidence=False)
+                    status="FAILED", evidence=False,
+                    reason="missing_dependency")
             args = nuclei_args(executable, origin, templates)
             timeout = _scanner_timeout("nuclei", 240)
         elif scanner == 'httpx':
@@ -625,7 +650,8 @@ def _run_native_web_scanner(scanner: str, target: str, *, cancel_event=None) -> 
         return _summarize_native_run(scanner, _run_external(args, timeout=timeout,
                                                           cancel_event=cancel_event))
     except (ValueError, OSError, UnicodeError) as exc:
-        return ScannerOutput(f'[!] {scanner}: {exc}', status="FAILED", evidence=False)
+        return ScannerOutput(f'[!] {scanner}: {exc}', status="FAILED", evidence=False,
+                             reason="error")
 
 
 def _incomplete_native_output(scanner: str, outcome: ScannerOutput) -> ScannerOutput:
@@ -634,6 +660,7 @@ def _incomplete_native_output(scanner: str, outcome: ScannerOutput) -> ScannerOu
         f"[!] {scanner} did not complete ({outcome.status}); "
         "raw scanner diagnostics omitted because they may contain secrets.",
         status=outcome.status, evidence=False,
+        reason=outcome.reason or "error",
     )
 
 
@@ -657,18 +684,19 @@ def _summarize_native_run(scanner: str, result: str) -> ScannerOutput:
         excerpt, observed = summarize_output("ffuf", str(result))
         return ScannerOutput("[PARTIAL FFUF ENUMERATION: time limit reached]\n" +
                              (excerpt if observed else "No matching paths observed before timeout."),
-                             status="PARTIAL", evidence=observed)
+                             status="PARTIAL", evidence=observed, reason="timeout")
     if scanner == "httpx" and "pip install 'httpx[cli]'" in str(result):
         return ScannerOutput(
             "[!] Wrong httpx CLI detected (Python HTTPX). Install ProjectDiscovery httpx "
             "through PenX.exe --setup-native or set PENX_HTTPX_PATH to its executable.",
-            status="FAILED", evidence=False)
+            status="FAILED", evidence=False, reason="missing_dependency")
     if str(result).strip() == '[!] Tool returned no output.':
         # Nuclei/ffuf may successfully return zero JSONL matches. For httpx,
         # silence instead means that no HTTP endpoint could be confirmed.
         summary, _ = summarize_output(scanner, '')
         return ScannerOutput(summary, status="FAILED" if scanner == "httpx" else "COMPLETE",
-                             evidence=False)
+                             evidence=False,
+                             reason="error" if scanner == "httpx" else None)
     if outcome.status != "COMPLETE":
         return _incomplete_native_output(scanner, outcome)
     parsing: dict[str, int] = {}
@@ -678,6 +706,7 @@ def _summarize_native_run(scanner: str, result: str) -> ScannerOutput:
             "[!] " + scanner + " emitted no parseable JSONL result; "
             "unstructured tool output omitted (may include confidential URLs).",
             status="FAILED", evidence=False,
+            reason="parse_invalid",
         )
     notes = []
     if parsing.get('capped'):
@@ -686,8 +715,12 @@ def _summarize_native_run(scanner: str, result: str) -> ScannerOutput:
         notes.append('Native output contains unparseable or incomplete records')
     if parsing.get('clipped'):
         notes.append('Native endpoint or template identity truncated for display')
+    if notes:
+        reason = "parse_invalid" if parsing.get('discarded') else "truncated"
+    else:
+        reason = None
     return ScannerOutput(summary, status="PARTIAL" if notes else "COMPLETE", evidence=True,
-                         diagnostics='; '.join(notes))
+                         diagnostics='; '.join(notes), reason=reason)
 
 
 def run_nuclei(target: str, *, cancel_event=None) -> ScannerOutput:
@@ -723,13 +756,20 @@ def run_subfinder(target: str, *, cancel_event=None) -> ScannerOutput:
             raise ValueError("Subfinder requires a DNS hostname")
         try:
             ipaddress.ip_address(domain)
-            raise ValueError("Subfinder requires a domain, not an IP address")
-        except ValueError as exc:
-            if str(exc).startswith("Subfinder"):
-                raise
+        except ValueError:
+            pass  # Domain name; a valid subfinder target.
+        else:
+            return ScannerOutput(
+                "[!] Subfinder requires a domain, not an IP address.",
+                status="FAILED", evidence=False,
+                reason="scope_denied")
         executable = find_native("subfinder")
         if not executable:
-            raise ValueError("Subfinder not installed; set PENX_SUBFINDER_PATH")
+            return ScannerOutput(
+                "[!] Subfinder is not installed; set PENX_SUBFINDER_PATH. "
+                "No scan started.",
+                status="FAILED", evidence=False,
+                reason="missing_dependency")
         outcome = _process_outcome(_run_external(subfinder_args(executable, domain), timeout=135,
                                                cancel_event=cancel_event))
         if str(outcome).strip() == "[!] Tool returned no output.":
@@ -773,14 +813,17 @@ def run_subfinder(target: str, *, cancel_event=None) -> ScannerOutput:
                          + preview) if found else ""
             return ScannerOutput(note + inventory,
                                  status="PARTIAL" if valid_rows else "FAILED",
-                                 evidence=bool(found), diagnostics=diagnostics)
+                                 evidence=bool(found), diagnostics=diagnostics,
+                                 reason="parse_invalid")
         if not found:
             return ScannerOutput("[*] No in-scope subdomains discovered.", evidence=False)
         return ScannerOutput("[PASSIVE SUBDOMAIN INVENTORY — NOT ACTIVELY VERIFIED]\n" +
                              preview, status='PARTIAL' if diagnostics else 'COMPLETE',
-                             evidence=True, diagnostics=diagnostics)
+                             evidence=True, diagnostics=diagnostics,
+                             reason='truncated' if diagnostics else None)
     except (ValueError, OSError) as exc:
-        return ScannerOutput(f"[!] subfinder: {exc}", status="FAILED", evidence=False)
+        return ScannerOutput(f"[!] subfinder: {exc}", status="FAILED", evidence=False,
+                             reason="error")
 
 
 def run_katana(target: str, *, cancel_event=None) -> ScannerOutput:
@@ -793,7 +836,11 @@ def run_katana(target: str, *, cancel_event=None) -> ScannerOutput:
         origin = web_endpoint(target, _web_target)
         executable = find_native("katana")
         if not executable:
-            raise ValueError("Katana not installed; set PENX_KATANA_PATH")
+            return ScannerOutput(
+                "[!] Katana is not installed; set PENX_KATANA_PATH. "
+                "No scan started.",
+                status="FAILED", evidence=False,
+                reason="missing_dependency")
         outcome = _process_outcome(_run_external(katana_args(executable, origin), timeout=90,
                                                cancel_event=cancel_event))
         if outcome.status != "COMPLETE":
@@ -857,18 +904,23 @@ def run_katana(target: str, *, cancel_event=None) -> ScannerOutput:
                 notes.append(f"{oversized} overlong URL(s) omitted")
             note = "[!] Katana had " + " and ".join(notes) + "; crawl incomplete."
             urls = preview
+            loss_reason = ("parse_invalid" if malformed
+                          else "truncated" if oversized else "error")
             return ScannerOutput(
                 note + ("\n[SAME-HOST CRAWL INVENTORY]\n" + urls if urls else ""),
                 status="PARTIAL" if valid_rows or failures else "FAILED",
                 evidence=bool(found), diagnostics=diagnostics,
+                reason=loss_reason,
             )
         if not found:
             return ScannerOutput("[*] No in-scope URLs discovered (no pages verified).", evidence=False)
         return ScannerOutput("[SAME-HOST CRAWL INVENTORY]\n" +
                              preview, status='PARTIAL' if diagnostics else 'COMPLETE',
-                             evidence=True, diagnostics=diagnostics)
+                             evidence=True, diagnostics=diagnostics,
+                             reason='truncated' if diagnostics else None)
     except (ValueError, OSError) as exc:
-        return ScannerOutput(f"[!] katana: {exc}", status="FAILED", evidence=False)
+        return ScannerOutput(f"[!] katana: {exc}", status="FAILED", evidence=False,
+                             reason="error")
 
 
 ENDPOINT_MAPPING_REQUEST_BUDGET = 80
@@ -897,6 +949,7 @@ def run_endpoint_mapping(target: str, *, cancel_event=None) -> ScannerOutput:
                 "run --setup-native or configure PENX_KATANA_PATH and "
                 "PENX_FFUF_PATH. No scan started.",
                 status="FAILED", evidence=False,
+                reason="missing_dependency",
             )
         words = ffuf_words()
         # No older persisted inventory is allowed to authorize a new active
@@ -908,11 +961,13 @@ def run_endpoint_mapping(target: str, *, cancel_event=None) -> ScannerOutput:
         ))
         if cancel_event is not None and cancel_event.is_set():
             return ScannerOutput("[!] Endpoint mapping cancelled during Katana.",
-                                 status="PARTIAL", evidence=False)
+                                 status="PARTIAL", evidence=False,
+                                 reason="cancelled")
         if crawl.status != "COMPLETE":
             return ScannerOutput("[!] Katana mapping did not complete; no ffuf probes "
                                  "were started.\n" + str(_incomplete_native_output('katana', crawl)),
-                                 status=crawl.status, evidence=False)
+                                 status=crawl.status, evidence=False,
+                                 reason=crawl.reason or "error")
         discovered, malformed = current.collect_jsonl(str(crawl), "katana")
         if not discovered:
             return ScannerOutput(
@@ -921,6 +976,7 @@ def run_endpoint_mapping(target: str, *, cancel_event=None) -> ScannerOutput:
                 + (f" ({malformed} unusable JSONL rows)" if malformed else ""),
                 status="PARTIAL" if malformed else "COMPLETE",
                 evidence=False,
+                reason="parse_invalid" if malformed else None,
             )
         # One root pass plus up to two distinctly discovered directories.
         # Reserve page slots for the crawler before allocating ffuf words;
@@ -954,6 +1010,7 @@ def run_endpoint_mapping(target: str, *, cancel_event=None) -> ScannerOutput:
             "No parameter values are replayed or fuzzed."
         )
         partial = bool(malformed)
+        partial_reason = "parse_invalid" if malformed else None
         with tempfile.TemporaryDirectory(prefix="penx_endpoint_ffuf_") as folder:
             wordlist = Path(folder) / "safe-paths.txt"
             for parent, selected in zip(parents, wordlists, strict=True):
@@ -963,6 +1020,7 @@ def run_endpoint_mapping(target: str, *, cancel_event=None) -> ScannerOutput:
                         return ScannerOutput(
                             "[!] Endpoint mapping cancelled before the next ffuf pass.",
                             status="PARTIAL", evidence=False,
+                            reason="cancelled",
                         )
                 else:
                     time.sleep(0.6)
@@ -978,6 +1036,7 @@ def run_endpoint_mapping(target: str, *, cancel_event=None) -> ScannerOutput:
                         "[!] Endpoint mapping cancelled during ffuf; "
                         "partial crawler results were not promoted to evidence.",
                         status="PARTIAL", evidence=False,
+                        reason="cancelled",
                     )
                 if result.status != "COMPLETE":
                     # Empty ffuf stdout can mean zero matching paths. Do not
@@ -986,6 +1045,8 @@ def run_endpoint_mapping(target: str, *, cancel_event=None) -> ScannerOutput:
                         notes.append(f"[*] No ffuf matches reported for {parent}.")
                         continue
                     partial = True
+                    if partial_reason is None:
+                        partial_reason = result.reason or "error"
                     notes.append(f"[!] ffuf incomplete at {parent}: "
                                  + str(_incomplete_native_output('ffuf', result)))
                     break
@@ -993,6 +1054,8 @@ def run_endpoint_mapping(target: str, *, cancel_event=None) -> ScannerOutput:
                 notes.append(f"[*] ffuf at {parent}: {count} in-scope result(s)")
                 if rejected:
                     partial = True
+                    if partial_reason is None:
+                        partial_reason = "parse_invalid"
                     notes.append(f"[!] ffuf rejected {rejected} unusable or unprocessed rows.")
         # Merge only verified same-origin metadata; not requests, secrets,
         # and especially not older URLs as new scan targets.
@@ -1010,19 +1073,25 @@ def run_endpoint_mapping(target: str, *, cancel_event=None) -> ScannerOutput:
                     dropped += 1
             if dropped:
                 partial = True
+                if partial_reason is None:
+                    partial_reason = "truncated"
                 notes.append(f"[!] Inventory capacity reached: {dropped} new endpoint(s) could not be saved.")
             location = save_inventory(saved)
             notes.append(f"[*] Endpoint inventory stored: {location.name}")
         except (OSError, ValueError) as exc:
             partial = True
+            if partial_reason is None:
+                partial_reason = "error"
             notes.append(f"[!] Endpoint inventory could not be saved: {type(exc).__name__}")
         notes.append(current.summary())
         return ScannerOutput("\n".join(notes),
                              status="PARTIAL" if partial else "COMPLETE",
-                             evidence=bool(current.entries))
+                             evidence=bool(current.entries),
+                             reason=partial_reason)
     except (ValueError, OSError, UnicodeError) as exc:
         return ScannerOutput(f"[!] Endpoint mapping: {exc}",
-                             status="FAILED", evidence=False)
+                             status="FAILED", evidence=False,
+                             reason="error")
 
 
 def run_tls_check(target: str, *, cancel_event=None) -> ScannerOutput:
@@ -1099,7 +1168,9 @@ def run_tls_check(target: str, *, cancel_event=None) -> ScannerOutput:
         cancelled = _cancelled_after_io(cancel_event)
         if cancelled is not None:
             return cancelled
-        return ScannerOutput(f"[!] TLS verification failed: {exc}", status="FAILED", evidence=False)
+        return ScannerOutput(f"[!] TLS verification failed: {exc}",
+                             status="FAILED", evidence=False,
+                             reason="error")
 
 
 TOOLS_MENU = {
@@ -1129,7 +1200,8 @@ def run_default_recon(target: str) -> dict:
         except Exception as exc:
             message = f"[!] {keyname} failed ({type(exc).__name__}): {str(exc)[:200]}"
             print(message)
-            results[keyname] = ScannerOutput(message, status="FAILED", evidence=False)
+            results[keyname] = ScannerOutput(message, status="FAILED", evidence=False,
+                                            reason="error")
     print('─' * 50 + '\n[+] Recon complete.\n')
     return results
 

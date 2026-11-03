@@ -9,6 +9,7 @@ from __future__ import annotations
 import os
 import sys
 
+from penx_app.cli import terminal
 
 BACK_CHOICES = frozenset(("0", "b", "back"))
 _ESC = "\x1b"
@@ -21,7 +22,10 @@ def is_back(value: str) -> bool:
 
 def show_back(label: str = "Back to main menu") -> None:
     """Show Back as a menu item; typed aliases remain accepted by is_back."""
-    print(f"  \033[92m[Esc]\033[0m  {label}")
+    esc = "[Esc]"
+    if terminal.detect_capabilities().color:
+        esc = "\033[92m[Esc]\033[0m"
+    print(f"  {esc}  {label}")
 
 
 def _read_chars(prompt: str, getch, *, posix_fd: int | None = None) -> str:

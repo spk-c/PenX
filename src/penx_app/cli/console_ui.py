@@ -1,8 +1,7 @@
 """Dependency-free terminal badges for PenX on Windows and POSIX terminals."""
 from __future__ import annotations
 
-import os
-import sys
+from penx_app.cli import terminal
 
 _COLORS = {
     "critical": "91", "high": "91", "medium": "93",
@@ -11,7 +10,7 @@ _COLORS = {
 
 
 def _can_color() -> bool:
-    return sys.stdout.isatty() and "NO_COLOR" not in os.environ
+    return terminal.detect_capabilities().color
 
 
 def badge(severity: str) -> str:

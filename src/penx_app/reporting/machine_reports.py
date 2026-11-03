@@ -213,8 +213,12 @@ def sarif_from_report(report: dict) -> dict:
         run['invocations'] = [{
             'executionSuccessful': bool(complete),
             'toolExecutionNotifications': [
-                {'level': 'error' if row['status'] == 'FAILED' else 'warning',
-                 'message': {'text': row['id'] + ': ' + (row.get('diagnostics') or row['status'])}}
+                {
+                    'level': 'error' if row['status'] == 'FAILED' else 'warning',
+                    'message': {'text': row['id'] + ': ' + (row.get('diagnostics') or row['status'])},
+                    **({'properties': {'reason': row['reason']}}
+                       if row.get('reason') else {}),
+                }
                 for row in report.get('adapters', []) if row['status'] != 'COMPLETE'
             ],
         }]
