@@ -65,7 +65,7 @@ class AtomicMachineExportTests(unittest.TestCase):
                 write_machine_report(fixture(), self.root, fmt="sarif")
         self.assertEqual(list(self.root.iterdir()), [])
 
-    def test_utf8_encoding_error_does_not_leave_partial_report(self):
+    def test_invalid_utf8_normalized_and_publisher_failure_is_atomic(self):
         data = fixture()
         summary = list(data["summary"])
         summary[3] = "Broken surrogate: \ud800"
@@ -77,9 +77,25 @@ class AtomicMachineExportTests(unittest.TestCase):
         history = list(data["history"])
         history[1] = "bad\ud800"
         data["history"] = tuple(history)
+        # The verified report boundary now sanitizes malformed Unicode
+        # instead of aborting the export; source data remains unchanged.
+        for fmt in ("json", "sarif"):
+            path = write_machine_report(data, self.root, fmt=fmt)
+            public = path.read_text(encoding="utf-8")
+            self.assertNotIn("\ud800", public)
+            if fmt == "json":
+                self.assertIn("bad?", public)
+            # SARIF has no finding here: target is not included as a standalone
+            # field unless there is a SARIF result referencing its scope.
+            self.assertTrue(json.loads(public))
+        self.assertEqual(data["history"][1], "bad\ud800")
+        # Preserve the independent atomic-publisher failure contract:
+        # publishing unsanitized arbitrary text must not leave a partial file.
+        from penx_app.file_output import publish_unique
+        before = set(self.root.iterdir())
         with self.assertRaises(UnicodeEncodeError):
-            write_machine_report(data, self.root, fmt="json")
-        self.assertEqual(list(self.root.iterdir()), [])
+            publish_unique(self.root, "bad", ".json", "bad\ud800")
+        self.assertEqual(set(self.root.iterdir()), before)
 
 
 if __name__ == "__main__":

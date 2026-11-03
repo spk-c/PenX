@@ -149,6 +149,23 @@ regenerating the reports to reflect the new corrections.
 
 Additional main-menu options support external evaluation packages, importing review results, JSONL exports of corrected sessions, and separately distilled analysis rules. These are review and data-management features; PenX does not automatically fine-tune a model when you correct a finding.
 
+### Large-report and malformed-text export assurance
+
+The offline PX-003 large-report regression exercises a **1,000-finding synthetic
+saved session** with independent human-review rejections, plus separate
+recommendations. It asserts consistent included/excluded finding identities
+across JSON, SARIF, HTML and the real PDF builder flowables, and verifies that
+the original session has not been altered. A smaller **250-finding real PDF**
+smoke test checks actual pagination, header and EOF bytes.
+
+Legacy imported report text can contain isolated Unicode surrogate characters
+that are not valid UTF-8. The exporters replace only those malformed
+characters in their public presentation and machine labels; the saved source
+record is **not** rewritten. HTML/PDF markup remains escaped. This is a
+synthetic coverage/content contract, **not** proof of human-reviewed pagination,
+font legibility or screenshots for every platform and report size. Those
+requirements remain in PX-001 field acceptance.
+
 ### Scan comparison, trend history, and regression alerts
 
 From the main menu choose **[9] Scan Diff & Trends**, enter an existing target,
