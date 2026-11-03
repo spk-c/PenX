@@ -21,7 +21,7 @@ class KaliAptContractTests(unittest.TestCase):
         )
         self.assertIn("set -euo pipefail", script)
         self.assertIn("Acquire::Retries=3", script)
-        self.assertIn("https://kali.download/kali", script)
+        self.assertIn("http://kali.download/kali", script)
         self.assertIn("kali.sources", script)
         self.assertIn("sources.list", script)
         self.assertIn('install_packages "$@"', script)

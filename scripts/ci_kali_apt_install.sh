@@ -27,16 +27,16 @@ echo "::warning::Kali apt failed using default mirror; retrying the official Clo
 # disable TLS or signature checks, or suppress a second failure.
 if [[ -f /etc/apt/sources.list.d/kali.sources ]] &&
    grep -q 'http.kali.org/kali' /etc/apt/sources.list.d/kali.sources; then
-    sed -i 's#http://http.kali.org/kali/#https://kali.download/kali/#g; s#http://http.kali.org/kali#https://kali.download/kali/#g' \
+    sed -i 's#http://http.kali.org/kali/#http://kali.download/kali/#g; s#http://http.kali.org/kali#http://kali.download/kali/#g' \
         /etc/apt/sources.list.d/kali.sources
 elif [[ -f /etc/apt/sources.list ]] &&
      grep -q 'http.kali.org/kali' /etc/apt/sources.list; then
-    sed -i 's#http://http.kali.org/kali#https://kali.download/kali#g' \
+    sed -i 's#http://http.kali.org/kali#http://kali.download/kali#g' \
         /etc/apt/sources.list
 else
     echo "::error::Kali APT source layout is unknown; refusing to modify repositories" >&2
     exit 1
 fi
 
-echo "::notice::Retrying apt against https://kali.download/kali" >&2
+echo "::notice::Retrying apt against http://kali.download/kali" >&2
 install_packages "$@"
