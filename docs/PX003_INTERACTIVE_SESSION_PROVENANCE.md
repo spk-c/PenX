@@ -71,12 +71,13 @@ saved sessions with failed/unretained adapters.
   selection before dispatch.
 - This SQLite-specific CLI intentionally does not invoke the normal
   `get_connection` path because that path can initialize/migrate SQLite.
-  MariaDB saved-session verification requires an independent, safe
-  read-only adapter; do not claim this verifies MariaDB.
+  MariaDB now has a separate, explicitly opt-in loopback-only
+  read-only verifier (see `PX003_MARIADB_READONLY.md`), with
+  isolated CI integration; human field sign-off remains open.
 - Multi-process, mixed stdout/stderr, transformed, and native Python
   network adapter results are not retroactively attested as exact
   subprocess bytes.
 - Real Windows/Kali installations, interactive terminal behavior,
-  export/PDF visual checks, MariaDB, and live user-database acceptance
+  export/PDF visual checks and live SQLite/MariaDB user-database acceptance
   still require separately documented operator field sign-off. No
   release has been published by this change.

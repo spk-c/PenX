@@ -4,6 +4,8 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
+import re
 import sqlite3
 from dataclasses import asdict
 from pathlib import Path
@@ -183,6 +185,74 @@ def _read_only_sqlite_factory(path: str | Path):
     return connect
 
 
+
+def _read_only_mariadb_factory(
+    host: str, port: int, database: str, user: str, password: str,
+):
+    """Connect only to explicit local MariaDB; no migrations or implicit writes.
+
+    A loopback restriction means operators can use a local SSH tunnel for
+    remote servers, without transmitting passwords to a remote port in
+    plaintext by accident. Password is supplied by dedicated env var,
+    never CLI args or project .env defaults.
+    """
+    if host not in {"127.0.0.1", "localhost", "::1"}:
+        raise ValueError("Read-only MariaDB verification requires loopback")
+    if type(port) is not int or not 1 <= port <= 65535:
+        raise ValueError("Invalid MariaDB port")
+    if not isinstance(database, str) or not re.fullmatch(
+            r"[A-Za-z0-9_]{1,64}", database):
+        raise ValueError("Invalid MariaDB database name")
+    if not isinstance(user, str) or not re.fullmatch(
+            r"[A-Za-z0-9_.@-]{1,128}", user):
+        raise ValueError("Invalid MariaDB read-only user")
+    if not isinstance(password, str) or not password:
+        raise ValueError("Missing dedicated MariaDB verification password")
+
+    # Deliberately lazy: mariadb integration is an optional dependency.
+    import mysql.connector
+
+    def connect():
+        conn = mysql.connector.connect(
+            host=host, port=port, database=database, user=user,
+            password=password, connection_timeout=5, autocommit=False,
+            allow_local_infile=False,
+        )
+        try:
+            # Enforce both repeatable snapshot semantics and transaction
+            # access mode on the server. Do not query with the connection
+            # unless the server accepted the READ ONLY transaction.
+            conn.start_transaction(
+                consistent_snapshot=True, isolation_level="REPEATABLE READ",
+                readonly=True,
+            )
+        except BaseException:
+            conn.close()
+            raise
+        return conn
+
+    return connect
+
+
+def _verify_mariadb_session(
+    session_id: int, artifacts_directory: str | Path,
+    host: str, port: int, database: str, user: str, password: str,
+) -> dict:
+    """Normalize connector exceptions before the secret-free CLI boundary."""
+    factory = _read_only_mariadb_factory(
+        host, port, database, user, password)
+    import mysql.connector
+    try:
+        result = verify_session_provenance(
+            session_id, artifacts_directory, factory)
+    except mysql.connector.Error as exc:
+        # Do not print connector errors, which may include connection strings,
+        # hosts or usernames. Preserve causal traceback for developer logs.
+        raise ValueError("MariaDB read-only verification failed") from exc
+    result["backend"] = "mariadb-read-only"
+    return result
+
+
 def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(prog="penx evidence verify")
     source = parser.add_mutually_exclusive_group(required=True)
@@ -192,6 +262,14 @@ def main(argv: list[str]) -> int:
                         help="Positive ID of a saved interactive assessment")
     parser.add_argument("--sqlite-db",
                         help="Existing SQLite database, opened read-only; --session only")
+    parser.add_argument("--mariadb-host",
+                        help="Explicit loopback MariaDB endpoint or local SSH tunnel; --session only")
+    parser.add_argument("--mariadb-port", type=int, default=None,
+                        help="MariaDB verification port; default 3306")
+    parser.add_argument("--mariadb-db",
+                        help="Existing database name; no migrations")
+    parser.add_argument("--mariadb-user",
+                        help="Dedicated SELECT-only database user")
     parser.add_argument("--artifacts", required=True,
                         help="Directory with opted-in SHA-256 raw captures")
     parser.add_argument("--report",
@@ -201,18 +279,36 @@ def main(argv: list[str]) -> int:
     except SystemExit as exc:
         return int(exc.code) if isinstance(exc.code, int) else 2
     try:
+        maria_options = (
+            args.mariadb_host, args.mariadb_db, args.mariadb_user,
+            args.mariadb_port)
+        maria_selected = any(part is not None for part in maria_options)
         if args.session is not None:
-            if args.sqlite_db is None or args.report is not None:
-                raise ValueError("Session verification requires --sqlite-db, not --report")
-            summary = verify_session_provenance(
-                args.session, args.artifacts,
-                _read_only_sqlite_factory(args.sqlite_db))
+            if args.report is not None or (args.sqlite_db is not None
+                                           and maria_selected):
+                raise ValueError("Select one supported session backend")
+            if maria_selected:
+                if not all((args.mariadb_host, args.mariadb_db,
+                            args.mariadb_user)):
+                    raise ValueError("Incomplete MariaDB connection options")
+                summary = _verify_mariadb_session(
+                    args.session, args.artifacts,
+                    args.mariadb_host, args.mariadb_port
+                    if args.mariadb_port is not None else 3306,
+                    args.mariadb_db, args.mariadb_user,
+                    os.environ.get("PENX_VERIFY_MARIADB_PASSWORD", ""))
+            else:
+                if args.sqlite_db is None:
+                    raise ValueError("Session verification requires an explicit DB")
+                summary = verify_session_provenance(
+                    args.session, args.artifacts,
+                    _read_only_sqlite_factory(args.sqlite_db))
         else:
-            if args.sqlite_db is not None:
-                raise ValueError("--sqlite-db is valid only with --session")
+            if args.sqlite_db is not None or maria_selected:
+                raise ValueError("Database options are for --session only")
             summary = verify_metadata_file(args.metadata, args.artifacts,
                                            report_file=args.report)
-    except (OSError, ValueError, UnicodeError, TypeError,
+    except (OSError, ValueError, UnicodeError, TypeError, ImportError,
             KeyError, sqlite3.Error):
         # Never echo arbitrary file content, target, errors containing paths
         # or secret-bearing output excerpts to stdout.
