@@ -648,11 +648,12 @@ def _run_native_web_scanner(scanner: str, target: str, *, cancel_event=None) -> 
                 wordlist.write_text('\n'.join(words) + '\n', encoding='utf-8')
                 args = ffuf_args(executable, origin, wordlist)
                 result = _run_external(args, timeout=70, cancel_event=cancel_event)
-                return _summarize_native_run(scanner, result)
+                return _summarize_native_run(scanner, result, expected_origin=origin)
         else:
             raise ValueError('Unsupported native scanner')
         return _summarize_native_run(scanner, _run_external(args, timeout=timeout,
-                                                          cancel_event=cancel_event))
+                                                          cancel_event=cancel_event),
+                                     expected_origin=origin)
     except (ValueError, OSError, UnicodeError) as exc:
         return ScannerOutput(f'[!] {scanner}: {exc}', status="FAILED", evidence=False,
                              reason="error")
@@ -668,7 +669,8 @@ def _incomplete_native_output(scanner: str, outcome: ScannerOutput) -> ScannerOu
     )
 
 
-def _summarize_native_run(scanner: str, result: str) -> ScannerOutput:
+def _summarize_native_run(scanner: str, result: str, *,
+                          expected_origin: str | None = None) -> ScannerOutput:
     outcome = _process_outcome(result)
     timeout_notice = False
     if scanner == 'ffuf' and 'Maximum running time for entire process reached' in str(result):
@@ -685,7 +687,8 @@ def _summarize_native_run(scanner: str, result: str) -> ScannerOutput:
                           and all(int(code) in (0, 1) for code in codes))
     if timeout_notice:
         # ffuf returns nonzero even after a bounded partial enumeration.
-        excerpt, observed = summarize_output("ffuf", str(result))
+        excerpt, observed = summarize_output(
+            "ffuf", str(result), expected_origin=expected_origin)
         return ScannerOutput("[PARTIAL FFUF ENUMERATION: time limit reached]\n" +
                              (excerpt if observed else "No matching paths observed before timeout."),
                              status="PARTIAL", evidence=observed, reason="timeout")
@@ -704,7 +707,9 @@ def _summarize_native_run(scanner: str, result: str) -> ScannerOutput:
     if outcome.status != "COMPLETE":
         return _incomplete_native_output(scanner, outcome)
     parsing: dict[str, int] = {}
-    summary, evidence = summarize_output(scanner, str(outcome), diagnostics=parsing)
+    summary, evidence = summarize_output(
+        scanner, str(outcome), diagnostics=parsing,
+        expected_origin=expected_origin)
     if not evidence:
         return ScannerOutput(
             "[!] " + scanner + " emitted no parseable JSONL result; "

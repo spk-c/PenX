@@ -67,6 +67,31 @@ not forcibly terminate it; this is **menu navigation only**.
 
 Select individual tools or a group. Some operations can take longer, especially a Nikto-inclusive scan.
 
+### Native web-scanner result provenance
+
+For manually selected Nuclei, ProjectDiscovery HTTPx and ffuf scans, PenX
+checks every reported JSONL endpoint against the **selected web origin** before
+the result can be used as a scanner observation: scheme, hostname and effective
+port must match. A reported URL from a redirected domain, an unapproved
+subdomain, a different scheme/port, a URL containing credentials, or an input
+field that does not identify an actual web endpoint is **not** evidence for
+the selected target. The finding is discarded; mixed valid and invalid records
+mark coverage **PARTIAL**. An output containing only rejected records is
+**FAILED**, without evidence or confirmed findings. Invalid Nuclei severity
+metadata likewise cannot produce a template observation.
+
+The original native JSONL is untrusted and may contain secrets; public results
+contain only validated, bounded, credential-free summaries. This source
+attribution check is **not** a guarantee that the external scanner never
+performed off-origin HTTP requests. Scope/concurrency controls operate
+separately at dispatch; project-bound scans still reject these external
+adapters pending verified on-wire containment. Existing evidence anchors
+reference the sanitized adapter output, not a cryptographically retained raw
+scanner execution log.
+
+The offline PX-003 suite uses 24 additional, SHA-256-pinned artificial JSONL
+cases for source/port/schema mismatches, no outbound network or scanner binary.
+
 ### 3. Review the AI analysis
 
 PenX collects scanner output and can pass the evidence to a local language model. Its analysis workflow can propose potential security findings, suggested remediation, and further supported checks.

@@ -244,8 +244,45 @@ def _summary_url(value: object, limit: int = 200, *,
         return "[INVALID URL]"
 
 
+def _same_web_origin(observed: object, authorized_origin: str) -> bool:
+    """Pure origin check for untrusted native JSONL; no DNS or HTTP.
+
+    A response from a different scheme, hostname or effective port cannot
+    be attributed to the manually selected web-origin target. Keep this
+    separate from the scanner's on-wire redirect/connection policy.
+    """
+    if not isinstance(observed, str) or not observed:
+        return False
+    if any(ord(char) < 32 or ord(char) == 127 for char in observed):
+        return False
+    try:
+        seen = urlsplit(observed)
+        expected = urlsplit(authorized_origin)
+        if (seen.scheme not in ("http", "https") or seen.scheme != expected.scheme
+                or not seen.netloc or not expected.netloc
+                or seen.username is not None or seen.password is not None
+                or expected.username is not None or expected.password is not None
+                or not seen.hostname or not expected.hostname
+                or seen.netloc.endswith(":") or expected.netloc.endswith(":")):
+            return False
+        if seen.port == 0 or expected.port == 0:
+            return False
+        seen_port = seen.port if seen.port is not None else (443 if seen.scheme == "https" else 80)
+        expected_port = expected.port if expected.port is not None else (443 if expected.scheme == "https" else 80)
+        left, right = seen.hostname.casefold(), expected.hostname.casefold()
+        # One terminal DNS root dot is legal. Two or more dots are not
+        # equivalent to a valid FQDN and should never alias approved output.
+        if left.endswith("..") or right.endswith(".."):
+            return False
+        return (left.rstrip(".") == right.rstrip(".")
+                and seen_port == expected_port)
+    except (ValueError, UnicodeError):
+        return False
+
+
 def summarize_output(scanner: str, raw: str, *, max_items: int = 60,
-                     diagnostics: dict[str, int] | None = None) -> tuple[str, bool]:
+                     diagnostics: dict[str, int] | None = None,
+                     expected_origin: str | None = None) -> tuple[str, bool]:
     """Remove huge raw HTTP bodies and never treat empty results as vulnerabilities."""
     output = []
     capped = False
@@ -293,15 +330,26 @@ def summarize_output(scanner: str, raw: str, *, max_items: int = 60,
                 continue
             severity = _single_line(info.get("severity") or "unknown", 20).strip().lower()
             if severity not in ('info', 'low', 'medium', 'high', 'critical'):
+                # Invalid source metadata cannot produce a complete/evidenced
+                # template match; do not merely record a loss and emit it.
                 discarded += 1
+                continue
             name = _single_line(info.get("name") or template, 150).replace('|', '/')
-            matched = _summary_url(item.get("matched-at") or item.get("host"), 200, diagnostics=field_diagnostics)
+            source = item.get("matched-at") or item.get("host")
+            if expected_origin is not None and not _same_web_origin(source, expected_origin):
+                discarded += 1
+                continue
+            matched = _summary_url(source, 200, diagnostics=field_diagnostics)
             if not matched or matched in ('[INVALID URL]', '[URL CREDENTIALS REDACTED]'):
                 discarded += 1
                 continue
             output.append(f"TEMPLATE {template} | {severity} | {name} | {matched}")
         elif scanner == "httpx":
-            url = _summary_url(item.get("url") or item.get("input"), 200, diagnostics=field_diagnostics)
+            source = item.get("url") or item.get("input")
+            if expected_origin is not None and not _same_web_origin(source, expected_origin):
+                discarded += 1
+                continue
+            url = _summary_url(source, 200, diagnostics=field_diagnostics)
             if not url or url in ('[INVALID URL]', '[URL CREDENTIALS REDACTED]'):
                 discarded += 1
                 continue
@@ -313,7 +361,11 @@ def summarize_output(scanner: str, raw: str, *, max_items: int = 60,
                 tech = []
             output.append(f"HTTP {code} | {url} | {server} | {title} | technologies: {', '.join(_single_line(t, 60) for t in tech[:12])[:250]}")
         elif scanner == "ffuf":
-            url = _summary_url(item.get("url"), 220, diagnostics=field_diagnostics)
+            source = item.get("url")
+            if expected_origin is not None and not _same_web_origin(source, expected_origin):
+                discarded += 1
+                continue
+            url = _summary_url(source, 220, diagnostics=field_diagnostics)
             if not url or url in ('[INVALID URL]', '[URL CREDENTIALS REDACTED]'):
                 discarded += 1
                 continue
