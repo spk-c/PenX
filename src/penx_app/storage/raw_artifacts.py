@@ -81,3 +81,30 @@ def validate_artifact(adapter: ScannerResult, directory: str | Path) -> ScannerR
     if any(not record.matches(restored) for record in adapter.evidence_records):
         raise ValueError("Raw artifact evidence anchors do not match")
     return restored
+
+
+
+def revalidate_retained_evidence(
+    stored: ScanResult, directory: str | Path,
+) -> tuple:
+    """Recheck whole retained source bytes AND persisted quote anchors.
+
+    This is an explicit, offline audit of opted-in retained scanner text.
+    For an evidence-bearing adapter without a retained source, do not claim
+    provenance was verified. Historical v1/v2 data remain readable but
+    cannot retroactively prove source bytes that were never retained.
+    Hashes establish integrity only, not the authenticity of a scanner
+    or vulnerability applicability.
+    """
+    from penx_app.domain.evidence import revalidate_persisted_evidence
+
+    original_sources: list[ScannerResult] = []
+    for row in stored.results:
+        if not row.evidence:
+            continue
+        if row.raw_artifact is None:
+            raise ValueError("Original scanner source not retained for evidence")
+        original_sources.append(validate_artifact(row, directory))
+    if not original_sources:
+        raise ValueError("No retained evidence-bearing source to verify")
+    return revalidate_persisted_evidence(stored, original_sources)

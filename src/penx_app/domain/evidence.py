@@ -107,6 +107,15 @@ def revalidate_persisted_evidence(
         original = sources.get(adapter.scanner_id)
         if original is None:
             raise ValueError("Original scanner output missing for persisted evidence")
+        if adapter.raw_artifact is not None:
+            # Checking only a quote leaves the rest of the source forgeable.
+            # A source supplied for an attested capture must match the entire
+            # captured UTF-8 payload before any anchored slice is trusted.
+            encoded = original.text.encode("utf-8")
+            ref = adapter.raw_artifact
+            if (len(encoded) != ref.size_bytes
+                    or hashlib.sha256(encoded).hexdigest() != ref.sha256):
+                raise ValueError("Original scanner source hash/size mismatch")
         for record in adapter.evidence_records:
             if not record.matches(original):
                 raise ValueError("Persisted evidence does not match original scanner output")
