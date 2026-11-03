@@ -10,15 +10,22 @@ from scripts.validate_field_acceptance import MATRICES, validate_worksheet
 SCRIPT = Path(__file__).resolve().parents[1] / "scripts" / "collect_refactor_field_evidence.ps1"
 
 
-def worksheet(status="NOT RUN", unsigned=True):
+def _matrix_section(matrix, status="NOT RUN"):
+    lines = ["", "## " + matrix["heading"], ""]
+    for key in matrix["keys"]:
+        row = ["synthetic-evidence"] * matrix["columns"]
+        row[0] = key
+        row[matrix["status"]] = status
+        lines.append("| " + " | ".join(row) + " |")
+    return lines
+
+
+def worksheet(status="NOT RUN", unsigned=True, matrices=None):
+    if matrices is None:
+        matrices = MATRICES
     lines = ["Status: NOT SIGNED OFF" if unsigned else "Status: SIGNED OFF"]
-    for matrix in MATRICES:
-        lines += ["", "## " + matrix["heading"], ""]
-        for key in matrix["keys"]:
-            row = ["synthetic-evidence"] * matrix["columns"]
-            row[0] = key
-            row[matrix["status"]] = status
-            lines.append("| " + " | ".join(row) + " |")
+    for matrix in matrices:
+        lines += _matrix_section(matrix, status)
     return "\n".join(lines)
 
 
@@ -68,6 +75,52 @@ class FieldAcceptanceValidatorTests(unittest.TestCase):
         invalid = worksheet(status="PASSED", unsigned=False)
         self.assertTrue(any("invalid result" in e for e in
                             validate_worksheet(invalid, allow_incomplete=True)))
+
+    def test_windows_only_worksheet_validates_without_kali(self):
+        # Kali sections are optional: a Windows-only worksheet must still pass.
+        windows = [m for m in MATRICES if not m.get("optional_section")]
+        self.assertEqual(
+            validate_worksheet(worksheet(matrices=windows), allow_incomplete=True),
+            [],
+        )
+
+    def test_kali_section_absent_is_not_an_error_but_present_is_validated(self):
+        windows = [m for m in MATRICES if not m.get("optional_section")]
+        base = worksheet(matrices=windows)
+        self.assertNotIn("## Kali loopback scanner matrix", base)
+        # Omitting the optional Kali sections produces no section error.
+        self.assertEqual(validate_worksheet(base, allow_incomplete=True), [])
+        # A duplicated Kali heading is rejected once the section is present.
+        kali = next(m for m in MATRICES
+                    if m["heading"] == "Kali loopback scanner matrix")
+        doubled = base + "\n" + "\n".join(_matrix_section(kali)) \
+                  + "\n" + "\n".join(_matrix_section(kali))
+        self.assertTrue(any("expected exactly one section" in p
+                            for p in validate_worksheet(doubled, allow_incomplete=True)))
+
+    def test_kali_missing_row_rejected(self):
+        data = worksheet()
+        data = data.replace("| kali-debian-build-install | NOT RUN |",
+                            "| deleted | NOT RUN |", 1)
+        self.assertTrue(any("missing row 'kali-debian-build-install'" in p
+                            for p in validate_worksheet(data, allow_incomplete=True)))
+
+    def test_kali_duplicate_row_rejected(self):
+        lines = worksheet().splitlines()
+        entry = next(line for line in lines if line.startswith("| kali-xdg-config-0600 |"))
+        lines.insert(lines.index(entry) + 1, entry)
+        self.assertTrue(any("duplicate row 'kali-xdg-config-0600'" in p
+                            for p in validate_worksheet("\n".join(lines), allow_incomplete=True)))
+
+    def test_kali_pass_missing_os_arch_rejected(self):
+        # A Kali PASS row must record its OS/arch/kernel provenance (column 3).
+        data = worksheet("PASS", unsigned=False)
+        data = data.replace(
+            "| kali-debian-build-install | PASS | synthetic-evidence |",
+            "| kali-debian-build-install | PASS |  |", 1,
+        )
+        errors = validate_worksheet(data, allow_incomplete=True)
+        self.assertTrue(any("PASS missing column 3" in p for p in errors))
 
 
 if __name__ == "__main__":
