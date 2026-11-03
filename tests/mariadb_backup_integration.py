@@ -10,11 +10,11 @@ import subprocess
 import tempfile
 import unittest
 
-from penx_app.application import mariadb_backup
+from penx_app.application import mariadb_backup, mariadb_restore_plan
 from penx_app.application.backup_service import main as backup_main
 from penx_app.storage import db, db_backend
 
-RESTORE_DB = "penx_ci_native_restore_test"
+RESTORE_DB = "penx_restore_" + "a" * 32
 
 
 class MariaDBLogicalBackupIntegration(unittest.TestCase):
@@ -115,8 +115,35 @@ class MariaDBLogicalBackupIntegration(unittest.TestCase):
                     sql)["restore_available"])
                 # This target is exclusively a fresh scratch schema in a
                 # GitHub Actions service container, never the source database.
+                # MariaDB filters information_schema based on grants. A
+                # source-only account CANNOT prove a target name is absent.
+                with self.assertRaisesRegex(ValueError, "visibility"):
+                    mariadb_restore_plan.preflight_scratch_target(
+                        sql, target_schema=RESTORE_DB, host="127.0.0.1",
+                        port=3306, database="penx_ci_test",
+                        user="penx_ci", password="integration-only")
+                # CI-only, isolated service: grant metadata visibility
+                # explicitly. Never grant this on an operator database.
+                self.root_query(
+                    "-e",
+                    "GRANT SHOW DATABASES ON *.* TO 'penx_ci'@'%'")
+                prior = mariadb_restore_plan.preflight_scratch_target(
+                    sql, target_schema=RESTORE_DB, host="127.0.0.1",
+                    port=3306, database="penx_ci_test",
+                    user="penx_ci", password="integration-only")
+                self.assertEqual(prior["target_existence"],
+                                 "absent-at-check-time-only")
+                self.assertFalse(prior["restore_available"])
+                self.assertFalse(prior["target_reserved"])
                 self.root_query("-e", "CREATE DATABASE " + RESTORE_DB +
                                 " CHARACTER SET utf8mb4")
+                # Server-side recheck must fail after creation even though
+                # the earlier read-only result was "absent".
+                with self.assertRaisesRegex(ValueError, "already exists"):
+                    mariadb_restore_plan.preflight_scratch_target(
+                        sql, target_schema=RESTORE_DB, host="127.0.0.1",
+                        port=3306, database="penx_ci_test",
+                        user="penx_ci", password="integration-only")
                 self.root_query(RESTORE_DB, stdin_file=sql)
                 queries = [
                     "SELECT COUNT(*) FROM " + RESTORE_DB +
