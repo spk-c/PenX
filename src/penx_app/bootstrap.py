@@ -16,7 +16,7 @@ USAGE = ('Usage: PenX.exe [--version | --check | --setup-status | --setup | '
          'guided [--target HOST] [--output DIR] | review-scan FILE --model ID | '
          'evidence verify (--metadata FILE | --session ID --sqlite-db FILE | --session ID --mariadb-host LOOPBACK --mariadb-db DB --mariadb-user USER) --artifacts DIR | '
            'project <create|add|list|check|preview> | '
-           'backup <create|verify|preview|restore> ...]')
+           'backup <create|verify|preview|restore|mariadb-create|mariadb-verify|mariadb-preview> ...]')
 
 
 def _force_utf8_text_streams(streams) -> None:
