@@ -104,7 +104,12 @@ def revalidate_retained_evidence(
             continue
         if row.raw_artifact is None:
             raise ValueError("Original scanner source not retained for evidence")
-        original_sources.append(validate_artifact(row, directory))
+        restored = validate_artifact(row, directory)
+        if row.stdout_capture is not None:
+            from penx_app.storage.stdout_bytes import verify_stdout_capture
+            verify_stdout_capture(row.stdout_capture, directory,
+                                  text=restored.text)
+        original_sources.append(restored)
     if not original_sources:
         raise ValueError("No retained evidence-bearing source to verify")
     return revalidate_persisted_evidence(stored, original_sources)

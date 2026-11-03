@@ -6,6 +6,9 @@ Truncated or timed-out output is diagnostic, never full scanner evidence.
 from __future__ import annotations
 
 from pathlib import Path
+from contextlib import contextmanager
+from contextvars import ContextVar
+from collections.abc import Iterator
 import codecs
 import os
 import sys
@@ -20,6 +23,23 @@ from penx_app.runtime_options import live_output
 
 MAX_CAPTURE_BYTES = 1024 * 1024
 _CHUNK_BYTES = 8192
+
+# Bound to one adapter worker, never a global monkeypatch or shared dictionary.
+# None denotes a completed call without an eligible source. Preserve at most
+# two call slots so a multi-process adapter can never be mistaken for one
+# untransformed process. Do not persist bytes until adapter output matches.
+_ADAPTER_STDOUT_CALLS: ContextVar[list[tuple[bytes, str] | None] | None] = (
+    ContextVar("penx_opt_in_adapter_stdout_calls", default=None))
+
+
+@contextmanager
+def collect_adapter_stdout() -> Iterator[list[tuple[bytes, str] | None]]:
+    calls: list[tuple[bytes, str] | None] = []
+    token = _ADAPTER_STDOUT_CALLS.set(calls)
+    try:
+        yield calls
+    finally:
+        _ADAPTER_STDOUT_CALLS.reset(token)
 
 
 def _process_group_options() -> dict:
@@ -297,6 +317,16 @@ def run_tool(command: list[str], timeout: int = 120, *, cwd: str | None = None,
     An opt-in caller-owned threading.Event aborts the whole process group.
     A pre-cancelled request never starts a scanner process.
     """
+    calls = _ADAPTER_STDOUT_CALLS.get()
+    slot: int | None = None
+    # Reserve the slot *before* validation. A failed or cancelled second
+    # process must still invalidate a prior candidate in the same adapter.
+    if calls is not None and len(calls) < 2:
+        slot = len(calls)
+        calls.append(None)
+    private_stdout: list[bytes] = []
+    output_sink = (_stdout_capture if _stdout_capture is not None else
+                   private_stdout if slot is not None else None)
     if (not isinstance(command, (list, tuple)) or not command
             or any(not isinstance(arg, str) or not arg or "\x00" in arg
                    for arg in command) or not command[0].strip()):
@@ -313,10 +343,23 @@ def run_tool(command: list[str], timeout: int = 120, *, cwd: str | None = None,
     child_env = _child_env(env)
     try:
         if live_output():
-            return _run_tool_live(command, timeout, cwd, child_env, cancel_event,
-                                  stdout_capture=_stdout_capture)
-        return _run_tool_quiet(command, timeout, cwd, child_env, cancel_event,
-                               stdout_capture=_stdout_capture)
+            result = _run_tool_live(command, timeout, cwd, child_env, cancel_event,
+                                    stdout_capture=output_sink)
+        else:
+            result = _run_tool_quiet(command, timeout, cwd, child_env, cancel_event,
+                                     stdout_capture=output_sink)
+        if (slot is not None and calls is not None
+                and _stdout_capture is None and result.status == "COMPLETE" and result.evidence
+                and len(private_stdout) == 1):
+            # Exact strict equivalence to process result is required again
+            # at the final adapter boundary, which may transform this text.
+            raw = private_stdout[0]
+            try:
+                if raw.decode("utf-8").strip() == str(result):
+                    calls[slot] = (raw, str(result))
+            except UnicodeDecodeError:
+                pass
+        return result
     except FileNotFoundError:
         return ScannerOutput(f"[!] Executable not found: {command[0]}",
                              status="FAILED", evidence=False,

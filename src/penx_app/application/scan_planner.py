@@ -104,7 +104,8 @@ def resolve_node_timeout(plan: ScanPlan, key: str) -> int:
 
 def run_plan(plan: ScanPlan, *, menu: dict, emit=lambda *_: None,
              cancel_event: threading.Event | None = None,
-             project_policy=None) -> ScanResult:
+             project_policy=None,
+             stdout_bytes_directory: str | None = None) -> ScanResult:
     """Execute a validated plan; rows always come back in plan order."""
     errors = validate_plan(plan)
     if errors:
@@ -143,13 +144,16 @@ def run_plan(plan: ScanPlan, *, menu: dict, emit=lambda *_: None,
             and project_policy is None):
         if configurations:
             result = _run_plan_scheduled(plan, menu=menu, emit=emit, cancel_event=cancel_event,
-                                         project_policy=project_policy)
+                                         project_policy=project_policy,
+                                         stdout_bytes_directory=stdout_bytes_directory)
             return replace(result, scanner_configuration=tuple(configurations[key] for key in sorted(configurations)))
         # Zero-behavior-change path: the existing sequential executor.
         return run_selected_structured(plan.to_request(), menu=menu,
-                                       emit=emit, cancel_event=cancel_event)
+                                       emit=emit, cancel_event=cancel_event,
+                                       stdout_bytes_directory=stdout_bytes_directory)
     result = _run_plan_scheduled(plan, menu=menu, emit=emit, cancel_event=cancel_event,
-                                         project_policy=project_policy)
+                                         project_policy=project_policy,
+                                         stdout_bytes_directory=stdout_bytes_directory)
     return replace(result, scanner_configuration=tuple(configurations[key] for key in sorted(configurations)))
 
 
@@ -177,7 +181,8 @@ def _terminal_event(output: ScannerOutput) -> str:
 
 def _run_plan_scheduled(plan: ScanPlan, *, menu: dict, emit,
                         cancel_event: threading.Event | None,
-                        project_policy=None) -> ScanResult:
+                        project_policy=None,
+                        stdout_bytes_directory: str | None = None) -> ScanResult:
     schedule = build_schedule(plan)
     names = {key: menu[key][0] for key in schedule}
     ids = {key: SCANNERS[key].id for key in schedule}
@@ -268,9 +273,11 @@ def _run_plan_scheduled(plan: ScanPlan, *, menu: dict, emit,
                         project_policy.rate_limiter,
                         guard=lambda: project_policy.check(plan.target)):
                     return _run_adapter(names[key], menu[key][1], plan.target,
-                                        safe_emit, node_events[key], ids[key])
+                                        safe_emit, node_events[key], ids[key],
+                                        stdout_bytes_directory=stdout_bytes_directory)
             return _run_adapter(names[key], menu[key][1], plan.target,
-                                safe_emit, node_events[key], ids[key])
+                                safe_emit, node_events[key], ids[key],
+                                stdout_bytes_directory=stdout_bytes_directory)
         finally:
             finished_at[key] = time.monotonic()
 
@@ -437,7 +444,7 @@ def _run_plan_scheduled(plan: ScanPlan, *, menu: dict, emit,
             exit_code=output.exit_code,
             diagnostics=output.diagnostics,
             run_events=tuple(events.get(key, ())),
-            reason=output.reason,
+            reason=output.reason, stdout_capture=output.stdout_capture,
         )
         if row.evidence and row.text.strip():
             anchored = capture_evidence(

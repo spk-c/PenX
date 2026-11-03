@@ -26,6 +26,7 @@ def format_recon_for_llm(results: dict | ScanResult) -> str:
                 diagnostics=result.diagnostics,
                 evidence_records=result.evidence_records,
                 reason=result.reason,
+                stdout_capture=result.stdout_capture,
             )
             for result in results.results
         }
@@ -47,7 +48,8 @@ def format_recon_for_llm(results: dict | ScanResult) -> str:
                           data.evidence, tool, data.duration_seconds,
                           data.exit_code, data.diagnostics,
                           data.evidence_records,
-                          reason=data.reason)
+                          reason=data.reason,
+                          stdout_capture=data.stdout_capture)
             for tool, data in results.items())))
     return text
 

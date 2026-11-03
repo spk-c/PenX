@@ -1,5 +1,6 @@
 """Sequential scanner execution; consent is enforced before the first adapter."""
 import inspect
+from contextlib import nullcontext
 import re
 import threading
 import time
@@ -59,12 +60,27 @@ def _overload_skip_row(name: str, scanner_id: str) -> tuple[str, ScannerOutput]:
 
 def _run_adapter(name: str, runner, target: str, emit,
                  cancel_event: threading.Event | None,
-                 scanner_id: str) -> ScannerOutput:
+                 scanner_id: str, *,
+                 stdout_bytes_directory: str | None = None) -> ScannerOutput:
     """Run one adapter with the established normalization and isolation."""
     emit(f'\n[*] Running {name}...')
     started = time.monotonic()
     try:
-        output = _call_adapter(runner, target, cancel_event)
+        from penx_app.scanners.process_runner import collect_adapter_stdout
+        scope = (collect_adapter_stdout() if stdout_bytes_directory is not None
+                 else nullcontext(None))
+        with scope as process_calls:
+            output = _call_adapter(runner, target, cancel_event)
+        stdout_capture = None
+        if (stdout_bytes_directory is not None and process_calls is not None
+                and len(process_calls) == 1 and process_calls[0] is not None
+                and isinstance(output, ScannerOutput)
+                and output.status == "COMPLETE" and output.evidence
+                and process_calls[0][1] == str(output)):
+            from penx_app.storage.stdout_bytes import retain_stdout_bytes
+            stdout_capture = retain_stdout_bytes(
+                process_calls[0][0], stdout_bytes_directory,
+                decoded_text=str(output))
         if not isinstance(output, ScannerOutput):
             # Legacy adapters may return plain text, but None, false,
             # empty containers and arbitrary object reprs are never
@@ -89,7 +105,7 @@ def _run_adapter(name: str, runner, target: str, emit,
             scanner_id=scanner_id,
             duration_seconds=time.monotonic() - started,
             exit_code=output.exit_code, diagnostics=output.diagnostics,
-            reason=output.reason,
+            reason=output.reason, stdout_capture=stdout_capture,
         )
     except Exception as exc:
         from penx_app.application.project_dispatch import ProjectScopeDenied
@@ -126,7 +142,8 @@ def _run_adapter(name: str, runner, target: str, emit,
 
 
 def run_selected(request: ScanRequest, *, menu: dict, emit=lambda *_: None,
-                 cancel_event: threading.Event | None = None) -> dict:
+                 cancel_event: threading.Event | None = None,
+                 stdout_bytes_directory: str | None = None) -> dict:
     if type(request.passive_only) is not bool or type(request.active_consent) is not bool:
         raise ValueError('Passive selection and active consent must be booleans.')
     if request.passive_only:
@@ -154,20 +171,23 @@ def run_selected(request: ScanRequest, *, menu: dict, emit=lambda *_: None,
             results[name] = row
             continue
         results[name] = _run_adapter(name, runner, request.target, emit,
-                                     cancel_event, SCANNERS[key].id)
+                                     cancel_event, SCANNERS[key].id,
+                                     stdout_bytes_directory=stdout_bytes_directory)
     return results
 
 
 def run_selected_structured(request: ScanRequest, *, menu: dict,
                             emit=lambda *_: None,
-                            cancel_event: threading.Event | None = None) -> ScanResult:
+                            cancel_event: threading.Event | None = None,
+                            stdout_bytes_directory: str | None = None) -> ScanResult:
     """Run validated selected adapters and retain authoritative statuses.
 
     The previous dict/string menu contract delegates here. Untrusted scanner
     output text is never parsed to recover structured trusted status.
     """
     rendered = run_selected(request, menu=menu, emit=emit,
-                            cancel_event=cancel_event)
+                            cancel_event=cancel_event,
+                            stdout_bytes_directory=stdout_bytes_directory)
     rows = []
     for name, output in rendered.items():
         row = ScannerResult(
@@ -179,7 +199,7 @@ def run_selected_structured(request: ScanRequest, *, menu: dict,
             duration_seconds=output.duration_seconds,
             exit_code=output.exit_code,
             diagnostics=output.diagnostics,
-            reason=output.reason,
+            reason=output.reason, stdout_capture=output.stdout_capture,
         )
         # Attach a bounded provenance anchor for every adapter that produced
         # usable evidence; failed or empty adapters carry no records.
