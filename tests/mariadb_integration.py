@@ -54,6 +54,113 @@ class MariaDBIntegrationTests(unittest.TestCase):
     def tearDown(self):
         db.delete_full_session(self.sl)
 
+    def test_px003_opt_in_session_replay_uses_server_read_only_snapshot(self):
+        """CI-only real MariaDB service; localhost and disposable *_test DB."""
+        from contextlib import redirect_stdout
+        from io import StringIO
+        import json
+        import sys
+        import tempfile
+
+        import mysql.connector
+
+        from penx_app.application.evidence_verification import (
+            _read_only_mariadb_factory, main as verify_main,
+            verify_session_provenance,
+        )
+        from penx_app.domain.scan_models import ScanResult, ScannerResult
+        from penx_app.scanners.process_runner import run_tool_with_stdout_capture
+        from penx_app.scanners.scan_results import format_recon_for_llm
+        from penx_app.storage.raw_artifacts import retain_artifacts
+
+        # A locally owned fixture process: no test ever connects to a target.
+        with tempfile.TemporaryDirectory(prefix="penx-px003-mariadb-") as tmp:
+            artifacts = Path(tmp) / "source"
+            command = [
+                sys.executable, "-c",
+                "import sys;sys.stdout.buffer.write(b'80/tcp open http\\r\\n')",
+            ]
+            output, ref = run_tool_with_stdout_capture(command, artifacts)
+            self.assertEqual(output.status, "COMPLETE")
+            self.assertIsNotNone(ref)
+            item = ScannerResult(
+                "nmap", str(output), "COMPLETE", True, "Nmap",
+                stdout_capture=ref,
+            )
+            saved = retain_artifacts(ScanResult((item,)), artifacts)
+            saved_recon = str(format_recon_for_llm(saved))
+            db.save_assessment(self.sl, {
+                "risk_level": "LOW",
+                "raw_scan": saved_recon,
+                "full_response": "Synthetic, local test only",
+                "scan_metadata": saved.metadata(),
+                "vulnerabilities": [], "recommendations": [],
+                "exploits": [],
+            }, model_name="offline-test-fixture")
+
+            verify_factory = _read_only_mariadb_factory(
+                host=db_backend.DB_HOST, port=3306,
+                database=db_backend.DB_NAME, user=db_backend.DB_USER,
+                password=db_backend.DB_PASSWORD,
+            )
+            with db_backend.get_connection() as conn:
+                cur = conn.cursor()
+                cur.execute("SELECT COUNT(*) FROM summary WHERE sl_no=%s",
+                            (self.sl,))
+                count_before = cur.fetchone()[0]
+
+            replay = verify_session_provenance(
+                self.sl, artifacts, verify_factory)
+            self.assertEqual(replay["session_id"], self.sl)
+            self.assertEqual(replay["stdout_byte_sources_verified"], 1)
+            self.assertTrue(replay["session_raw_text_verified"])
+
+            # Even the fixture's normally write-capable account cannot
+            # update inside the explicitly server-enforced READ ONLY txn.
+            connection = verify_factory()
+            try:
+                cur = connection.cursor()
+                with self.assertRaises(mysql.connector.Error):
+                    cur.execute(
+                        "UPDATE history SET target=%s WHERE sl_no=%s",
+                        ("mutated.example.test", self.sl),
+                    )
+            finally:
+                connection.close()
+
+            with db_backend.get_connection() as conn:
+                cur = conn.cursor()
+                cur.execute("SELECT COUNT(*) FROM summary WHERE sl_no=%s",
+                            (self.sl,))
+                self.assertEqual(cur.fetchone()[0], count_before)
+                cur.execute("SELECT target FROM history WHERE sl_no=%s",
+                            (self.sl,))
+                self.assertEqual(cur.fetchone()[0], "ci.example.test")
+
+            # CLI exposes neither DB passwords nor saved raw scanner text.
+            stdout = StringIO()
+            with patch.dict(os.environ, {
+                "PENX_VERIFY_MARIADB_PASSWORD": db_backend.DB_PASSWORD,
+            }), redirect_stdout(stdout):
+                status = verify_main([
+                    "--session", str(self.sl),
+                    "--mariadb-host", "127.0.0.1",
+                    "--mariadb-db", db_backend.DB_NAME,
+                    "--mariadb-user", db_backend.DB_USER,
+                    "--artifacts", str(artifacts),
+                ])
+            self.assertEqual(status, 0)
+            self.assertEqual(json.loads(
+                stdout.getvalue())["backend"], "mariadb-read-only")
+            self.assertNotIn("80/tcp open", stdout.getvalue())
+            self.assertNotIn(db_backend.DB_PASSWORD, stdout.getvalue())
+
+            # Corrupted original bytes never produce a verified verdict.
+            (artifacts / ref.filename).write_bytes(b"forged\r\n")
+            with self.assertRaises(ValueError):
+                verify_session_provenance(
+                    self.sl, artifacts, verify_factory)
+
     def test_project_scope_registry_mariadb_crud(self):
         from penx_app.application.project_service import ProjectService
         from penx_app.storage.project_repository import ProjectRepository
