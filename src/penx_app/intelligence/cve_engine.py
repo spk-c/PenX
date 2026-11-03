@@ -191,16 +191,20 @@ def applicability(cve: dict, product: Product) -> str:
 def _nvd_before_request(*, has_key: bool) -> None:
     """Reserve an NVD API request in a sliding 30-second window."""
     budget = 50 if has_key else 5
-    with _NVD_RATE_LOCK:
-        history = _NVD_REQUESTS[has_key]
-        while True:
+    # The wait is computed under the lock but slept outside it, so a
+    # second caller is not blocked while the first one waits for its
+    # request slot.
+    while True:
+        with _NVD_RATE_LOCK:
+            history = _NVD_REQUESTS[has_key]
             now = time.monotonic()
             while history and now - history[0] >= NVD_WINDOW_SECONDS:
                 history.popleft()
             if len(history) < budget:
                 history.append(now)
                 return
-            time.sleep(max(0.001, NVD_WINDOW_SECONDS - (now - history[0])))
+            wait = NVD_WINDOW_SECONDS - (now - history[0])
+        time.sleep(max(0.001, wait))
 
 
 def _bounded_json(response) -> dict | list:

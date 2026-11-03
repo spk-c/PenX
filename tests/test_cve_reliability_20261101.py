@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from collections import deque
 import json
+import threading
 import unittest
 from unittest.mock import Mock, patch
 
@@ -48,6 +49,50 @@ class CveReliabilityTests(unittest.TestCase):
             self.assertEqual(len(sleeps), 1)
             self.assertAlmostEqual(sleeps[0], 30.0)
             self.assertEqual(len(cve._NVD_REQUESTS[False]), 1)
+        finally:
+            with cve._NVD_RATE_LOCK:
+                cve._NVD_REQUESTS[False] = original
+
+    def test_rate_wait_does_not_hold_the_lock(self):
+        # While one caller waits for its sliding-window slot, the rate lock
+        # must be free so a second caller can inspect or advance the window.
+        clock = [100.0]
+        sleeping = threading.Event()
+        release = threading.Event()
+        sleep_log = []
+        with cve._NVD_RATE_LOCK:
+            original = cve._NVD_REQUESTS[False]
+            cve._NVD_REQUESTS[False] = deque()
+        try:
+            def sleep(seconds):
+                sleeping.set()
+                release.wait(timeout=10)
+                sleep_log.append(seconds)
+                clock[0] += seconds
+            with patch.object(cve.time, "monotonic", side_effect=lambda: clock[0]), \
+                 patch.object(cve.time, "sleep", side_effect=sleep):
+                for _ in range(5):
+                    cve._nvd_before_request(has_key=False)
+                done = threading.Event()
+
+                def worker():
+                    cve._nvd_before_request(has_key=False)
+                    done.set()
+
+                thread = threading.Thread(target=worker)
+                thread.start()
+                try:
+                    self.assertTrue(sleeping.wait(timeout=5.0))
+                    # The worker is inside its (patched) sleep; the lock must
+                    # be acquirable while it waits.
+                    self.assertTrue(cve._NVD_RATE_LOCK.acquire(timeout=1.0))
+                finally:
+                    if cve._NVD_RATE_LOCK.locked():
+                        cve._NVD_RATE_LOCK.release()
+                    release.set()
+                thread.join(timeout=10)
+                self.assertTrue(done.is_set())
+            self.assertEqual(sleep_log, [30.0])
         finally:
             with cve._NVD_RATE_LOCK:
                 cve._NVD_REQUESTS[False] = original
