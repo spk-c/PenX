@@ -15,6 +15,7 @@ import threading
 import time
 
 from penx_app.domain.scan_models import ScannerOutput
+from penx_app.domain.stdout_bytes import StdoutByteCapture
 from penx_app.runtime_options import live_output
 
 MAX_CAPTURE_BYTES = 1024 * 1024
@@ -146,7 +147,8 @@ def _cancelled_result(command: list[str], exit_code: int | None = None) -> Scann
 def _run_tool_quiet(command: list[str], timeout: int, cwd: str | None,
                     env: dict[str, str] | None,
                     cancel_event: threading.Event | None = None, *,
-                    stream: bool = False) -> ScannerOutput:
+                    stream: bool = False,
+                    stdout_capture: list[bytes] | None = None) -> ScannerOutput:
     """Common byte capture/lifecycle; optional rendering never changes evidence."""
     proc = subprocess.Popen(
         command, shell=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
@@ -236,6 +238,11 @@ def _run_tool_quiet(command: list[str], timeout: int, cwd: str | None,
             diagnostics="Scanner output contains invalid UTF-8",
             reason="parse_invalid",
         )
+    # Preserve the actual pipe buffer *before* conversion to text. Keep
+    # opt-in byte provenance only for a complete, unambiguous stdout-only
+    # execution. Stderr is part of the combined presentation, not stdout.
+    if stdout_capture is not None and out and not err:
+        stdout_capture.append(bytes(stdout.buffer))
     return ScannerOutput(
         combined or "[!] Tool returned no output.",
         status="COMPLETE" if out else "FAILED",
@@ -245,10 +252,12 @@ def _run_tool_quiet(command: list[str], timeout: int, cwd: str | None,
 
 def _run_tool_live(command: list[str], timeout: int, cwd: str | None,
                    env: dict[str, str] | None,
-                   cancel_event: threading.Event | None = None) -> ScannerOutput:
+                   cancel_event: threading.Event | None = None, *,
+                   stdout_capture: list[bytes] | None = None) -> ScannerOutput:
     """Render the same bounded per-stream bytes used by quiet capture."""
     _emit_line(f"  [LIVE] {Path(command[0]).name} started...")
-    return _run_tool_quiet(command, timeout, cwd, env, cancel_event, stream=True)
+    return _run_tool_quiet(command, timeout, cwd, env, cancel_event,
+                           stream=True, stdout_capture=stdout_capture)
 
 
 
@@ -281,7 +290,8 @@ def _child_env(env: dict[str, str] | None) -> dict[str, str]:
 
 def run_tool(command: list[str], timeout: int = 120, *, cwd: str | None = None,
              env: dict[str, str] | None = None,
-             cancel_event: threading.Event | None = None) -> ScannerOutput:
+             cancel_event: threading.Event | None = None,
+             _stdout_capture: list[bytes] | None = None) -> ScannerOutput:
     """Run shell-free scanner with bounded memory and cooperative cancellation.
 
     An opt-in caller-owned threading.Event aborts the whole process group.
@@ -303,8 +313,10 @@ def run_tool(command: list[str], timeout: int = 120, *, cwd: str | None = None,
     child_env = _child_env(env)
     try:
         if live_output():
-            return _run_tool_live(command, timeout, cwd, child_env, cancel_event)
-        return _run_tool_quiet(command, timeout, cwd, child_env, cancel_event)
+            return _run_tool_live(command, timeout, cwd, child_env, cancel_event,
+                                  stdout_capture=_stdout_capture)
+        return _run_tool_quiet(command, timeout, cwd, child_env, cancel_event,
+                               stdout_capture=_stdout_capture)
     except FileNotFoundError:
         return ScannerOutput(f"[!] Executable not found: {command[0]}",
                              status="FAILED", evidence=False,
@@ -313,3 +325,29 @@ def run_tool(command: list[str], timeout: int = 120, *, cwd: str | None = None,
         return ScannerOutput(f"[!] Could not start {command[0]}: {exc}",
                              status="FAILED", evidence=False,
                              reason="error")
+
+
+
+def run_tool_with_stdout_capture(
+    command: list[str], directory: str | Path, timeout: int = 120, *,
+    cwd: str | None = None, env: dict[str, str] | None = None,
+    cancel_event: threading.Event | None = None,
+) -> tuple[ScannerOutput, StdoutByteCapture | None]:
+    """Opt-in original stdout byte capture for an *explicitly run* subprocess.
+
+    This low-level API does not enable capture in scan profiles, nor does it
+    attach proof to an adapter's transformed/combined output. It returns no
+    provenance for timeout, truncation, cancellation, decode errors, empty
+    stdout or stderr mixed into the displayed output. Recording bytes is a
+    privacy-sensitive, operator-controlled operation.
+    """
+    from penx_app.storage.stdout_bytes import retain_stdout_bytes
+
+    captured: list[bytes] = []
+    result = run_tool(command, timeout, cwd=cwd, env=env,
+                      cancel_event=cancel_event, _stdout_capture=captured)
+    if result.status != "COMPLETE" or not result.evidence or len(captured) != 1:
+        return result, None
+    ref: StdoutByteCapture = retain_stdout_bytes(
+        captured[0], directory, decoded_text=str(result))
+    return result, ref
