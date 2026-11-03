@@ -41,6 +41,7 @@ def _cancelled_row(name: str, scanner_id: str) -> tuple[str, ScannerOutput]:
         note, status="PARTIAL", evidence=False,
         scanner_id=scanner_id,
         diagnostics="Not started: caller cancelled scan sequence",
+        reason="cancelled",
     )
 
 
@@ -52,6 +53,7 @@ def _overload_skip_row(name: str, scanner_id: str) -> tuple[str, ScannerOutput]:
         note, status="PARTIAL", evidence=False,
         scanner_id=scanner_id,
         diagnostics="Skipped after HTTP 508 from a previous selected scanner",
+        reason="skipped",
     )
 
 
@@ -72,6 +74,7 @@ def _run_adapter(name: str, runner, target: str, emit,
                     f"[!] Unsupported scanner result type: {type(output).__name__}",
                     status="FAILED", evidence=False,
                     diagnostics="Adapter did not return ScannerOutput or text",
+                    reason="error",
                 )
             else:
                 failed = (not output.strip() or
@@ -79,12 +82,14 @@ def _run_adapter(name: str, runner, target: str, emit,
                 output = ScannerOutput(
                     output, status='FAILED' if failed else 'COMPLETE',
                     evidence=not failed,
+                    reason='error' if failed else None,
                 )
         return ScannerOutput(
             str(output), status=output.status, evidence=output.evidence,
             scanner_id=scanner_id,
             duration_seconds=time.monotonic() - started,
             exit_code=output.exit_code, diagnostics=output.diagnostics,
+            reason=output.reason,
         )
     except Exception as exc:
         # A broken optional adapter must not discard evidence from earlier
@@ -97,6 +102,7 @@ def _run_adapter(name: str, runner, target: str, emit,
             scanner_id=scanner_id,
             duration_seconds=time.monotonic() - started,
             diagnostics=detail,
+            reason="error",
         )
 
 
@@ -154,6 +160,7 @@ def run_selected_structured(request: ScanRequest, *, menu: dict,
             duration_seconds=output.duration_seconds,
             exit_code=output.exit_code,
             diagnostics=output.diagnostics,
+            reason=output.reason,
         )
         # Attach a bounded provenance anchor for every adapter that produced
         # usable evidence; failed or empty adapters carry no records.
