@@ -14,7 +14,8 @@ USAGE = ('Usage: PenX.exe [--version | --check | --setup-status | --setup | '
          '[--output DIR] [--format json|sarif|both] | '
          'profiles --validate FILE | profiles --export ID | '
          'guided [--target HOST] [--output DIR] | review-scan FILE --model ID | '
-         'backup <create|verify|preview|restore> ...]')
+           'project <create|add|list|check|preview> | '
+           'backup <create|verify|preview|restore> ...]')
 
 
 def _force_utf8_text_streams(streams) -> None:
@@ -86,6 +87,9 @@ def main() -> int:
         if command == 'review-scan':
             from penx_app.application.local_review import main as review_main
             return review_main(args[1:])
+        if command == 'project':
+            from penx_app.application.project_service import main as project_main
+            return project_main(args[1:])
         if command == 'backup':
             from penx_app.application.backup_service import main as backup_main
             return backup_main(args[1:])

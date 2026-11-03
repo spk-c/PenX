@@ -109,7 +109,7 @@ bash ./install-linux.sh
 
 On Windows instead, run `install-windows.bat`, followed by `start-windows.bat`. For scanners on supported apt-based distributions, `bash ./install-linux.sh --with-scanners` is an explicit opt-in and may request sudo. **Never run scanners against unauthorized targets.**
 
-Further CLI workflows: [guided mode](docs/GUIDED_MODE.md), [headless JSON/SARIF](docs/HEADLESS_SCANS.md), [scanner configuration](docs/SCANNER_CONFIGURATION.md), [evidence traceability](docs/EVIDENCE_TRACEABILITY.md), and [verified backup/restore](docs/BACKUP_RESTORE.md).
+Further CLI workflows: [guided mode](docs/GUIDED_MODE.md), [headless JSON/SARIF](docs/HEADLESS_SCANS.md), [scanner configuration](docs/SCANNER_CONFIGURATION.md), [named project scopes](docs/PROJECT_SCOPE.md), [evidence traceability](docs/EVIDENCE_TRACEABILITY.md), and [verified backup/restore](docs/BACKUP_RESTORE.md).
 
 ## How PenX works
 

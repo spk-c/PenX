@@ -39,8 +39,9 @@ class SummaryUniquenessMigrationTests(unittest.TestCase):
     def test_fresh_schema_uses_unique_index_and_rejects_invalid_ids(self):
         with closing(sqlite3.connect(self.path)) as conn:
             initialize_sqlite(conn)
-            self.assertEqual(conn.execute("PRAGMA user_version").fetchone()[0], 3)
-            self.assertEqual(SCHEMA_VERSION, 3)
+            self.assertEqual(conn.execute("PRAGMA user_version").fetchone()[0],
+                             SCHEMA_VERSION)
+            self.assertEqual(SCHEMA_VERSION, 4)
             indexes = {row[1] for row in conn.execute("PRAGMA index_list(summary)")}
             self.assertIn("uq_summary_sl_no", indexes)
             conn.execute("INSERT INTO history (sl_no,target,scan_date) "
@@ -63,7 +64,8 @@ class SummaryUniquenessMigrationTests(unittest.TestCase):
         ).fetchall()
         initialize_sqlite(conn)
         initialize_sqlite(conn)
-        self.assertEqual(conn.execute("PRAGMA user_version").fetchone()[0], 3)
+        self.assertEqual(conn.execute("PRAGMA user_version").fetchone()[0],
+                         SCHEMA_VERSION)
         self.assertEqual(conn.execute(
             "SELECT id,sl_no,raw_scan FROM summary"
         ).fetchall(), before)
@@ -89,7 +91,8 @@ class SummaryUniquenessMigrationTests(unittest.TestCase):
         conn.execute("DELETE FROM summary WHERE id=?", (before[1][0],))
         conn.commit()
         initialize_sqlite(conn)
-        self.assertEqual(conn.execute("PRAGMA user_version").fetchone()[0], 3)
+        self.assertEqual(conn.execute("PRAGMA user_version").fetchone()[0],
+                         SCHEMA_VERSION)
 
     def test_null_session_id_blocks_upgrade_without_data_loss(self):
         conn = self.legacy_v2()
