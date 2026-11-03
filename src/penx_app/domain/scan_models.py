@@ -4,8 +4,10 @@ from dataclasses import asdict, dataclass
 from enum import Enum
 import json
 import math
+import hashlib
 from typing import TYPE_CHECKING
 from penx_app.domain.raw_artifact import RawArtifact
+from penx_app.domain.stdout_bytes import StdoutByteCapture
 from penx_app.domain.scan_reasons import is_valid_reason
 from penx_app.domain.scanner_configuration import ScannerConfiguration
 from penx_app.domain.scanner_dependencies import valid_dependencies
@@ -43,6 +45,7 @@ class ScannerResult:
     run_events: tuple[ScannerRunEvent, ...] = ()
     raw_artifact: RawArtifact | None = None
     reason: str | None = None
+    stdout_capture: StdoutByteCapture | None = None
 
     def __post_init__(self):
         if not is_valid_reason(self.reason):
@@ -53,6 +56,16 @@ class ScannerResult:
                 not isinstance(self.raw_artifact, RawArtifact)
                 or not self.evidence or self.status == 'FAILED'):
             raise ValueError('Invalid raw artifact reference for scanner outcome')
+        if self.stdout_capture is not None:
+            if (not isinstance(self.stdout_capture, StdoutByteCapture)
+                    or not self.evidence or self.status != "COMPLETE"):
+                raise ValueError("Invalid stdout byte proof for scanner outcome")
+            # On a historical metadata read, text is deliberately absent.
+            # A disk-loaded proof is NOT verified until its original text
+            # and stdout bytes are re-read by the provenance verifier.
+            if (self.text and hashlib.sha256(self.text.encode("utf-8")).hexdigest()
+                    != self.stdout_capture.text_sha256):
+                raise ValueError("Stdout byte proof does not match scanner text")
         if self.status not in ('COMPLETE', 'PARTIAL', 'FAILED'):
             raise ValueError('Invalid scanner outcome status')
         if self.status == 'FAILED' and self.evidence:
@@ -124,7 +137,7 @@ class ScanResult:
                 row['records'] = [asdict(record) for record in result.evidence_records]
                 version = 2
             rows.append(row)
-        if any(result.run_events or result.raw_artifact or result.reason is not None
+        if any(result.run_events or result.raw_artifact or result.stdout_capture or result.reason is not None
                for result in self.results) \
                 or self.plan_summary is not None or self.scanner_configuration or self.dependencies:
             version = 3
@@ -134,6 +147,8 @@ class ScanResult:
                                  for event in result.run_events]
                 if result.raw_artifact is not None:
                     row['raw_artifact'] = asdict(result.raw_artifact)
+                if result.stdout_capture is not None:
+                    row['stdout_capture'] = asdict(result.stdout_capture)
                 if result.reason is not None:
                     row['reason'] = result.reason
         payload = {'version': version, 'adapters': rows}
@@ -214,7 +229,7 @@ class ScanResult:
             if version >= 2:
                 permitted.add('records')
             if version == 3:
-                permitted |= {'events', 'raw_artifact', 'reason'}
+                permitted |= {'events', 'raw_artifact', 'reason', 'stdout_capture'}
             if set(row) - permitted:
                 raise ValueError('Unexpected adapter metadata fields for version')
             # Historical anchors are stored claims. Without fresh source text
@@ -222,6 +237,7 @@ class ScanResult:
             evidence_records: tuple['EvidenceRecord', ...] = ()
             run_events: tuple[ScannerRunEvent, ...] = ()
             raw_artifact = None
+            stdout_capture = None
             reason: str | None = None
             if 'raw_artifact' in row:
                 if version != 3 or not isinstance(row['raw_artifact'], dict) or set(row['raw_artifact']) != {
@@ -231,6 +247,17 @@ class ScanResult:
                     raw_artifact = RawArtifact(**row['raw_artifact'])
                 except (TypeError, ValueError) as exc:
                     raise ValueError('Invalid raw artifact metadata') from exc
+            if 'stdout_capture' in row:
+                raw_capture = row['stdout_capture']
+                if (version != 3 or not isinstance(raw_capture, dict)
+                        or set(raw_capture) != {
+                            'sha256', 'size_bytes', 'filename',
+                            'text_sha256', 'validator'}):
+                    raise ValueError('Invalid stdout byte proof metadata')
+                try:
+                    stdout_capture = StdoutByteCapture(**raw_capture)
+                except (TypeError, ValueError) as exc:
+                    raise ValueError('Invalid stdout byte proof metadata') from exc
             if 'reason' in row:
                 if version != 3 or not is_valid_reason(row['reason']):
                     raise ValueError('Invalid scanner reason metadata')
@@ -282,6 +309,7 @@ class ScanResult:
                                          evidence_records=evidence_records,
                                          run_events=run_events,
                                          raw_artifact=raw_artifact,
+                                         stdout_capture=stdout_capture,
                                          reason=reason))
         return cls(tuple(results), plan_summary=plan_summary,
                    scanner_configuration=parsed_configuration, dependencies=parsed_dependencies)
@@ -324,13 +352,15 @@ class ScannerOutput(str):
     diagnostics: str
     evidence_records: tuple
     reason: str | None
+    stdout_capture: StdoutByteCapture | None
 
     def __new__(cls, text: str, *, status: str = "COMPLETE",
                 evidence: bool = True, scanner_id: str = '',
                 duration_seconds: float | None = None,
                 exit_code: int | None = None, diagnostics: str = '',
                 evidence_records: tuple['EvidenceRecord', ...] = (),
-                reason: str | None = None):
+                reason: str | None = None,
+                stdout_capture: StdoutByteCapture | None = None):
         if type(evidence) is not bool:
             raise ValueError('Scanner evidence flag must be boolean')
         if status not in {"COMPLETE", "PARTIAL", "FAILED"}:
@@ -352,10 +382,12 @@ class ScannerOutput(str):
         value.diagnostics = diagnostics
         value.evidence_records = evidence_records
         value.reason = reason
+        value.stdout_capture = stdout_capture
         # The dataclass validates the carried metadata, not just the text.
         ScannerResult(scanner_id, str(value), status, value.evidence, '',
                       duration_seconds, exit_code, diagnostics,
-                      evidence_records, reason=reason)
+                      evidence_records, reason=reason,
+                      stdout_capture=stdout_capture)
         return value
 
 

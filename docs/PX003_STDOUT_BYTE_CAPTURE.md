@@ -52,17 +52,67 @@ Raw stdout can contain secrets, scanned hostnames or tokens. **Opt-in
 only**; operators should explicitly select a private, access-controlled
 directory and apply an appropriate retention policy.
 
-The function is a **low-level API only**. It is not automatically enabled
-by `scan --raw-artifacts`, does not alter `ScanResult` metadata
-v1/v2/v3, the existing headless JSON/SARIF schema, or the user-facing
-`evidence verify` command. It cannot authenticate which binary produced
-the text or establish vulnerability applicability. Native Python HTTP
-adapters have no subprocess stdout and are unaffected.
+The standalone low-level function remains independently available.
+The headless scan now has an opt-in one-to-one scanner-result binding,
+described below. The default no-capture mode is unchanged.
 
-**Remaining PX-003 acceptance:** safely wire byte references to the
-specific scanner process/adapter/saved session where possible, handle
-composite and transformed tool output without falsely binding it to
-stdout alone, extend negative corpus for the remaining third-party
-adapters, and complete independent Windows/Kali/PDF field review. No
+**Remaining PX-003 acceptance:** the headless report/metadata adapter
+binding is implemented for untransformed one-process output. Interactive
+database history, composite/modified multi-process adapters, remaining
+third-party negative cases and human Windows/Kali/PDF field review are
+still outstanding. No
 live external-target tests, database migrations or release publication
 are part of this slice. Rollback: revert this PR.
+
+## Headless per-adapter provenance (PX-003 follow-up)
+
+The headless `scan` command now links eligible original subprocess stdout
+bytes to the exact result row and to a saved version-3 metadata manifest.
+The existing `--raw-artifacts` flag remains opt-in. No extra files are
+written by ordinary scans.
+
+```text
+python penx.py scan --target example.test --authorized --scanners 1 --raw-artifacts ./private-captures --output ./reports
+```
+
+Use only owned or expressly authorized scan targets. A successful eligible
+one-process adapter writes a bounded hash-named `.bin` file alongside the
+existing `.txt` capture. The report contains `adapters[].stdout_capture`;
+its optional `provenance_manifest` identifies the actual saved metadata
+file by name and SHA-256. The metadata file preserves the scanner ID,
+status, evidence anchors, and original-byte reference.
+
+Verify this headless report without launching any scanners:
+
+```text
+python penx.py evidence verify --metadata ./reports/penx_scan_metadata.json --artifacts ./private-captures --report ./reports/penx_scan.json
+```
+
+Both filename and hash are checked, as well as ordered adapter IDs,
+status, evidence flags, references, original text hashes, quote offsets
+and original stdout bytes. Duplicate-safe metadata suffixes (such as
+`penx_scan_metadata_001.json`) are supported: use the exact filename
+from `provenance_manifest.metadata_file`, not a guessed path.
+
+The JSON result distinguishes `raw_sources_verified`,
+`stdout_byte_sources_verified` and `report_binding_verified`. Missing,
+mismatched, duplicated, corrupted or unsafe files fail closed without
+printing the stored scanner text.
+
+### Provenance limits
+
+- Headless reports continue to have `session: null`: the manifest binds
+  one headless report to its result metadata but does not create a history
+  database session or prove actual scanner/target identity.
+- The reference is emitted only when one completed, bounded subprocess
+  produces exactly the unchanged adapter text. Multiple calls, stderr
+  combination, transformed scanner summaries, invalid UTF-8, timeouts
+  and non-subprocess Python adapters are not falsely marked as proven.
+- These hashes detect corruption and mistaken associations, **not**
+  independent authenticity. The report and metadata are not digitally
+  signed. A malicious party who controls both can replace both.
+- The binary output may contain private data. Store it in an appropriately
+  restricted folder, and apply explicit deletion/retention policies.
+- Interactive saved-assessment field acceptance, other third-party
+  negative fixtures and human Windows/Kali/PDF review remain open;
+  the existing release version is unchanged.

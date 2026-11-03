@@ -3,25 +3,228 @@
   "$id": "https://github.com/spk-c/PenX/schemas/penx-scan-v1",
   "title": "PenX headless collection v1",
   "type": "object",
-  "required": ["schema", "session", "target", "scan_date", "profile", "coverage", "adapters", "findings", "exit_code", "policy", "limitations"],
+  "required": [
+    "schema",
+    "session",
+    "target",
+    "scan_date",
+    "profile",
+    "coverage",
+    "adapters",
+    "findings",
+    "exit_code",
+    "policy",
+    "limitations"
+  ],
   "properties": {
-    "schema": {"const": "penx-scan-v1"},
-    "session": {"type": "null"},
-    "target": {"type": "string"},
-    "scan_date": {"type": "string"},
-    "profile": {"type": "object", "required": ["profile_id", "profile_version", "max_parallelism", "global_budget_seconds"]},
-    "coverage": {"type": "object", "required": ["status", "completed", "failed", "note"]},
-    "adapters": {"type": "array", "maxItems": 100, "items": {
-      "type": "object", "required": ["id", "status", "evidence", "diagnostics"],
-      "properties": {"id": {"type": "string"}, "status": {"enum": ["COMPLETE", "PARTIAL", "FAILED"]}, "evidence": {"type": "boolean"}, "diagnostics": {"type": "string"}, "reason": {"enum": [null, "missing_dependency", "timeout", "cancelled", "truncated", "scope_denied", "parse_invalid", "partial", "error", "skipped"]}}
-    }},
-    "findings": {"type": "array", "maxItems": 1000, "items": {
-      "type": "object", "required": ["fingerprint", "severity", "scanner", "evidence", "status"],
-      "properties": {"fingerprint": {"type": "string", "pattern": "^penx-finding-v1:[a-f0-9]{64}$"}, "severity": {"enum": ["info", "low", "medium", "high", "critical"]}, "scanner": {"enum": ["nuclei", "nmap", "nikto", "http_headers", "tls"]}, "evidence": {"type": "string"}, "status": {"const": "scanner-quote-matched"}}
-    }},
-    "findings_truncated": {"type": "boolean"},
-    "exit_code": {"enum": [0, 3, 4, 5]},
-    "policy": {"type": "object", "required": ["fail_on"], "properties": {"fail_on": {"enum": [null, "info", "low", "medium", "high", "critical"]}}},
-    "limitations": {"type": "array", "items": {"type": "string"}}
+    "schema": {
+      "const": "penx-scan-v1"
+    },
+    "session": {
+      "type": "null"
+    },
+    "target": {
+      "type": "string"
+    },
+    "scan_date": {
+      "type": "string"
+    },
+    "profile": {
+      "type": "object",
+      "required": [
+        "profile_id",
+        "profile_version",
+        "max_parallelism",
+        "global_budget_seconds"
+      ]
+    },
+    "coverage": {
+      "type": "object",
+      "required": [
+        "status",
+        "completed",
+        "failed",
+        "note"
+      ]
+    },
+    "adapters": {
+      "type": "array",
+      "maxItems": 100,
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "status",
+          "evidence",
+          "diagnostics"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "COMPLETE",
+              "PARTIAL",
+              "FAILED"
+            ]
+          },
+          "evidence": {
+            "type": "boolean"
+          },
+          "diagnostics": {
+            "type": "string"
+          },
+          "reason": {
+            "enum": [
+              null,
+              "missing_dependency",
+              "timeout",
+              "cancelled",
+              "truncated",
+              "scope_denied",
+              "parse_invalid",
+              "partial",
+              "error",
+              "skipped"
+            ]
+          },
+          "stdout_capture": {
+            "type": "object",
+            "required": [
+              "sha256",
+              "size_bytes",
+              "filename",
+              "text_sha256",
+              "validator"
+            ],
+            "properties": {
+              "sha256": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              "size_bytes": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 1048576
+              },
+              "filename": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}(?:_(?:[0-9]{1,3}|[a-f0-9]{32}))?\\.bin$"
+              },
+              "text_sha256": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              "validator": {
+                "const": "sha256-predecode-stdout-v1"
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      }
+    },
+    "findings": {
+      "type": "array",
+      "maxItems": 1000,
+      "items": {
+        "type": "object",
+        "required": [
+          "fingerprint",
+          "severity",
+          "scanner",
+          "evidence",
+          "status"
+        ],
+        "properties": {
+          "fingerprint": {
+            "type": "string",
+            "pattern": "^penx-finding-v1:[a-f0-9]{64}$"
+          },
+          "severity": {
+            "enum": [
+              "info",
+              "low",
+              "medium",
+              "high",
+              "critical"
+            ]
+          },
+          "scanner": {
+            "enum": [
+              "nuclei",
+              "nmap",
+              "nikto",
+              "http_headers",
+              "tls"
+            ]
+          },
+          "evidence": {
+            "type": "string"
+          },
+          "status": {
+            "const": "scanner-quote-matched"
+          }
+        }
+      }
+    },
+    "findings_truncated": {
+      "type": "boolean"
+    },
+    "exit_code": {
+      "enum": [
+        0,
+        3,
+        4,
+        5
+      ]
+    },
+    "policy": {
+      "type": "object",
+      "required": [
+        "fail_on"
+      ],
+      "properties": {
+        "fail_on": {
+          "enum": [
+            null,
+            "info",
+            "low",
+            "medium",
+            "high",
+            "critical"
+          ]
+        }
+      }
+    },
+    "limitations": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "provenance_manifest": {
+      "type": "object",
+      "required": [
+        "metadata_file",
+        "metadata_sha256",
+        "status"
+      ],
+      "properties": {
+        "metadata_file": {
+          "type": "string",
+          "pattern": "^penx_scan_metadata(?:_(?:[0-9]{1,3}|[a-f0-9]{32}))?\\.json$"
+        },
+        "metadata_sha256": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "status": {
+          "const": "stored-reference-not-revalidated"
+        }
+      },
+      "additionalProperties": false
+    }
   }
 }

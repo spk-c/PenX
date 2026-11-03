@@ -47,11 +47,22 @@ accuracy of an associated AI assessment. Existing report fields saying
 `stored-reference-not-revalidated` remain unchanged until a user
 explicitly performs the offline check.
 
-No database migration, changes to existing JSON/SARIF exports, automatic
-retention, scanning behavior, field acceptance or published release.
-Remaining PX-003 work includes other third-party adapter negatives,
-original pre-decoding stdout byte provenance and independent visual PDF
-and OS field reviews. Rollback is a revert of the focused PR.
+No database migration, automatic capture by default, new scan targets,
+field acceptance or published release. Opt-in headless scans now add
+an optional byte reference and manifest to the JSON export; the SARIF
+findings format and historical metadata are compatible. Remaining work
+includes interactive history database linkage, composite outputs,
+third-party negatives and human visual PDF/OS field reviews. Rollback is a revert of the focused PR.
 
 
-For a separate, opt-in **subprocess stdout pre-decoding byte** capture API, see `PX003_STDOUT_BYTE_CAPTURE.md`. The two validators are not interchangeable; existing scan metadata still references only retained UTF-8 scanner presentation text.
+For the separate original subprocess byte validator and the opt-in
+per-headless-adapter association, see `PX003_STDOUT_BYTE_CAPTURE.md`.
+UTF-8 text and pre-decoding byte validators are distinct, and v1/v2
+history records are not retroactively certified.
+
+
+Headless opt-in runs with byte provenance now provide a sibling
+metadata JSON file and a provenance manifest in the scan report.
+Use the evidence verifier with the metadata, artifacts and report
+together for the strongest offline consistency check. The report
+does not gain a digital signature or human field acceptance.

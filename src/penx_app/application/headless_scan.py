@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 from dataclasses import asdict, replace
 from datetime import datetime, timezone
+import hashlib
 import json
 import re
 
@@ -104,7 +105,9 @@ def scan_report(plan, result: ScanResult, *, redact: bool = False) -> dict:
         'adapters': [{'id': row.scanner_id, 'status': row.status, 'evidence': row.evidence,
                       'diagnostics': _mask(row.diagnostics, plan.target, redact),
                       'reason': row.reason,
-                      'raw_artifact': asdict(row.raw_artifact) if row.raw_artifact else None}
+                      'raw_artifact': asdict(row.raw_artifact) if row.raw_artifact else None,
+                      **({'stdout_capture': asdict(row.stdout_capture)}
+                         if row.stdout_capture is not None else {})}
                      for row in result.results],
         'findings': findings, 'findings_truncated': findings_truncated, 'php2shell': None,
         'limitations': [
@@ -202,16 +205,39 @@ def main(argv: list[str], *, connection_factory=None) -> int:
             from penx_app.scanners.tools import TOOLS_MENU
             with scanner_cancellation() as event:
                 if project_policy is None:
-                    result = run_plan(plan, menu=TOOLS_MENU, cancel_event=event)
+                    if args.raw_artifacts is None:
+                        result = run_plan(plan, menu=TOOLS_MENU, cancel_event=event)
+                    else:
+                        result = run_plan(plan, menu=TOOLS_MENU, cancel_event=event,
+                                          stdout_bytes_directory=args.raw_artifacts)
                 else:
-                    result = run_plan(plan, menu=TOOLS_MENU, cancel_event=event,
-                                      project_policy=project_policy)
+                    if args.raw_artifacts is None:
+                        result = run_plan(plan, menu=TOOLS_MENU, cancel_event=event,
+                                          project_policy=project_policy)
+                    else:
+                        result = run_plan(plan, menu=TOOLS_MENU, cancel_event=event,
+                                          project_policy=project_policy,
+                                          stdout_bytes_directory=args.raw_artifacts)
         result = replace(result, plan_summary=PlanSummary(
             plan.profile_id, plan.profile_version, plan.max_parallelism, plan.global_budget_seconds))
         if args.raw_artifacts:
             from penx_app.storage.raw_artifacts import retain_artifacts
             result = retain_artifacts(result, args.raw_artifacts)
         report = scan_report(plan, result, redact=args.redact)
+        if any(row.stdout_capture is not None for row in result.results):
+            # Persist exactly the metadata that binds the adapter ID,
+            # evidence anchors and pre-decoding byte proof, so the offline
+            # evidence verifier can inspect this run without relying on an
+            # in-memory ScanResult or introducing a DB migration.
+            metadata = result.metadata()
+            manifest_path = publish_unique(
+                args.output, "penx_scan_metadata", ".json", metadata + "\n")
+            report["provenance_manifest"] = {
+                "metadata_file": manifest_path.name,
+                "metadata_sha256": hashlib.sha256(
+                    metadata.encode("utf-8")).hexdigest(),
+                "status": "stored-reference-not-revalidated",
+            }
         report['exit_code'] = policy_exit(result, report['findings'], args.fail_on,
                                          findings_truncated=report['findings_truncated'])
         report['policy'] = {'fail_on': args.fail_on}
