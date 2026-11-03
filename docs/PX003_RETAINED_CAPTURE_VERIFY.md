@@ -52,3 +52,6 @@ retention, scanning behavior, field acceptance or published release.
 Remaining PX-003 work includes other third-party adapter negatives,
 original pre-decoding stdout byte provenance and independent visual PDF
 and OS field reviews. Rollback is a revert of the focused PR.
+
+
+For a separate, opt-in **subprocess stdout pre-decoding byte** capture API, see `PX003_STDOUT_BYTE_CAPTURE.md`. The two validators are not interchangeable; existing scan metadata still references only retained UTF-8 scanner presentation text.
