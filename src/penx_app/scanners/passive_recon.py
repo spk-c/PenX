@@ -54,12 +54,17 @@ def _dns_lookup(name: str) -> str:
         import dns.resolver
     except ImportError:
         return "dnspython unavailable."
+    from penx_app.scanners.tools import _bounded_dns_values, _dns_loss_notes
     lines = []
     for rrtype in ("A", "AAAA", "MX", "NS", "TXT"):
         try:
             records = dns.resolver.resolve(name, rrtype, lifetime=5)
-            values = [str(x)[:350] for x in list(records)[:15]]
-            lines.append(f"{rrtype}: " + "; ".join(values))
+            values, omitted, truncated = _bounded_dns_values(records, 15)
+            detail = f"{rrtype}: " + "; ".join(values)
+            notes = _dns_loss_notes(rrtype, omitted, truncated)
+            if notes:
+                detail += "\n(!) " + "; ".join(notes)
+            lines.append(detail)
         except Exception as exc:
             # DNS unavailable does not imply that no records exist.
             lines.append(f"{rrtype}: unavailable ({type(exc).__name__})")
