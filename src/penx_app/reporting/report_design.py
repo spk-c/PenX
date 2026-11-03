@@ -38,6 +38,10 @@ RISK = {"CRITICAL": "#FF3D57", "HIGH": "#FF9352", "MEDIUM": "#EBD63A",
 
 def _s(value, limit=None):
     value = str(value if value is not None else "")
+    # Imported legacy data may contain lone UTF-16 surrogates. Neither UTF-8
+    # export nor ReportLab can serialize them; replace only malformed code
+    # points, preserving all valid Unicode and the immutable saved record.
+    value = value.encode("utf-8", errors="replace").decode("utf-8")
     value = value.replace("\x00", "")
     return value[:limit] if limit is not None else value
 

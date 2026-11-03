@@ -33,7 +33,7 @@ _SARIF_LEVEL = {"critical": "error", "high": "error", "medium": "warning",
 
 
 def _mask(value: str, target: str, enabled: bool) -> str:
-    text = str(value or "")
+    text = str(value or "").encode("utf-8", errors="replace").decode("utf-8")
     if not enabled:
         return text
     if target:
@@ -88,6 +88,10 @@ def _finding(row, raw_scan: str, target: str, redact: bool, *, session: dict | N
     if not matched and confidence == "confirmed":
         confidence = "possible"
     name = str(row[2] or "Unnamed finding")
+    # The same canonical report label must be used for both fingerprint/rule
+    # hashing and its HTML/PDF/JSON/SARIF rendering. Never leave lone
+    # surrogates in a hash input or in the public machine export.
+    name = name.encode("utf-8", errors="replace").decode("utf-8")
     # Attribution is separately verified against a saved scanner section.
     # Model prose and guesses must never fill a missing scanner version.
     from penx_app.reporting.finding_trace import finding_trace
