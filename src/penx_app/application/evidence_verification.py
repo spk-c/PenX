@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import sqlite3
 from dataclasses import asdict
 from pathlib import Path
 
@@ -111,22 +112,108 @@ def verify_metadata_file(metadata_file: str | Path,
     }
 
 
+def verify_session_provenance(
+    session_id: int, artifacts_directory: str | Path, connection_factory,
+) -> dict:
+    """Audit a stored assessment without executing scanners or a model.
+
+    Deliberately strict first field slice: every adapter must have saved,
+    integrity-verifiable source text, at least one eligible exact subprocess
+    stdout proof must be present, and the complete original recon report
+    must exactly re-render from those sources. An incomplete/legacy session
+    does not receive a partial or misleading "verified" certificate.
+    """
+    from penx_app.scanners.scan_results import format_recon_for_llm
+    from penx_app.storage.raw_artifacts import (
+        validate_artifact, revalidate_retained_evidence,
+    )
+    from penx_app.storage.session_repository import SessionRepository
+
+    if type(session_id) is not int or session_id < 1:
+        raise ValueError("Invalid session ID")
+    snapshot = SessionRepository(connection_factory).snapshot(session_id)
+    if (snapshot.history is None or snapshot.history.session_id != session_id
+            or snapshot.history.status != "active"
+            or snapshot.summary is None or snapshot.scan_result is None):
+        raise ValueError("No active saved assessment with scanner metadata")
+    stored = snapshot.scan_result
+    if (not stored.results
+            or not any(row.stdout_capture is not None for row in stored.results)
+            or any(not row.evidence or row.status != "COMPLETE"
+                   or row.raw_artifact is None for row in stored.results)):
+        raise ValueError("Session is not fully eligible for byte attestation")
+
+    verified_anchors = revalidate_retained_evidence(stored, artifacts_directory)
+    recovered = tuple(validate_artifact(row, artifacts_directory)
+                      for row in stored.results)
+    reconstructed = str(format_recon_for_llm(ScanResult(recovered)))
+    if reconstructed != snapshot.summary.raw_scan:
+        raise ValueError("Persisted session raw text does not match scanner sources")
+    return {
+        "status": "verified-retained-integrity",
+        "session_id": session_id,
+        "session_raw_text_verified": True,
+        "raw_sources_verified": len(recovered),
+        "stdout_byte_sources_verified": sum(
+            row.stdout_capture is not None for row in recovered),
+        "anchors_verified": len(verified_anchors),
+        "meaning": "Stored session recon text, complete retained adapter sources and opted-in original stdout bytes match; scanner identity, target authorization and exploitability are not attested.",
+    }
+
+
+def _read_only_sqlite_factory(path: str | Path):
+    """Explicit existing SQLite file; never create or migrate a DB."""
+    from penx_app.storage.db_backend import SQLiteConnection
+
+    candidate = Path(path).expanduser()
+    if candidate.is_symlink() or not candidate.is_file():
+        raise ValueError("SQLite verification requires an existing regular file")
+    resolved = candidate.resolve(strict=True)
+
+    def connect():
+        conn = sqlite3.connect(resolved.as_uri() + "?mode=ro",
+                               uri=True, timeout=5)
+        try:
+            conn.execute("PRAGMA query_only=ON")
+        except BaseException:
+            conn.close()
+            raise
+        return SQLiteConnection(conn)
+
+    return connect
+
+
 def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(prog="penx evidence verify")
-    parser.add_argument("--metadata", required=True,
+    source = parser.add_mutually_exclusive_group(required=True)
+    source.add_argument("--metadata",
                         help="Raw ScanResult.metadata() JSON file, not a report")
+    source.add_argument("--session", type=int,
+                        help="Positive ID of a saved interactive assessment")
+    parser.add_argument("--sqlite-db",
+                        help="Existing SQLite database, opened read-only; --session only")
     parser.add_argument("--artifacts", required=True,
                         help="Directory with opted-in SHA-256 raw captures")
     parser.add_argument("--report",
-                        help="Also verify the matching penx-scan-v1 JSON report binding")
+                        help="Also verify the matching penx-scan-v1 JSON report binding; --metadata only")
     try:
         args = parser.parse_args(argv)
     except SystemExit as exc:
         return int(exc.code) if isinstance(exc.code, int) else 2
     try:
-        summary = verify_metadata_file(args.metadata, args.artifacts,
-                                       report_file=args.report)
-    except (OSError, ValueError, UnicodeError, TypeError, KeyError):
+        if args.session is not None:
+            if args.sqlite_db is None or args.report is not None:
+                raise ValueError("Session verification requires --sqlite-db, not --report")
+            summary = verify_session_provenance(
+                args.session, args.artifacts,
+                _read_only_sqlite_factory(args.sqlite_db))
+        else:
+            if args.sqlite_db is not None:
+                raise ValueError("--sqlite-db is valid only with --session")
+            summary = verify_metadata_file(args.metadata, args.artifacts,
+                                           report_file=args.report)
+    except (OSError, ValueError, UnicodeError, TypeError,
+            KeyError, sqlite3.Error):
         # Never echo arbitrary file content, target, errors containing paths
         # or secret-bearing output excerpts to stdout.
         print(json.dumps({"status": "unverified", "error": "provenance-check-failed"}))

@@ -1,4 +1,5 @@
 """Terminal-only scanner selection and explicit consent."""
+import os
 from penx_app.scanners.registry import CONSENT_KEYS
 from penx_app.application.scanner_selection import resolve_scanner_selection
 from penx_app.cli.scanner_cancellation import scanner_cancellation
@@ -67,10 +68,19 @@ def interactive_tool_run(target: str, *, menu: dict, formatter) -> str | ReconCh
     from penx_app.domain.scan_models import ScanRequest
     request = ScanRequest(target, tuple(dict.fromkeys(selected_keys)), active_consent=True)
     print('[*] Scanning: press Ctrl+C once to cancel the remaining tools.')
+    # Reuse the existing explicit artifact-retention setting already read
+    # by assessment_service when saving the session. Collection occurs
+    # *before* the model analysis and database save, so opt-in byte proofs
+    # have to be attached at this adapter boundary, not invented afterward.
+    capture_dir = os.environ.get("PENX_RAW_ARTIFACT_DIR", "").strip()
     with scanner_cancellation() as cancel_event:
-        results = run_selected_structured(
-            request, menu=menu, emit=print, cancel_event=cancel_event,
-        )
+        if capture_dir:
+            results = run_selected_structured(
+                request, menu=menu, emit=print, cancel_event=cancel_event,
+                stdout_bytes_directory=capture_dir)
+        else:
+            results = run_selected_structured(
+                request, menu=menu, emit=print, cancel_event=cancel_event)
     if cancel_event.is_set():
         # Even if earlier adapters returned valid evidence, cancellation is
         # not consent to save a partial assessment or continue to local AI.
@@ -87,6 +97,7 @@ def interactive_tool_run(target: str, *, menu: dict, formatter) -> str | ReconCh
             diagnostics=row.diagnostics,
             evidence_records=row.evidence_records,
             reason=row.reason,
+            stdout_capture=row.stdout_capture,
         )
         for row in results.results
     }
