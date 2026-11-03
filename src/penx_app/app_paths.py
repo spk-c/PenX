@@ -34,3 +34,8 @@ def application_root() -> Path:
 
 
 APP_ROOT = application_root()
+
+
+def default_backup_dir() -> Path:
+    """Verified SQLite backup storage next to the default database (PX-004)."""
+    return APP_ROOT / 'data' / 'backups'

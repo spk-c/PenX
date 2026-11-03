@@ -165,3 +165,20 @@ class SessionRepository:
             cursor.execute('SELECT sl_no, target, scan_date, status FROM history '
                            'WHERE status = %s ORDER BY sl_no DESC', ('active',))
             return [History(*row) for row in cursor.fetchall()]
+
+
+def table_row_counts(connection) -> dict[str, int]:
+    """Read-only per-table row counts; works on any legacy or current schema."""
+    tables = [
+        row[0]
+        for row in connection.execute(
+            "SELECT name FROM sqlite_master WHERE type = 'table' "
+            "AND name NOT LIKE 'sqlite_%' ORDER BY name"
+        )
+    ]
+    return {
+        table: connection.execute(
+            f'SELECT COUNT(*) FROM "{table}"'
+        ).fetchone()[0]
+        for table in tables
+    }
