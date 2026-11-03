@@ -1,4 +1,4 @@
-# PenX — Product and Engineering Roadmap (Codex-ready)
+﻿# PenX — Product and Engineering Roadmap (Codex-ready)
 
 **Status:** proposal / planning artifact, with implementation progress tracked separately below. **Release baseline:** published PenX v0.6.0, main commit 2dde11bcfb72e146b4db498c3fd01a2ab5eb2f74 (2 November 2026).
 **Audience:** maintainers and Codex implementation agents. **Scope:** Windows 10/11, Kali Linux, Debian, Ubuntu; defensive and authorized assessments only.
@@ -18,6 +18,7 @@ This is a **progress snapshot of source code on main**, not a change to the publ
 | **PX-005** | [#136](https://github.com/spk-c/PenX/pull/136): CycloneDX SBOM, deterministic build manifest, offline asset verification | No signing/attestation claims; exercise on the next authorized tagged release and independent Windows field acceptance |
 | **PX-101** | [#134](https://github.com/spk-c/PenX/pull/134): approved/candidate asset registry, SQLite v4, MariaDB migration 008; [PX-101 follow-up](https://github.com/spk-c/PenX/issues/140): opted-in scope-bound HTTP header/DNS/TLS/passive dispatch with revocation checks and cooperative rate/budget caps | **Partial**: other adapters blocked until redirect/rate containment is proven; no project batch scans; human field acceptance pending |
 | **PX-103** | [#137](https://github.com/spk-c/PenX/pull/137): TTY detection, no-color/plain mode, width-aware rendering helpers | Scanner live-progress integration, full wrapping and Windows/Linux keyboard/TTY field matrix |
+| **PX-401** | Existing interactive local-AI capability probes plus noninteractive `llm-info` metadata inspection (see docs/LLM_CAPABILITIES.md) | Local NInfer/Strata/llama.cpp/Ollama field validation, loaded-weight identity attestation and context-retention/cancellation still open |
 
 The [#138 CI repair](https://github.com/spk-c/PenX/pull/138) switched transiently failing Kali mirror installs to a bounded signed-repository CDN fallback. This is infrastructure work, not a roadmap item or a new release.
 
