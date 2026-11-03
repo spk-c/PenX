@@ -14,7 +14,7 @@ USAGE = ('Usage: PenX.exe [--version | --check | --setup-status | --setup | '
          '[--project NAME] [--output DIR] [--format json|sarif|both] | '
          'profiles --validate FILE | profiles --export ID | '
          'guided [--target HOST] [--output DIR] | review-scan FILE --model ID | '
-         'evidence verify --metadata FILE --artifacts DIR | '
+         'evidence verify (--metadata FILE | --session ID --sqlite-db FILE) --artifacts DIR | '
            'project <create|add|list|check|preview> | '
            'backup <create|verify|preview|restore> ...]')
 

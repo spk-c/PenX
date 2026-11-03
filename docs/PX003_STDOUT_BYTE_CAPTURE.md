@@ -57,10 +57,7 @@ The headless scan now has an opt-in one-to-one scanner-result binding,
 described below. The default no-capture mode is unchanged.
 
 **Remaining PX-003 acceptance:** the headless report/metadata adapter
-binding is implemented for untransformed one-process output. Interactive
-database history, composite/modified multi-process adapters, remaining
-third-party negative cases and human Windows/Kali/PDF field review are
-still outstanding. No
+binding is implemented for untransformed one-process output. Interactive SQLite history now has an opt-in retained-proof path and read-only session verifier (see `PX003_INTERACTIVE_SESSION_PROVENANCE.md`). Independent MariaDB, composite/multi-process cases, remaining third-party negatives and real Windows/Kali/PDF field review are still open. No
 live external-target tests, database migrations or release publication
 are part of this slice. Rollback: revert this PR.
 
@@ -113,6 +110,6 @@ printing the stored scanner text.
   signed. A malicious party who controls both can replace both.
 - The binary output may contain private data. Store it in an appropriately
   restricted folder, and apply explicit deletion/retention policies.
-- Interactive saved-assessment field acceptance, other third-party
-  negative fixtures and human Windows/Kali/PDF review remain open;
+- Independent interactive Windows/Kali/SQLite/MariaDB field sign-off,
+  other third-party negative fixtures and visual PDF review remain open;
   the existing release version is unchanged.
