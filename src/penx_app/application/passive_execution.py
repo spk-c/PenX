@@ -14,7 +14,11 @@ from penx_app.scanners.passive_recon import _query_json
 
 
 class PassiveStopped(RuntimeError):
-    pass
+    """Cooperative stop; carries the machine-readable outcome reason."""
+
+    def __init__(self, message: str, reason: str = 'cancelled'):
+        super().__init__(message)
+        self.reason = reason
 
 
 def run_passive_plan(plan, *, cancel_event=None, clock=time.monotonic) -> ScanResult:
@@ -38,7 +42,8 @@ def run_passive_plan(plan, *, cancel_event=None, clock=time.monotonic) -> ScanRe
         if deadline is not None:
             remaining = min(remaining, deadline - clock())
         if remaining <= 0:
-            raise PassiveStopped('Passive provider/global budget exhausted')
+            raise PassiveStopped('Passive provider/global budget exhausted',
+                                 reason='timeout')
         return remaining
 
     def query(url, **kwargs):
@@ -103,17 +108,21 @@ def run_passive_plan(plan, *, cancel_event=None, clock=time.monotonic) -> ScanRe
             clipped = len(text) > 6000
             results.append(ScannerResult(identity, text[:6000], 'PARTIAL' if clipped else 'COMPLETE', bool(value), name,
                                          duration_seconds=max(0, clock() - started),
-                                         diagnostics='Provider response truncated' if clipped else ''))
+                                         diagnostics='Provider response truncated' if clipped else '',
+                                         reason='truncated' if clipped else None))
         except PassiveStopped as exc:
-            results.append(ScannerResult(identity, '', 'PARTIAL', False, name, diagnostics=str(exc)))
+            results.append(ScannerResult(identity, '', 'PARTIAL', False, name, diagnostics=str(exc),
+                                         reason=exc.reason))
         except Exception as exc:
             # Provider failures do not stop independent providers, and no
             # exception body/URL/key is echoed into diagnostics.
             try:
                 check()
             except PassiveStopped as stopped:
-                results.append(ScannerResult(identity, '', 'PARTIAL', False, name, diagnostics=str(stopped)))
+                results.append(ScannerResult(identity, '', 'PARTIAL', False, name, diagnostics=str(stopped),
+                                             reason=stopped.reason))
             else:
                 results.append(ScannerResult(identity, '', 'FAILED', False, name,
-                                             diagnostics='Passive provider unavailable: ' + type(exc).__name__))
+                                             diagnostics='Passive provider unavailable: ' + type(exc).__name__,
+                                             reason='error'))
     return ScanResult(tuple(results))

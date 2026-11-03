@@ -13,7 +13,7 @@
     "coverage": {"type": "object", "required": ["status", "completed", "failed", "note"]},
     "adapters": {"type": "array", "maxItems": 100, "items": {
       "type": "object", "required": ["id", "status", "evidence", "diagnostics"],
-      "properties": {"id": {"type": "string"}, "status": {"enum": ["COMPLETE", "PARTIAL", "FAILED"]}, "evidence": {"type": "boolean"}, "diagnostics": {"type": "string"}}
+      "properties": {"id": {"type": "string"}, "status": {"enum": ["COMPLETE", "PARTIAL", "FAILED"]}, "evidence": {"type": "boolean"}, "diagnostics": {"type": "string"}, "reason": {"enum": [null, "missing_dependency", "timeout", "cancelled", "truncated", "scope_denied", "parse_invalid", "partial", "error", "skipped"]}}
     }},
     "findings": {"type": "array", "maxItems": 1000, "items": {
       "type": "object", "required": ["fingerprint", "severity", "scanner", "evidence", "status"],

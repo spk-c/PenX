@@ -86,6 +86,7 @@ def interactive_tool_run(target: str, *, menu: dict, formatter) -> str | ReconCh
             exit_code=row.exit_code,
             diagnostics=row.diagnostics,
             evidence_records=row.evidence_records,
+            reason=row.reason,
         )
         for row in results.results
     }
