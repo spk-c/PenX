@@ -109,7 +109,7 @@ bash ./install-linux.sh
 
 On Windows instead, run `install-windows.bat`, followed by `start-windows.bat`. For scanners on supported apt-based distributions, `bash ./install-linux.sh --with-scanners` is an explicit opt-in and may request sudo. **Never run scanners against unauthorized targets.**
 
-Further CLI workflows: [guided mode](docs/GUIDED_MODE.md), [headless JSON/SARIF](docs/HEADLESS_SCANS.md), [scanner configuration](docs/SCANNER_CONFIGURATION.md), and [evidence traceability](docs/EVIDENCE_TRACEABILITY.md).
+Further CLI workflows: [guided mode](docs/GUIDED_MODE.md), [headless JSON/SARIF](docs/HEADLESS_SCANS.md), [scanner configuration](docs/SCANNER_CONFIGURATION.md), [evidence traceability](docs/EVIDENCE_TRACEABILITY.md), and [verified backup/restore](docs/BACKUP_RESTORE.md).
 
 ## How PenX works
 
@@ -204,6 +204,7 @@ The v0.6.0 release passed Windows and Kali build/packaging tests, including cont
 | [Windows](WINDOWS.md) | Setup, installer, portable data, updates and troubleshooting |
 | [Linux / Kali](LINUX.md) | Debian package, portable archive, dependencies and XDG storage |
 | [Scanning & reporting](docs/SCANNING_AND_REPORTS.md) | Scanner behavior, scope, evidence and reports |
+| [Backup & restore](docs/BACKUP_RESTORE.md) | Verified backups, restore preview and user-approved restore |
 | [Local AI & CVE](docs/LOCAL_AI_AND_CVE.md) | Model endpoints, candidate advisories and provider limits |
 | [Demo](docs/DEMO.md) | Illustrative workflow and safe synthetic sample reports |
 | [Development](docs/DEVELOPMENT.md) | Architecture, tests and CI |
