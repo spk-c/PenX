@@ -6,7 +6,7 @@ import json
 import math
 from typing import TYPE_CHECKING
 from penx_app.domain.raw_artifact import RawArtifact
-from penx_app.domain.scan_reasons import REASON_CODES, is_valid_reason
+from penx_app.domain.scan_reasons import is_valid_reason
 from penx_app.domain.scanner_configuration import ScannerConfiguration
 from penx_app.domain.scanner_dependencies import valid_dependencies
 from penx_app.scanners.registry import SCANNERS
