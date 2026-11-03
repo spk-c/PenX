@@ -82,6 +82,26 @@ class DiscoveryTests(unittest.TestCase):
             # No TLS connection was established by the offline test.
             connect.assert_called_once_with(("example.test", 443), timeout=6)
 
+    def test_tls_unparseable_notafter_keeps_verified_handshake_evidence(self):
+        import ssl
+        cert = {"notAfter": "not-a-date"}
+        with patch("socket.create_connection") as connect, \
+             patch("ssl.create_default_context") as factory:
+            tls = factory.return_value.wrap_socket.return_value.__enter__.return_value
+            tls.getpeercert.return_value = cert
+            tls.version.return_value = "TLSv1.3"
+            tls.cipher.return_value = ("TLS_AES_256_GCM_SHA384", "TLSv1.3", 256)
+            output = run_tls_check("https://example.test")
+        self.assertEqual(output.status, "PARTIAL")
+        self.assertTrue(output.evidence)
+        self.assertIn("[VERIFIED TLS HANDSHAKE]", output)
+        self.assertIn("TLSv1.3", output)
+        self.assertIn("Certificate notAfter value could not be parsed", output)
+        self.assertEqual(
+            output.diagnostics,
+            "Certificate notAfter value could not be parsed; expiry unknown.")
+        connect.assert_called_once_with(("example.test", 443), timeout=6)
+
     def test_tls_failed_handshake_does_not_claim_verified_tls(self):
         import ssl
         with patch("socket.create_connection"), \

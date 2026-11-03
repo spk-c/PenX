@@ -50,6 +50,37 @@ MATRICES = (
         "columns": 7,
         "status": 1,
     },
+    {
+        # Kali Linux loopback fixture coverage. Mirrors the 12 adapter
+        # choices (1-9, s, c, d) plus the separate opt-in endpoint mapper (e),
+        # exercised against owned loopback fixtures only. Each row records its
+        # own OS/arch/kernel provenance (column 3).
+        "heading": "Kali loopback scanner matrix",
+        "keys": tuple("123456789scde"),
+        "optional": frozenset({"e"}),
+        "columns": 10,
+        "status": 2,
+        "optional_section": True,
+    },
+    {
+        # Kali build, packaging, restore and local-model gates derived from the
+        # 2026-11-02 Linux field run. Each row records OS/arch/kernel and build
+        # or backup SHA256 provenance.
+        "heading": "Kali build, packaging and restore matrix",
+        "keys": (
+            "kali-debian-build-install",
+            "kali-xdg-config-0600",
+            "kali-remove-reinstall-config-preserved",
+            "kali-whois-frozen-bundle-data",
+            "kali-sqlite-wal-kill-integrity",
+            "kali-local-model-assessment",
+            "kali-report-visual-pagination",
+        ),
+        "optional": frozenset(),
+        "columns": 8,
+        "status": 1,
+        "optional_section": True,
+    },
 )
 RESULTS = frozenset({"NOT RUN", "PASS", "FAIL", "BLOCKED"})
 BLANK = frozenset({"", "-", "NOT RUN", "NOT PROVIDED", "TBD", "TODO", "N/A"})
@@ -70,7 +101,16 @@ def validate_worksheet(text: str, *, allow_incomplete: bool = False) -> list[str
     lines = text.splitlines()
     for matrix in MATRICES:
         heading = matrix["heading"]
-        if headings.count(heading) != 1:
+        count = headings.count(heading)
+        if count == 0:
+            # Optional sections (e.g. the Kali environment) may be absent when
+            # the operator did not run that environment; present means fully
+            # validated. This keeps Windows-only worksheets unchanged.
+            if matrix.get("optional_section"):
+                continue
+            errors.append(f"{heading}: expected exactly one section")
+            continue
+        if count != 1:
             errors.append(f"{heading}: expected exactly one section")
             continue
         marker = "## " + heading
