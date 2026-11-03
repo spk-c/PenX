@@ -434,6 +434,41 @@ def run_curl_headers(target: str, *, cancel_event=None) -> str:
               "PARTIAL" if observed else "FAILED")
     return ScannerOutput('\n'.join(lines), status=status, evidence=bool(observed))
 
+DNS_VALUE_LIMIT = 350
+
+
+def _bounded_dns_values(answer, max_records: int,
+                        max_chars: int = DNS_VALUE_LIMIT):
+    """Render resolver rdata under explicit count and size budgets.
+
+    Returns (values, omitted, truncated): the rendered strings, how many
+    records were dropped after the count cap, and how many rendered values
+    were clipped. Callers decide how to make the loss visible.
+    """
+    values: list[str] = []
+    omitted = 0
+    truncated = 0
+    for rdata in answer:
+        if len(values) >= max_records:
+            omitted += 1
+            continue
+        text = str(rdata)
+        if len(text) > max_chars:
+            text = text[:max_chars]
+            truncated += 1
+        values.append(text)
+    return values, omitted, truncated
+
+
+def _dns_loss_notes(rrtype: str, omitted: int, truncated: int) -> list[str]:
+    parts = []
+    if omitted:
+        parts.append(f"{omitted} more {rrtype} record(s) omitted for display")
+    if truncated:
+        parts.append(f"{truncated} {rrtype} value(s) truncated to {DNS_VALUE_LIMIT} chars")
+    return parts
+
+
 def run_dig(target: str, *, cancel_event=None) -> str:
     cancelled = _cancelled_before_start(cancel_event)
     if cancelled is not None:
@@ -454,13 +489,16 @@ def run_dig(target: str, *, cancel_event=None) -> str:
     lines = ['[Native Python DNS queries]']
     observed = 0
     failed = 0
+    loss_details = []
     for rrtype in ('A', 'AAAA', 'MX', 'NS', 'TXT'):
         cancelled = _cancelled_after_io(cancel_event)
         if cancelled is not None:
             return cancelled
+        omitted = 0
+        truncated = 0
         try:
             answer = dns.resolver.resolve(host, rrtype, lifetime=8)
-            values = [str(rdata) for rdata in answer]
+            values, omitted, truncated = _bounded_dns_values(answer, 32)
             if values:
                 observed += 1
         except (dns.resolver.NoAnswer, dns.resolver.NXDOMAIN):
@@ -473,7 +511,21 @@ def run_dig(target: str, *, cancel_event=None) -> str:
         cancelled = _cancelled_after_io(cancel_event)
         if cancelled is not None:
             return cancelled
-        lines.append(f'[{rrtype} Records]\n' + '\n'.join(values))
+        notes = _dns_loss_notes(rrtype, omitted, truncated)
+        if notes:
+            fragments = []
+            if omitted:
+                fragments.append(f'{omitted} omitted')
+            if truncated:
+                fragments.append(f'{truncated} truncated')
+            loss_details.append(f'{rrtype}: ' + ', '.join(fragments))
+            lines.append(f'[{rrtype} Records]\n' + '\n'.join(values) +
+                         '\n(!) ' + '; '.join(notes))
+        else:
+            lines.append(f'[{rrtype} Records]\n' + '\n'.join(values))
+    if loss_details:
+        return ScannerOutput('\n\n'.join(lines), status="PARTIAL", evidence=True,
+                             diagnostics='DNS rendering bounded: ' + '; '.join(loss_details))
     status = ("FAILED" if not observed else "PARTIAL" if failed else "COMPLETE")
     return ScannerOutput('\n\n'.join(lines), status=status, evidence=bool(observed))
 
@@ -1018,16 +1070,31 @@ def run_tls_check(target: str, *, cancel_event=None) -> ScannerOutput:
         expiry = cert.get("notAfter", "") if isinstance(cert, dict) else ""
         if not isinstance(expiry, str):
             expiry = ""
-        expires = datetime.fromtimestamp(ssl.cert_time_to_seconds(expiry), timezone.utc) if expiry else None
+        expires = None
+        expiry_note = ""
+        if expiry:
+            try:
+                expires = datetime.fromtimestamp(ssl.cert_time_to_seconds(expiry), timezone.utc)
+            except ValueError:
+                # A verified handshake is evidence even when the certificate
+                # expiry string cannot be parsed; report the loss explicitly.
+                expiry_note = "Certificate notAfter value could not be parsed; expiry unknown."
         days_left = (expires - datetime.now(timezone.utc)).days if expires else None
+        lines = [
+            f"[VERIFIED TLS HANDSHAKE] {host}:{port}",
+            f"Protocol: {protocol}",
+            f"Cipher: {cipher[0] if cipher else 'unknown'}",
+            f"Certificate expires: {expires.isoformat() if expires else 'unknown'}",
+            f"Days remaining: {days_left if days_left is not None else 'unknown'}",
+        ]
+        if expiry_note:
+            lines.append(expiry_note)
+        lines.append("Note: This is not a full cipher-suite audit.")
         return ScannerOutput(
-            f"[VERIFIED TLS HANDSHAKE] {host}:{port}\n"
-            f"Protocol: {protocol}\n"
-            f"Cipher: {cipher[0] if cipher else 'unknown'}\n"
-            f"Certificate expires: {expires.isoformat() if expires else 'unknown'}\n"
-            f"Days remaining: {days_left if days_left is not None else 'unknown'}\n"
-            "Note: This is not a full cipher-suite audit.",
-            evidence=True)
+            "\n".join(lines),
+            status="COMPLETE" if not expiry_note else "PARTIAL",
+            evidence=True,
+            diagnostics=expiry_note)
     except (OSError, ValueError, ssl.SSLError) as exc:
         cancelled = _cancelled_after_io(cancel_event)
         if cancelled is not None:
