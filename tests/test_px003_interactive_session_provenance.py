@@ -174,6 +174,40 @@ class InteractiveSessionProvenanceTests(unittest.TestCase):
             self.database.read_bytes()).hexdigest(), before)
         self.assertTrue(json.loads(output.getvalue())["session_raw_text_verified"])
 
+    def test_read_only_factory_falls_back_when_strict_open_rejected(self):
+        # A strict read-only open can be rejected (SQLITE_CANTOPEN) when the
+        # file still needs recovery (hot journal / WAL), notably on read-only
+        # media. The factory must then retry with a plain open and still keep
+        # read semantics via query_only, without creating or migrating.
+        from penx_app.application.evidence_verification import (
+            _read_only_sqlite_factory,
+        )
+        real_connect = sqlite3.connect
+        ro_attempts = 0
+        plain_attempts = 0
+
+        def guarded(path, *args, **kwargs):
+            nonlocal ro_attempts, plain_attempts
+            if isinstance(path, str) and path.endswith("?mode=ro"):
+                ro_attempts += 1
+                raise sqlite3.OperationalError("unable to open database file")
+            plain_attempts += 1
+            return real_connect(path, *args, **kwargs)
+
+        with patch("sqlite3.connect", side_effect=guarded):
+            factory = _read_only_sqlite_factory(self.database)
+            conn = factory()
+            try:
+                self.assertEqual(
+                    conn.execute("PRAGMA query_only").fetchone()[0], 1)
+                self.assertEqual(
+                    conn.execute("SELECT COUNT(*) FROM history").fetchone(),
+                    (0,))
+            finally:
+                conn.close()
+        self.assertEqual(ro_attempts, 1)
+        self.assertEqual(plain_attempts, 1)
+
     def test_incomplete_second_adapter_prevents_full_session_attestation(self):
         original = self.collect()
         row = original.result.results[0]

@@ -173,8 +173,16 @@ def _read_only_sqlite_factory(path: str | Path):
     resolved = candidate.resolve(strict=True)
 
     def connect():
-        conn = sqlite3.connect(resolved.as_uri() + "?mode=ro",
-                               uri=True, timeout=5)
+        try:
+            conn = sqlite3.connect(resolved.as_uri() + "?mode=ro",
+                                   uri=True, timeout=5)
+        except sqlite3.OperationalError:
+            # A hot rollback journal or WAL that still needs recovery can
+            # make the strict read-only open fail (SQLITE_CANTOPEN), notably
+            # on read-only media. Retry with a plain open; query_only below
+            # keeps the read semantics. The file already exists, so this
+            # never creates or migrates the database.
+            conn = sqlite3.connect(str(resolved), timeout=5)
         try:
             conn.execute("PRAGMA query_only=ON")
         except BaseException:
