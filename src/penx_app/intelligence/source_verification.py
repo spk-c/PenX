@@ -5,6 +5,7 @@ CVE existence and KEV membership do not establish that a target is vulnerable.
 from __future__ import annotations
 
 import re
+import threading
 import time
 from collections.abc import Callable
 from contextlib import closing
@@ -21,6 +22,10 @@ _nvd_cache: dict[str, str] = {}
 _nvd_cache_time: dict[str, float] = {}
 _kev_cache: set[str] | None = None
 _kev_cache_time: float | None = None
+# Verification can run on the evaluation thread while a prior assessment's
+# lookup still finishes; the caches are only replaced or extended, never
+# mutated in place, under this lock.
+_source_cache_lock = threading.Lock()
 
 
 def _fresh(cached_at: float | None, now: float) -> bool:
@@ -80,9 +85,13 @@ def _nvd_json(cve: str, api_key: str, get: Callable | None) -> dict | list:
 def lookup_nvd(cve: str, api_key: str = "", *, get: Callable | None = None) -> str:
     """Returns 'listed', 'not-listed' or 'unavailable' (never a target verdict)."""
     key = cve.upper()
-    if (get is None and key in _nvd_cache
-            and _fresh(_nvd_cache_time.get(key), time.monotonic())):
-        return _nvd_cache[key]
+    if get is None:
+        with _source_cache_lock:
+            cached_status = _nvd_cache.get(key)
+            cached_at = _nvd_cache_time.get(key)
+        if (cached_status is not None
+                and _fresh(cached_at, time.monotonic())):
+            return cached_status
     try:
         payload = _nvd_json(cve, api_key, get)
         if not isinstance(payload, dict) or not isinstance(payload.get("vulnerabilities"), list):
@@ -98,8 +107,9 @@ def lookup_nvd(cve: str, api_key: str = "", *, get: Callable | None = None) -> s
     except (requests.RequestException, ValueError, KeyError, TypeError):
         status = "unavailable"
     if get is None and status != "unavailable":
-        _nvd_cache[key] = status
-        _nvd_cache_time[key] = time.monotonic()
+        with _source_cache_lock:
+            _nvd_cache[key] = status
+            _nvd_cache_time[key] = time.monotonic()
     return status
 
 def verify_nvd_applicability(cve_id: str, raw_scan: str, *, api_key: str = "",
@@ -140,10 +150,13 @@ def verify_nvd_applicability(cve_id: str, raw_scan: str, *, api_key: str = "",
 def load_cisa_kev(*, get: Callable | None = None) -> set[str] | None:
     """CISA catalog lookup; None means network/source unavailable."""
     global _kev_cache, _kev_cache_time
-    if (get is None and _kev_cache is not None
-            and _fresh(_kev_cache_time, time.monotonic())):
-        # Callers must not be able to mutate the shared KEV membership cache.
-        return _kev_cache.copy()
+    if get is None:
+        with _source_cache_lock:
+            cached_kev = _kev_cache
+            cached_at = _kev_cache_time
+        if cached_kev is not None and _fresh(cached_at, time.monotonic()):
+            # Callers must not be able to mutate the shared KEV membership cache.
+            return cached_kev.copy()
     try:
         with closing((requests.get if get is None else get)(
             CISA_KEV_URL, headers={"User-Agent": "PenX/SourceVerification"},
@@ -165,8 +178,9 @@ def load_cisa_kev(*, get: Callable | None = None) -> set[str] | None:
             return None
         result = {v["cveID"].upper() for v in entries}
         if get is None:
-            _kev_cache = result.copy()
-            _kev_cache_time = time.monotonic()
+            with _source_cache_lock:
+                _kev_cache = result.copy()
+                _kev_cache_time = time.monotonic()
         return result
     except (requests.RequestException, ValueError, TypeError, KeyError):
         return None

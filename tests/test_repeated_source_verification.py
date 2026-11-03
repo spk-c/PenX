@@ -5,9 +5,11 @@ No network requests: source verification clients are injected mocks.
 from __future__ import annotations
 
 import copy
+import threading
 import unittest
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
+from penx_app.intelligence import source_verification as source
 from penx_app.intelligence.source_verification import verify_findings
 
 
@@ -95,6 +97,80 @@ class SourceVerificationRepeatabilityTests(unittest.TestCase):
             )
         self.assertEqual(nvd.call_count, 2)
         self.assertEqual(finding["description"].count("Reference checks ("), 1)
+
+    def test_concurrent_first_lookups_leave_a_consistent_cache(self):
+        # The first lookup of a CVE runs the network path. Concurrent first
+        # lookups must all observe the same result and leave the process
+        # cache consistent (status and timestamp written together).
+        payload = {"vulnerabilities": [{"cve": {"id": FIRST}}]}
+        client = Mock()
+        client.return_value.json.return_value = payload
+        client.return_value.raise_for_status.return_value = None
+        clock = [100.0]
+
+        def fake_sleep(seconds):
+            clock[0] += seconds
+
+        original_cache = source._nvd_cache.copy()
+        original_cache_time = source._nvd_cache_time.copy()
+        try:
+            with patch.object(source.time, "monotonic",
+                              side_effect=lambda: clock[0]), \
+                 patch.object(source.time, "sleep", side_effect=fake_sleep), \
+                 patch.object(source.requests, "get", client):
+                results = []
+                errors = []
+
+                def worker():
+                    try:
+                        results.append(source.lookup_nvd(FIRST))
+                    except BaseException as exc:
+                        errors.append(exc)
+
+                threads = [threading.Thread(target=worker) for _ in range(8)]
+                for thread in threads:
+                    thread.start()
+                for thread in threads:
+                    thread.join(timeout=15)
+                self.assertEqual(errors, [])
+                self.assertEqual(results, ["listed"] * 8)
+                self.assertEqual(source._nvd_cache.get(FIRST), "listed")
+        finally:
+            source._nvd_cache.clear()
+            source._nvd_cache_time.clear()
+            source._nvd_cache.update(original_cache)
+            source._nvd_cache_time.update(original_cache_time)
+
+    def test_concurrent_kev_loads_return_identical_membership(self):
+        # The first KEV load fills the process cache; concurrent first loads
+        # must all return the same membership set.
+        payload = {"vulnerabilities": [{"cveID": FIRST}]}
+        client = Mock()
+        client.return_value.json.return_value = payload
+        client.return_value.raise_for_status.return_value = None
+        original_kev = source._kev_cache
+        original_kev_time = source._kev_cache_time
+        try:
+            with patch.object(source.requests, "get", client):
+                results = []
+                errors = []
+
+                def worker():
+                    try:
+                        results.append(source.load_cisa_kev())
+                    except BaseException as exc:
+                        errors.append(exc)
+
+                threads = [threading.Thread(target=worker) for _ in range(8)]
+                for thread in threads:
+                    thread.start()
+                for thread in threads:
+                    thread.join(timeout=15)
+                self.assertEqual(errors, [])
+                self.assertTrue(all(result == {FIRST} for result in results))
+        finally:
+            source._kev_cache = original_kev
+            source._kev_cache_time = original_kev_time
 
 
 if __name__ == "__main__":
