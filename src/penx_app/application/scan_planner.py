@@ -340,7 +340,7 @@ def _run_plan_scheduled(plan: ScanPlan, *, menu: dict, emit,
                                 f"({type(exc).__name__}): {detail}",
                                 status="FAILED", evidence=False,
                                 scanner_id=ids[key],
-                                diagnostics=detail))
+                                diagnostics=detail, reason='error'))
             if not pending and not in_flight:
                 break
             while pending and len(in_flight) < workers:
