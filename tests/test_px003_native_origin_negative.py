@@ -125,4 +125,3 @@ class NativeOriginNegativeCorpusTests(unittest.TestCase):
             executor.assert_called_once()
             self.assertEqual(result.status,"FAILED")
             self.assertFalse(result.evidence)
-
