@@ -6,6 +6,7 @@ import json
 import math
 from typing import TYPE_CHECKING
 from penx_app.domain.raw_artifact import RawArtifact
+from penx_app.domain.scan_reasons import REASON_CODES, is_valid_reason
 from penx_app.domain.scanner_configuration import ScannerConfiguration
 from penx_app.domain.scanner_dependencies import valid_dependencies
 from penx_app.scanners.registry import SCANNERS
@@ -41,8 +42,11 @@ class ScannerResult:
     evidence_records: tuple['EvidenceRecord', ...] = ()
     run_events: tuple[ScannerRunEvent, ...] = ()
     raw_artifact: RawArtifact | None = None
+    reason: str | None = None
 
     def __post_init__(self):
+        if not is_valid_reason(self.reason):
+            raise ValueError('Invalid scanner reason code')
         if type(self.evidence) is not bool:
             raise ValueError('Scanner evidence flag must be boolean')
         if self.raw_artifact is not None and (
@@ -102,7 +106,8 @@ class ScanResult:
         Version 2 carries the same adapter outcomes plus source anchors.
         Version 3 (additive) adds bounded lifecycle events per adapter and a
         top-level plan summary, plus optional separately retained raw artifact
-        references. Results without these additions stay byte-identical v1/v2.
+        references and an optional machine-readable reason code per adapter.
+        Results without these additions stay byte-identical v1/v2.
         """
         if len(self.results) > 100:
             raise ValueError('Too many scanner metadata records')
@@ -119,7 +124,8 @@ class ScanResult:
                 row['records'] = [asdict(record) for record in result.evidence_records]
                 version = 2
             rows.append(row)
-        if any(result.run_events or result.raw_artifact for result in self.results) \
+        if any(result.run_events or result.raw_artifact or result.reason is not None
+               for result in self.results) \
                 or self.plan_summary is not None or self.scanner_configuration or self.dependencies:
             version = 3
         if version == 3:
@@ -128,6 +134,8 @@ class ScanResult:
                                  for event in result.run_events]
                 if result.raw_artifact is not None:
                     row['raw_artifact'] = asdict(result.raw_artifact)
+                if result.reason is not None:
+                    row['reason'] = result.reason
         payload = {'version': version, 'adapters': rows}
         if version == 3 and self.plan_summary is not None:
             payload['plan'] = asdict(self.plan_summary)
@@ -198,6 +206,7 @@ class ScanResult:
             evidence_records: tuple['EvidenceRecord', ...] = ()
             run_events: tuple[ScannerRunEvent, ...] = ()
             raw_artifact = None
+            reason: str | None = None
             if 'raw_artifact' in row:
                 if version != 3 or not isinstance(row['raw_artifact'], dict) or set(row['raw_artifact']) != {
                         'sha256', 'size_bytes', 'filename', 'validator'}:
@@ -206,6 +215,10 @@ class ScanResult:
                     raw_artifact = RawArtifact(**row['raw_artifact'])
                 except (TypeError, ValueError) as exc:
                     raise ValueError('Invalid raw artifact metadata') from exc
+            if 'reason' in row:
+                if version != 3 or not is_valid_reason(row['reason']):
+                    raise ValueError('Invalid scanner reason metadata')
+                reason = row['reason']
             if version == 1:
                 if 'records' in row or 'events' in row:
                     raise ValueError(
@@ -252,7 +265,8 @@ class ScanResult:
                                          row['evidence'], row['name'],
                                          evidence_records=evidence_records,
                                          run_events=run_events,
-                                         raw_artifact=raw_artifact))
+                                         raw_artifact=raw_artifact,
+                                         reason=reason))
         return cls(tuple(results), plan_summary=plan_summary,
                    scanner_configuration=parsed_configuration, dependencies=parsed_dependencies)
 
@@ -293,18 +307,22 @@ class ScannerOutput(str):
     exit_code: int | None
     diagnostics: str
     evidence_records: tuple
+    reason: str | None
 
     def __new__(cls, text: str, *, status: str = "COMPLETE",
                 evidence: bool = True, scanner_id: str = '',
                 duration_seconds: float | None = None,
                 exit_code: int | None = None, diagnostics: str = '',
-                evidence_records: tuple['EvidenceRecord', ...] = ()):
+                evidence_records: tuple['EvidenceRecord', ...] = (),
+                reason: str | None = None):
         if type(evidence) is not bool:
             raise ValueError('Scanner evidence flag must be boolean')
         if status not in {"COMPLETE", "PARTIAL", "FAILED"}:
             raise ValueError("Invalid scanner outcome status")
         if not isinstance(evidence_records, tuple):
             raise ValueError("Invalid scanner evidence records")
+        if not is_valid_reason(reason):
+            raise ValueError("Invalid scanner reason code")
         # Do not turn None or arbitrary objects into seemingly valid
         # scanner text. Empty output cannot establish adapter evidence.
         if not isinstance(text, str):
@@ -317,10 +335,11 @@ class ScannerOutput(str):
         value.exit_code = exit_code
         value.diagnostics = diagnostics
         value.evidence_records = evidence_records
+        value.reason = reason
         # The dataclass validates the carried metadata, not just the text.
         ScannerResult(scanner_id, str(value), status, value.evidence, '',
                       duration_seconds, exit_code, diagnostics,
-                      evidence_records)
+                      evidence_records, reason=reason)
         return value
 
 
