@@ -57,3 +57,21 @@ Machine exports include references rather than complete captures. Redaction
 still masks report text only; it does not rewrite separately retained captures.
 Fingerprint and artifact hashes can correlate exports and should be reviewed
 before sharing even when textual target redaction is enabled.
+
+## Machine-readable adapter reason
+
+Every terminal adapter outcome may carry an optional versioned `reason` code
+(`REASON_VERSION = 1`) drawn from the closed set `missing_dependency`,
+`timeout`, `cancelled`, `truncated`, `scope_denied`, `parse_invalid`,
+`partial`, `error` and `skipped`. `reason` is `None` on success. It is a
+stable machine-readable classification alongside the free-text `diagnostics`
+and does not replace the `COMPLETE`/`PARTIAL`/`FAILED` status or the
+evidence flag; a `FAILED` row still cannot claim evidence.
+
+`reason` is persisted only in metadata version 3, as an additive per-adapter
+field. Rows without a reason stay byte-identical v1/v2 and round-trip back as
+`reason=None`; `from_metadata` accepts `reason` only on version 3 and only for
+a known code. The scan JSON schema exposes the `reason` enum; headless JSON
+reports, SARIF tool-execution notifications, the LLM text boundary and the
+CLI legacy view all surface the code without changing the stable status
+marker.
