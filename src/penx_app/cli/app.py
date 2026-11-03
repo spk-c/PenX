@@ -2,7 +2,7 @@
 import os
 import sys
 from pathlib import Path as Path
-from penx_app.cli import cli_views
+from penx_app.cli import cli_views, terminal
 from penx_app.application.scan_recovery import save_unanalysed_recon, save_unsaved_assessment
 from penx_app.reporting.export import export_menu as export_menu
 from penx_app.reporting.report_management import generate_session_reports, generate_session_reports_independent as generate_session_reports_independent, existing_reports as existing_reports, delete_session_reports as delete_session_reports, publication_status as publication_status
@@ -34,8 +34,20 @@ def divider(label=""):
     return cli_views.divider(label)
 
 def prompt(text, *, navigation: bool = False):
-    colored = f"\033[36m{text}\033[0m"
-    return (navigation_input(colored) if navigation else input(colored)).strip()
+    if terminal.detect_capabilities().color:
+        text = f"\033[36m{text}\033[0m"
+    return (navigation_input(text) if navigation else input(text)).strip()
+
+
+def _style(text: str, code: str) -> str:
+    """ANSI-wrap *text* only when the terminal supports color output."""
+    if terminal.detect_capabilities().color:
+        return f"\033[{code}m{text}\033[0m"
+    return text
+
+
+def _pause(text: str) -> str:
+    return "\n" + _style(text, "90")
 
 
 def success(text):
@@ -395,22 +407,22 @@ def main_menu():
 def _main_menu_loop():
     while True:
         banner()
-        print("  \033[92m[1]\033[0m  New Scan")
-        print("  \033[92m[g]\033[0m  Guided Scan (beginner collection)")
-        print("  \033[92m[14]\033[0m  Run Recon Tools (no assessment)")
-        print("  \033[92m[2]\033[0m  View History")
-        print("  \033[92m[3]\033[0m  Export Eval Package")
-        print("  \033[92m[4]\033[0m  Import Evaluation")
-        print("  \033[92m[5]\033[0m  Export Training Data")
-        print("  \033[92m[6]\033[0m  Distill Rules (external LLM)")
-        print("  \033[92m[7]\033[0m  Import Distilled Rules")
-        print("  \033[92m[9]\033[0m  Scan Diff & Trends")
-        print("  \033[92m[10]\033[0m Risk + MITRE ATT&CK Review")
+        print(f"  {_style('[1]', '92')}  New Scan")
+        print(f"  {_style('[g]', '92')}  Guided Scan (beginner collection)")
+        print(f"  {_style('[14]', '92')}  Run Recon Tools (no assessment)")
+        print(f"  {_style('[2]', '92')}  View History")
+        print(f"  {_style('[3]', '92')}  Export Eval Package")
+        print(f"  {_style('[4]', '92')}  Import Evaluation")
+        print(f"  {_style('[5]', '92')}  Export Training Data")
+        print(f"  {_style('[6]', '92')}  Distill Rules (external LLM)")
+        print(f"  {_style('[7]', '92')}  Import Distilled Rules")
+        print(f"  {_style('[9]', '92')}  Scan Diff & Trends")
+        print(f"  {_style('[10]', '92')} Risk + MITRE ATT&CK Review")
         mode = "LIVE" if live_output() else "QUIET"
-        print(f"  \033[92m[11]\033[0m Terminal Output: {mode}")
-        print("  \033[92m[12]\033[0m Local AI Setup / Reconfigure")
-        print("  \033[92m[13]\033[0m Check for Updates")
-        print("  \033[92m[8]\033[0m  Exit")
+        print(f"  {_style('[11]', '92')} Terminal Output: {mode}")
+        print(f"  {_style('[12]', '92')} Local AI Setup / Reconfigure")
+        print(f"  {_style('[13]', '92')} Check for Updates")
+        print(f"  {_style('[8]', '92')}  Exit")
         divider()
 
         choice = prompt("penx> ")
@@ -420,22 +432,22 @@ def _main_menu_loop():
             # and recovery path must remain visible until acknowledged.
             outcome = _execute_scan()
             if outcome.acknowledge:
-                input("\n\033[90mPress Enter to return to main menu...\033[0m")
+                input(_pause("Press Enter to return to main menu..."))
 
         elif choice.lower() == "g":
             from penx_app.cli.guided_scan import run_guided
             run_guided()
-            input("\n\033[90mPress Enter to continue...\033[0m")
+            input(_pause("Press Enter to continue..."))
 
         elif choice == "14":
             # Recon-only: the tool picker runs and its evidence is shown,
             # but no session is reserved and the model is never queried.
             run_recon_only()
-            input("\n\033[90mPress Enter to continue...\033[0m")
+            input(_pause("Press Enter to continue..."))
 
         elif choice == "2":
             view_history()
-            input("\n\033[90mPress Enter to continue...\033[0m")
+            input(_pause("Press Enter to continue..."))
 
         elif choice in {"3", "4", "5", "6", "7"}:
             review_menu_choice(choice)
@@ -443,36 +455,36 @@ def _main_menu_loop():
         elif choice == "9":
             from penx_app.cli.assessment_ui import compare_menu
             compare_menu()
-            input("\n\033[90mPress Enter to continue...\033[0m")
+            input(_pause("Press Enter to continue..."))
 
         elif choice == "10":
             from penx_app.cli.assessment_ui import risk_menu
             risk_menu()
-            input("\n\033[90mPress Enter to continue...\033[0m")
+            input(_pause("Press Enter to continue..."))
 
         elif choice == "11":
             # Runtime setting shared by scanner and model output in this session.
             is_live = toggle_live_output()
             success("Terminal output: " + ("LIVE" if is_live else "QUIET"))
-            input("\n\033[90mPress Enter to continue...\033[0m")
+            input(_pause("Press Enter to continue..."))
 
         elif choice == "12":
             from penx_app.setup.llm_setup import maybe_configure_llm
             if maybe_configure_llm(force=True):
                 info("Restart PenX to use the new model settings in this session.")
-                input("\n\033[90mPress Enter to close PenX...\033[0m")
+                input(_pause("Press Enter to close PenX..."))
                 return
-            input("\n\033[90mPress Enter to continue...\033[0m")
+            input(_pause("Press Enter to continue..."))
 
         elif choice == "13":
             from penx_app.updates import update_interactive
             if update_interactive():
                 # The interactive installer runs only after PenX exits.
                 return
-            input("\n\033[90mPress Enter to continue...\033[0m")
+            input(_pause("Press Enter to continue..."))
 
         elif choice == "8":
-            print("\n\033[91m[*] Shutting down PenX. Stay legal.\033[0m\n")
+            print("\n" + _style("[*] Shutting down PenX. Stay legal.", "91") + "\n")
             sys.exit(0)
 
         else:
