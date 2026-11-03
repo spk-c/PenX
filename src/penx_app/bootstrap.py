@@ -5,7 +5,7 @@ import sys
 from penx_app.version import VERSION
 
 USAGE = ('Usage: PenX.exe [--version | --check | --setup-status | --setup | '
-         '--setup-native | --llm-setup | --check-update | --update | '
+         '--setup-native | --llm-setup | llm-info [--probe] | --check-update | --update | '
          '--export-session SL --format json|sarif [--redact] | '
          '--php2shell-audit [--scan-file FILE] [--php-ini FILE] '
          '[--access-log FILE] [--error-log FILE] | '
@@ -51,6 +51,9 @@ def main() -> int:
         if command == '--llm-setup':
             from penx_app.setup.llm_setup import maybe_configure_llm
             return 0 if maybe_configure_llm(force=True) else 1
+        if command == 'llm-info':
+            from penx_app.analysis.model_diagnostics import main as diagnostics_main
+            return diagnostics_main(args[1:])
         if command == '--check':
             if os.name == 'nt':
                 from penx_app.setup.windows_check import main as check
