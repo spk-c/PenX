@@ -17,6 +17,9 @@ if os.name == "nt":
     from ctypes import wintypes
     import msvcrt
 
+    _win_ctypes: Any = ctypes
+    _win_msvcrt: Any = msvcrt
+
     class _OVERLAPPED(ctypes.Structure):
         _fields_ = [
             ("Internal", ctypes.c_size_t),
@@ -26,7 +29,7 @@ if os.name == "nt":
             ("hEvent", wintypes.HANDLE),
         ]
 
-    _kernel32 = getattr(ctypes, "WinDLL")("kernel32", use_last_error=True)
+    _kernel32 = _win_ctypes.WinDLL("kernel32", use_last_error=True)
     _lock_file = _kernel32.LockFileEx
     _lock_file.argtypes = (
         wintypes.HANDLE, wintypes.DWORD, wintypes.DWORD,
@@ -41,6 +44,8 @@ if os.name == "nt":
     _unlock_file.restype = wintypes.BOOL
 else:
     import fcntl
+
+    _posix_fcntl: Any = fcntl
 
 
 class SQLiteDatabaseInUse(RuntimeError):
@@ -63,17 +68,17 @@ class SQLiteUseLock:
             raise RuntimeError("SQLiteUseLock file is not open")
         if os.name == "nt":
             self._overlapped = _OVERLAPPED()
-            handle = getattr(msvcrt, "get_osfhandle")(handle_file.fileno())
+            handle = _win_msvcrt.get_osfhandle(handle_file.fileno())
             flags = 0x1 | (0x2 if self.exclusive else 0)
             if not _lock_file(handle, flags, 0, 1, 0,
                               ctypes.byref(self._overlapped)):
-                code = getattr(ctypes, "get_last_error")()
+                code = _win_ctypes.get_last_error()
                 if code in (32, 33):
                     raise BlockingIOError(errno.EAGAIN, "Database in use")
                 raise OSError(code, "LockFileEx failed")
         else:
-            mode = getattr(fcntl, "LOCK_EX") if self.exclusive else getattr(fcntl, "LOCK_SH")
-            getattr(fcntl, "flock")(handle_file.fileno(), mode | getattr(fcntl, "LOCK_NB"))
+            mode = _posix_fcntl.LOCK_EX if self.exclusive else _posix_fcntl.LOCK_SH
+            _posix_fcntl.flock(handle_file.fileno(), mode | _posix_fcntl.LOCK_NB)
 
     def acquire(self) -> "SQLiteUseLock":
         if self._file is not None:
@@ -105,11 +110,11 @@ class SQLiteUseLock:
             return
         try:
             if os.name == "nt":
-                if not _unlock_file(getattr(msvcrt, "get_osfhandle")(handle.fileno()),
+                if not _unlock_file(_win_msvcrt.get_osfhandle(handle.fileno()),
                                     0, 1, 0, ctypes.byref(self._overlapped)):
-                    raise OSError(getattr(ctypes, "get_last_error")(), "UnlockFileEx failed")
+                    raise OSError(_win_ctypes.get_last_error(), "UnlockFileEx failed")
             else:
-                getattr(fcntl, "flock")(handle.fileno(), getattr(fcntl, "LOCK_UN"))
+                _posix_fcntl.flock(handle.fileno(), _posix_fcntl.LOCK_UN)
         finally:
             handle.close()
             self._file = None
