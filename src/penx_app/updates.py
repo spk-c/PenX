@@ -192,7 +192,18 @@ def update_interactive() -> bool:
     try:
         installer = download_verified_installer(latest)
         print("[OK] Installer checksum verified. Starting interactive setup...")
-        subprocess.Popen([str(installer)], shell=False, cwd=str(installer.parent))
+        process = subprocess.Popen([str(installer)], shell=False, cwd=str(installer.parent))
+        # Wait for the GUI installer so its outcome is reported here instead
+        # of being lost. Inno Setup exits 0 normally and 2/3 when a reboot
+        # is required; anything else is a failure or a user abort.
+        exit_code = process.wait()
+        if exit_code == 0:
+            print("[OK] Installer finished successfully.")
+        elif exit_code in (2, 3):
+            print("[OK] Installer finished; a reboot may be required.")
+        else:
+            print(f"[ERROR] Installer exited with code {exit_code}.")
+            return False
         return True
     except (OSError, ValueError, TimeoutError) as exc:
         print(f"[ERROR] Update aborted: {exc}")

@@ -8,7 +8,7 @@ import os
 from pathlib import Path
 import tempfile
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from penx_app import app_paths, updates
 from penx_app.version import VERSION
@@ -121,6 +121,28 @@ class InstallerUpdateTests(unittest.TestCase):
             self.assertFalse(updates.update_interactive())
             download.assert_not_called()
             proc.assert_not_called()
+
+    def test_installer_exit_code_is_waited_and_reported(self):
+        release = updates.Release(
+            NEXT_TAG, NEXT_PREFIX + "PenX-Setup-x64.exe",
+            NEXT_PREFIX + "SHA256SUMS.txt",
+            NEXT_RELEASE_URL)
+        # Inno Setup: 0 completed normally, 2/3 completed but a reboot is
+        # required; 1 means aborted. Only the first group counts as success.
+        for exit_code, expected in ((0, True), (2, True), (3, True), (1, False)):
+            with self.subTest(exit_code=exit_code):
+                popen = Mock()
+                popen.return_value.wait.return_value = exit_code
+                with patch.object(updates, "check_update", return_value=release), \
+                     patch.object(updates, "installed_mode", return_value=True), \
+                     patch.object(updates.os, "name", "nt"), \
+                     patch("builtins.input", return_value="y"), \
+                     patch.object(updates, "download_verified_installer",
+                                  return_value=Path("penx-update-fake.exe")), \
+                     patch.object(updates.subprocess, "Popen", popen):
+                    self.assertEqual(updates.update_interactive(), expected)
+                popen.assert_called_once()
+                popen.return_value.wait.assert_called_once_with()
 
     def test_startup_notice_never_checks_in_portable_mode(self):
         with patch.object(updates, "installed_mode", return_value=False), \
