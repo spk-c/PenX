@@ -1,9 +1,27 @@
 # PenX — Product and Engineering Roadmap (Codex-ready)
 
-**Status:** proposal / planning artifact. **Baseline:** published PenX v0.6.0, main commit 2dde11bcfb72e146b4db498c3fd01a2ab5eb2f74 (2 November 2026).
+**Status:** proposal / planning artifact, with implementation progress tracked separately below. **Release baseline:** published PenX v0.6.0, main commit 2dde11bcfb72e146b4db498c3fd01a2ab5eb2f74 (2 November 2026).
 **Audience:** maintainers and Codex implementation agents. **Scope:** Windows 10/11, Kali Linux, Debian, Ubuntu; defensive and authorized assessments only.
 **Implementation protocol:** [CODEX_EXECUTION.md](CODEX_EXECUTION.md), repository [AGENTS.md](../AGENTS.md).
 **Not a release promise.** Version targets, estimates and performance criteria below are proposals, subject to benchmark and operator validation.
+
+## Implementation snapshot — 3 November 2026
+
+This is a **progress snapshot of source code on main**, not a change to the published release or a human field sign-off. The latest released installer remains **v0.6.0** (2 November 2026). The final [post-merge main offline run](https://github.com/spk-c/PenX/actions/runs/41643068557) passed on commit `5e4c8afb29d18c0ad9608b23b027270f12b818d8`; hosted CI does not replace operator validation.
+
+| Roadmap ID | Implemented and merged | Remaining acceptance (not signed off) |
+| --- | --- | --- |
+| **PX-001** | [#133](https://github.com/spk-c/PenX/pull/133): additional Kali field worksheet and validator | Actual Windows/Npcap, Kali, upgrade/rollback, large-report and DB restore **human field evidence** |
+| **PX-002** | [#132](https://github.com/spk-c/PenX/pull/132): versioned scanner reason taxonomy and machine-export plumbing | Independently confirm exhaustive adapter/error-path matrix and legacy consumer parity |
+| **PX-003** | [#124–#131](https://github.com/spk-c/PenX/pulls?q=is%3Apr+is%3Amerged+PX-003): strict JSONL, bounded evidence and partial/loss status, selected report parity | Remaining adapter-specific negative corpus, original byte/source provenance, large HTML/PDF content parity |
+| **PX-004** | [#135](https://github.com/spk-c/PenX/pull/135): verified SQLite backups, preview, explicit CLI restore and live-connection lock | MariaDB backup/restore **not implemented**, external SQLite clients require shutdown, real upgrade/restore rehearsal still pending |
+| **PX-005** | [#136](https://github.com/spk-c/PenX/pull/136): CycloneDX SBOM, deterministic build manifest, offline asset verification | No signing/attestation claims; exercise on the next authorized tagged release and independent Windows field acceptance |
+| **PX-101** | [#134](https://github.com/spk-c/PenX/pull/134): canonical approved/candidate asset registry, SQLite v4 and MariaDB migration 008, project CLI | **Approval is not yet enforced at scan dispatch**; stored rate/budget caps are not yet enforced; no project batch scans |
+| **PX-103** | [#137](https://github.com/spk-c/PenX/pull/137): TTY detection, no-color/plain mode, width-aware rendering helpers | Scanner live-progress integration, full wrapping and Windows/Linux keyboard/TTY field matrix |
+
+The [#138 CI repair](https://github.com/spk-c/PenX/pull/138) switched transiently failing Kali mirror installs to a bounded signed-repository CDN fallback. This is infrastructure work, not a roadmap item or a new release.
+
+**Next dependency gate:** first implement and prove project-bound dispatch authorization and expiry/rate/budget enforcement as a focused **PX-101 follow-up**, while closing P0 field/provenance gaps. Only then begin **PX-102** resumable jobs. Do not automatically mark any entire milestone complete from a merged slice; keep the v0.6.0 baseline separate from current main.
 
 ## 1. Product direction
 
@@ -284,14 +302,17 @@ All additions must use explicit authorization, fixed bounded probes and conserva
 
 Do not tie release tags to a fixed calendar. Any phase can be re-ordered when an actual defect or verified operator need has higher value.
 
-## 11. Proposed near-term Codex sprint (four independently reviewable PRs)
+## 11. Current near-term Codex queue (updated 3 November 2026)
 
-1. **PR-A: PX-003 baseline fixture inventory** — Map every current scanner parser to golden success/partial/fail fixtures; add only missing coverage, not duplicate tests. Output a coverage table and deterministic runner.
-2. **PR-B: PX-002 scanner failure reason contract** — Introduce a versioned optional reason field and preserve existing schema consumers; add cancellation/missing-dependency/error tests. Requires PR-A fixtures.
-3. **PR-C: PX-001 field evidence workflow** — Extend manual VM/Kali evidence worksheet and validator. Do **not** run real external scans or claim sign-off.
-4. **PR-D: PX-101 minimal project/scope manifest** — First release just validate, preview, store and list exact user-approved scopes; **no batch scanning until approval enforcement is proven**.
+The original PR-A/B/C/D preparatory slices have already been merged: PX-003 ([#124–#131](https://github.com/spk-c/PenX/pulls?q=is%3Apr+PX-003)), PX-002 ([#132](https://github.com/spk-c/PenX/pull/132)), PX-001 ([#133](https://github.com/spk-c/PenX/pull/133)) and PX-101 ([#134](https://github.com/spk-c/PenX/pull/134)). **Do not recreate these starting tasks.** The following are remaining vertical slices, not automatic permissions to scan or publish.
 
-An agent should complete **one** of these before starting another, and should check whether another PR has already implemented it. Pushing multiple unrelated features in one PR makes review and rollback much harder.
+1. **Next PR — PX-101 dispatch authorization gate (P1, required before PX-102):** design an explicit project-bound scan option, enforce approved asset + expiry at the final dispatch boundary, and apply declared rate/budget caps. Preserve existing standalone explicit-consent behavior and prevent discovered-candidate escalation. Test unauthorized, ambiguous, expired, redirect, race and cancellation paths using loopback fixtures. No project batch runner until the guard is proven.
+2. **PX-003 remaining evidence/provenance coverage (P0):** inventory adapter-specific missing negative/partial golden packs and untested byte/JSONL source traceability. Extend HTML/PDF long-report and source-quote parity only for demonstrated gaps; do not duplicate existing fixtures.
+3. **PX-001 field acceptance (P0):** use the published Windows/Kali worksheets on disposable operator-owned environments. Record binary hash, OS, result, evidence and independent reviewer. CI does **not** sign off physical Npcap/UAC or production restore behavior.
+4. **PX-004 data-recovery follow-up (P0):** design MariaDB-native verified restore separately from SQLite, with isolated database tests, explicit operator consent and a rollback plan; verify SQLite restore with independent external clients shut down and WAL safety.
+5. **Then PX-102 (P1, large):** add a durable job journal and restart/resume state machine only after PX-101's runtime authorization and PX-004's applicable backup guarantees are verified. Resume of consent-gated active adapters must never be automatic.
+
+Each slice requires its own issue/PR, before/after tests, security review and an explicit remaining-gates list. Prioritize blocking P0 regressions over new features; do not combine these tasks into one broad PR.
 
 ## 12. Release-wide metrics (proposed targets, not measured baselines)
 

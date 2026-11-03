@@ -2,13 +2,15 @@
 
 **Roadmap source:** [ROADMAP.md](ROADMAP.md). The repository [AGENTS.md](../AGENTS.md) contains short permanent constraints. This playbook is for **implementing one item at a time**, not for treating all roadmap entries as one unlimited change request.
 
-## Start here: recommended first task
+## Start here: current main and next verified gap (3 November 2026)
 
-**PX-003 — golden scanner fixture inventory and harness.** This is the most valuable foundation for subsequent scanner/finding/AI improvements. Existing tests and Kali local fixtures already cover much of the ground, so Codex must first report coverage and add **only genuine missing cases**, not duplicate hundreds of tests.
+**Do not repeat the old PX-003/PX-002 starter PRs.** Main includes the merged PX-003 corpus slices [#124–#131](https://github.com/spk-c/PenX/pulls?q=is%3Apr+PX-003), PX-002 taxonomy [#132](https://github.com/spk-c/PenX/pull/132), PX-001 Kali worksheets [#133](https://github.com/spk-c/PenX/pull/133), PX-101 asset registry [#134](https://github.com/spk-c/PenX/pull/134), PX-004 SQLite backup [#135](https://github.com/spk-c/PenX/pull/135), PX-005 release provenance [#136](https://github.com/spk-c/PenX/pull/136) and the PX-103 plain-mode foundation [#137](https://github.com/spk-c/PenX/pull/137). This is source progress, **not full feature acceptance**. The latest published binaries are still v0.6.0.
+
+**First recommended implementation slice: PX-101 runtime authorization enforcement.** The project CLI stores/verifies approved assets, but the project registry does **not** yet protect scanner dispatch. Add explicit project-bound authorization without weakening the existing independent explicit-consent CLI path. Before a runnable job queue (PX-102), enforce approved exact target, expiry, scope/rate/budget and fail-closed behavior at the scan dispatch boundary. Keep discovered assets as candidates; no silent authorization, no new live targets, no batch scans in this slice. P0 evidence/field gaps PX-001/PX-003/PX-004 remain open and may block implementation/release.
 
 ### Copy into Codex
 
-> You are working in https://github.com/spk-c/PenX on the current main branch. Read AGENTS.md, docs/ROADMAP.md and docs/CODEX_EXECUTION.md. Start with roadmap item **PX-003 only**. Inspect every scanner adapter and its parser, existing tests and tests/kali_local_scanner_acceptance.py; make a short coverage map of COMPLETE/PARTIAL/FAILED, timeout, cancellation, corrupted output and missing dependency cases. Identify at least one source-grounded gap with real user impact, add sanitized deterministic offline fixtures and tests, then implement only the minimal code changes needed. Do not scan any external target, enable active probes, run exploitation or change existing consent behavior. Preserve historical schema/API and do not alter releases or tags. Run targeted tests, python offline_tests.py and relevant static checks; if something cannot run, say NOT RUN. Make small meaningful commits, push the feature branch after each completed slice, create a PR referencing PX-003 and record test commands/results and remaining issues. After the PR, stop and report; do not start another roadmap item automatically.
+> You are working in https://github.com/spk-c/PenX. Read AGENTS.md, docs/ROADMAP.md, docs/CODEX_EXECUTION.md and the latest merged code on main; check open PRs/issues and avoid duplicate implementations. Work on **one PX-101 follow-up slice only**: ensure an explicitly selected project and its approved asset policy are validated at the *actual scanner dispatch boundary*, including expiry and configured rate/budget limits. Keep standalone scans and existing explicit user consent backward compatible. Do not enable batch scanning, auto-approve discovered targets, contact unrelated external systems, publish releases or rewrite history. First document a threat model and an offline failing test matrix for unauthorized/expired/candidate/ambiguous targets, redirects, concurrent revocation and cancellation. Use owned loopback fixtures; no live third-party scans. Make the smallest typed/migration-safe changes needed, run targeted tests, python offline_tests.py, static checks and relevant CI, push a focused branch and open a PR linking Issue #123. State clearly what remains NOT RUN and stop after the PR. Do **not** start PX-102 until the dispatch-authorization acceptance is proven.
 
 ## Workflow Codex must follow
 
@@ -42,15 +44,13 @@ Stop implementation and mark BLOCKED (do not fabricate success) if source equiva
 - Remaining manual/field acceptance
 - Next recommended PX ID
 
-## Phase order and dependencies
+## Phase order and dependencies (current)
 
-| First | Then | Defer until foundation |
+| First (remaining acceptance) | Then | Still blocked |
 | --- | --- | --- |
-| PX-003 (corpus), PX-002 (result taxonomy) | PX-101 (explicit scope manifest), PX-004 (backup/restore) | PX-102 (job queue) |
-| PX-101 + PX-102 | PX-104 (workspace), PX-103 (TUI) | PX-105/106 (recurrence/alerts) |
-| PX-201 (lifecycle) + PX-203 (evidence) | PX-202, PX-204, PX-205/206 | Optional read-only localhost UI |
-| PX-301/302/303 (bounded read-only checks) | PX-304/305, PX-307 | PX-306 (third-party adapter contract) |
-| PX-402 + PX-403 (grounding + benchmark) | PX-401/404/405 | Autonomous or cloud-driven assessments (not in this roadmap) |
+| PX-001/PX-003/PX-004 P0 field/evidence/recovery gaps; PX-101 explicit dispatch authorization | PX-102 persisted and resumable jobs after signed-off project gate | Project batch/scheduled scans and other unattended activity |
+| PX-103 live progress / keyboard field checks and PX-104 filtered history | PX-201 review lifecycle and PX-203 evidence quality | PX-105/106 scheduling/alerts without approved jobs and scopes |
+| PX-301/302/303 read-only fixture analysis, PX-402/403 model grounding + benchmark | PX-304–307 and PX-401/404/405 after review | No cloud-driven or unauthorized assessment automation |
 
 ## Safe scope and example commands
 
