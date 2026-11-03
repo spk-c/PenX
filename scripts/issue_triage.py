@@ -63,6 +63,31 @@ MAX_MODEL_TEXT = 1600
 RETRYABLE_MODEL_HTTP = frozenset({429, 500, 502, 503, 504})
 
 
+TRACKING_LABELS = frozenset({
+    "roadmap", "type:roadmap", "type:planning", "planning", "milestone", "epic",
+})
+
+
+def is_planning_issue(issue: dict) -> bool:
+    """Roadmap/epic trackers are documentation, not bug or feature reports.
+
+    Only unambiguous title prefixes or explicit classification labels skip
+    review. A bug mentioning a roadmap elsewhere still receives normal triage.
+    """
+    title = str(issue.get("title") or "")[:300]
+    if re.match(r"(?i)^\s*(?:\[(?:roadmap|milestone|epic|planning)\]|"
+                r"(?:roadmap|milestone|epic|planning)\s*[:\-\u2013\u2014])", title):
+        return True
+    labels = issue.get("labels") or []
+    if not isinstance(labels, (list, tuple)):
+        return False
+    for entry in labels:
+        name = entry.get("name", "") if isinstance(entry, dict) else entry
+        if isinstance(name, str) and name.strip().casefold() in TRACKING_LABELS:
+            return True
+    return False
+
+
 class ModelReviewError(ValueError):
     """Invalid or incomplete Groq responses, without exposing payloads."""
 
@@ -1076,10 +1101,13 @@ def no_model_review(issue: dict) -> dict:
     }
 
 
-def review(repo: str, number: int, token: str, root: Path) -> dict:
+def review(repo: str, number: int, token: str, root: Path) -> dict | None:
     issue = request_json(f"{API_ROOT}/repos/{repo}/issues/{number}", token)
     if "pull_request" in issue:
         raise ValueError("Issue triage does not review pull requests")
+    if is_planning_issue(issue):
+        print("Roadmap/planning tracker: automated bug triage skipped")
+        return None
     # Avoid Groq quota and false claims of a completed security audit.
     if is_audit_request(issue):
         result = audit_review(issue)
@@ -1214,6 +1242,8 @@ def select_pending_issue(repo: str, token: str) -> int | None:
                         or "pull_request" in candidate
                         or not isinstance(candidate.get("number"), int)):
                     continue
+                if is_planning_issue(candidate):
+                    continue
                 if label == "triage:unverified":
                     # Revisit historical Groq-429 replies only. Genuinely
                     # inconclusive reviews must NOT loop forever.
@@ -1261,6 +1291,12 @@ def main() -> int:
                 handle.write("report=\nissue_number=\n")
             return 0
         report = review(repo, number, token, Path(__file__).resolve().parents[1])
+        if report is None:
+            # A blank output prevents the issues:write publisher from starting.
+            with open(output_path, "a", encoding="utf-8") as handle:
+                handle.write("report=\nissue_number=\n")
+            print("Planning issue skipped; no triage comment or label")
+            return 0
         encoded = base64.b64encode(json.dumps(report).encode("utf-8")).decode("ascii")
         with open(output_path, "a", encoding="utf-8") as handle:
             handle.write("report=" + encoded + "\n")
