@@ -1,9 +1,12 @@
 # Named project scopes and approved assets (PX-101)
 
 Manage named projects with explicit, exact target approvals instead of
-re-entering isolated targets. This release validates, previews, stores, and
-lists approved scopes; it does **not** dispatch batch scanning. Approval
-enforcement across a project's assets is deferred until it is proven.
+re-entering isolated targets. The registry validates, previews, stores, and
+lists approved scopes. On current `main`, the opt-in `scan --project NAME`
+path enforces stored approval for the audited bounded adapters (HTTP headers,
+DNS, TLS) and passive profile. Unsupported adapters are **blocked** for
+project-bound scans rather than being run with unchecked redirects or extra
+targets. There is still **no batch or scheduled scanning**.
 
 ```text
 python penx.py project create acme
@@ -16,6 +19,67 @@ python penx.py project list acme
 python penx.py project check acme --target example.test:443
 python penx.py project preview acme
 ```
+
+## Opt-in project-bound headless scans (PX-101 follow-up)
+
+Examples below are **illustrative only**. `example.test` is not automatically
+an authorized target; run the commands only for assets you control or have
+explicit permission to assess.
+
+```text
+python penx.py project create owned-assessment
+python penx.py project add owned-assessment --target example.test --rate 2 --budget 120
+python penx.py scan --project owned-assessment --target example.test --scanners 4,5 --authorized --output ./reports
+python penx.py scan --project owned-assessment --target https://example.test:8443 --scanners 4,d --authorized --output ./reports
+python penx.py scan --project owned-assessment --target example.test --profile passive --authorized --output ./reports
+```
+
+- `--project` is **opt-in**; standalone `scan` keeps its previous explicit
+  `--authorized`/active `--consent` behavior. Project registration does *not*
+  replace operator authorization. A project-bound scan needs both flags when
+  the selected adapters require them.
+- A fresh database lookup checks approval before the first scanner and before
+  **each** later adapter, with a second check in each worker. Passive collection
+  rechecks before outbound provider requests. An expired/revoked/ambiguous
+  grant, a candidate-only target, unreadable database or modified scan plan
+  blocks further collection. In-flight I/O is cooperative; immediate revocation
+  cannot retroactively cancel a blocking OS operation.
+- Only a **single concrete host/IP** is accepted as a run target; wildcard and
+  CIDR entries can authorize an individual host but cannot be passed for a
+  subnet-wide scan. An ambiguous overlap between approved entries is denied.
+  Port-specific approvals are allowed only with adapters preserving that port.
+  DNS and passive lookups require a host without an explicit port.
+- Project-bound adapters currently supported: `4` HTTP headers (HEAD/GET,
+  redirects **not followed**), `5` DNS queries, `d` verified TLS handshake.
+  The `passive` profile is also supported. All other adapters are **rejected
+  before any network I/O or subprocess**, because their redirects, scanning
+  fan-out or rate policy have not been proven safe under this project contract.
+  This does not disable them for independent, explicitly authorized scans.
+- A project's `--rate` is a **per-run rate ceiling on logical outbound calls** for the
+  supported Python HTTP/DNS/TLS adapters and passive provider queries. It
+  cannot constrain every underlying DNS socket retry or network packet and is
+  not a global multi-process bandwidth/request rate limit. A per-run shared cooperative limiter applies
+  between requests, including TLS retry and HEAD-to-GET fallback. Values above
+  60 or ones whose dispatch interval exceeds the 60-second scheduler limit are
+  refused, never silently ignored. External scanners without this control
+  are blocked.
+- `--budget` on the project asset means total seconds. The project budget is
+  an **upper bound**, applied alongside the CLI budget and a 3600-second
+  project-run ceiling (minimum supported budget: 30 seconds). Project-bound
+  scans force one worker and an adapter dispatch interval no shorter than
+  the request-rate cap; they never raise CLI/profile limits.
+- `scan --dry-run --project NAME` validates the stored scope and budget but
+  runs no scanner. There are no background jobs or automatic resumes.
+- SQL migration is unchanged (SQLite v4; optional MariaDB migration 008).
+  Approval reads use the configured storage backend; MariaDB acceptance is
+  covered by integration CI, not a claim of physical Windows/Kali acceptance.
+
+**Current limitations:** the authorization check and outbound request are not
+one database transaction, so another process can revoke between check and a
+blocking request. An in-flight scanner is not guaranteed to stop instantly.
+Adapters with unverified follow-on behavior remain unavailable in this mode.
+Human field acceptance (Windows/Npcap/Kali and real database restore) remains
+separate from CI.
 
 ## Target kinds
 
@@ -78,8 +142,8 @@ read time, so a row never silently flips status.
 
 - Batch scanning over a project's assets.
 - Automatic approval of discovered subdomains (they are candidates only).
-- Rate/budget **enforcement** at dispatch time (values are stored, not yet
-  applied).
+- Project rate/budget enforcement for **external scanners**, which are
+  deliberately blocked in project-bound mode pending audited controls.
 
 ### MariaDB setup
 
