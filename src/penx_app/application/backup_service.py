@@ -177,6 +177,25 @@ def _cmd_mariadb_restore_plan(args: argparse.Namespace) -> int:
     print(json.dumps(result, sort_keys=True))
     return 0
 
+def _cmd_mariadb_restore_preflight(args: argparse.Namespace) -> int:
+    """Read-only server target visibility; never imports backup SQL."""
+    from penx_app.application.mariadb_restore_plan import preflight_scratch_target
+
+    try:
+        password = os.environ.get("PENX_VERIFY_MARIADB_PASSWORD", "")
+        result = preflight_scratch_target(
+            args.file, target_schema=args.target_schema,
+            host=args.host, port=args.port, database=args.database,
+            user=args.user, password=password)
+    except Exception:
+        # MariaDB client errors can contain credentials or schema details.
+        print(json.dumps({"status": "unverified",
+                          "error": "mariadb-scratch-preflight-failed"}))
+        return 2
+    print(json.dumps(result, sort_keys=True))
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="penx backup",
@@ -224,6 +243,19 @@ def main(argv: list[str] | None = None) -> int:
         "--target-schema", required=True,
         help="Proposed penx_restore_<32-hex> name; existence not checked")
 
+    p_preflight = sub.add_parser(
+        "mariadb-restore-preflight",
+        help="READ ONLY target schema visibility check; NO restore")
+    p_preflight.add_argument("--file", required=True)
+    p_preflight.add_argument("--target-schema", required=True)
+    p_preflight.add_argument("--host", required=True,
+                             help="Loopback MariaDB host only")
+    p_preflight.add_argument("--port", type=int, default=3306)
+    p_preflight.add_argument("--database", required=True,
+                             help="Existing source schema for the read-only login")
+    p_preflight.add_argument("--user", required=True,
+                             help="Read-only user with explicit SHOW DATABASES privilege")
+
     try:
         args = parser.parse_args(argv)
     except SystemExit:
@@ -237,5 +269,6 @@ def main(argv: list[str] | None = None) -> int:
         "mariadb-verify": _cmd_mariadb_verify,
         "mariadb-preview": _cmd_mariadb_preview,
         "mariadb-restore-plan": _cmd_mariadb_restore_plan,
+        "mariadb-restore-preflight": _cmd_mariadb_restore_preflight,
     }
     return handlers[args.command](args)

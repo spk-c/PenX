@@ -77,6 +77,46 @@ the source database remains unchanged, and removes **only** that known
 disposable scratch schema. It demonstrates why SQL imports cannot be
 treated as atomic rollback. No user database is modified.
 
+## Read-only server-side scratch target preflight
+
+An optional **second**, explicitly requested check connects to MariaDB
+using the existing PX-003 read-only connector. It validates the backup
+SHA and proposed target, then confirms whether the name was visible as
+absent in a single server-enforced READ ONLY snapshot. The login schema
+must match the manifest's source database.
+
+This requires an intentionally provisioned account with **direct global
+SHOW DATABASES permission** as well as read access to the existing
+source schema. Without that global metadata permission, MariaDB can
+hide other schemas from the query; therefore the command rejects the
+check instead of claiming a missing target is safe. This permission
+reveals all database names and must **not** be granted automatically.
+Review its disclosure impact and use a separate temporary account if
+an operator chooses to run this preflight.
+
+Use the existing separate password variable for read-only verification
+and a loopback-only endpoint (or separately approved SSH tunnel):
+
+~~~powershell
+$env:PENX_VERIFY_MARIADB_PASSWORD = Read-Host "Read-only preflight password" -AsSecureString | ConvertFrom-SecureString -AsPlainText
+python penx.py backup mariadb-restore-preflight --file "C:\PenX\private-backups\YOUR-BACKUP.sql" --target-schema penx_restore_0123456789abcdef0123456789abcdef --host 127.0.0.1 --port 3306 --database penx --user penx_metadata_reader
+Remove-Item Env:\PENX_VERIFY_MARIADB_PASSWORD
+~~~
+
+The result is **never** restore authorization. Even a successful check
+means only `absent-at-check-time-only`; it neither reserves the name
+nor checks permissions to create the target, SQL safety, maintenance
+state, pre-restore backup or future race conditions. It returns
+`target_reserved: false` and `restore_available: false`.
+The existing offline `mariadb-restore-plan` is unchanged and remains
+available without a database connection.
+
+On a disposable MariaDB CI service, tests verify that an account
+without global schema visibility cannot certify target absence,
+that explicitly granted metadata visibility permits an absent-name
+snapshot, and that the same snapshot check refuses the target after
+it is created. **The CI-only grant does not apply to user databases.**
+
 ## Restore acceptance and remaining work
 
 PenX does **not** offer a MariaDB in-place restore command. The new
@@ -88,4 +128,3 @@ A production-safe restore still needs pre-restore backup, explicit
 target/database approval, maintenance/connection locks, deterministic
 partial-import recovery, rollback and independent operator rehearsal.
 No real user database has been modified for this development slice.
-
