@@ -35,7 +35,9 @@ def evidence_traceability(
         == "stored-reference-not-revalidated"
         and source.get("raw_artifact") is not None
     )
-    tier = 2 if attributed and status == "COMPLETE" else (1 if matched else 0)
+    usable_evidence = attributed and source.get("scanner_evidence") is True
+    tier = (2 if usable_evidence and status == "COMPLETE"
+            else (1 if matched else 0))
     label = (
         "typed-complete-section" if tier == 2
         else "saved-quote-only" if tier == 1
@@ -50,6 +52,8 @@ def evidence_traceability(
             "source_identity": (
                 "unique-saved-section" if attributed else "unattributed"),
             "coverage": status,
+            "typed_usable_evidence": (
+                "recorded-usable" if usable_evidence else "not-established"),
             "freshness": (
                 "recorded-date-only-not-age-verified" if has_date
                 else "unknown"),
