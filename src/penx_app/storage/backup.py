@@ -22,6 +22,7 @@ from contextlib import closing
 import hashlib
 import json
 import os
+import re
 import shutil
 import sqlite3
 import time
@@ -35,6 +36,45 @@ from penx_app.storage.sqlite_use_lock import SQLiteDatabaseInUse, SQLiteUseLock
 
 BACKUP_SCHEMA = "penx-backup-v1"
 _CHUNK_SIZE = 1024 * 1024
+_MAX_MANIFEST_BYTES = 16 * 1024
+_MANIFEST_KEYS = frozenset({
+    "schema", "status", "file", "created_at", "source_schema_version",
+    "size_bytes", "sha256",
+})
+
+
+def _strict_manifest_fields(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    """Reject duplicate JSON keys, including the ones governing trust."""
+    result: dict[str, Any] = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError("Duplicate backup metadata field")
+        result[key] = value
+    return result
+
+
+def _valid_manifest_fields(value: object, expected_filename: str) -> bool:
+    if not isinstance(value, dict) or set(value) != _MANIFEST_KEYS:
+        return False
+    if (value.get("schema") != BACKUP_SCHEMA
+            or value.get("status") != "verified"
+            or type(value.get("file")) is not str
+            or value["file"] != expected_filename
+            or type(value.get("size_bytes")) is not int
+            or value["size_bytes"] <= 0
+            or type(value.get("source_schema_version")) is not int
+            or not 0 <= value["source_schema_version"] <= SCHEMA_VERSION
+            or type(value.get("sha256")) is not str
+            or not re.fullmatch(r"[0-9a-f]{64}", value["sha256"])
+            or type(value.get("created_at")) is not str
+            or not re.fullmatch(r"\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ",
+                                value["created_at"])):
+        return False
+    try:
+        time.strptime(value["created_at"], "%Y-%m-%dT%H:%M:%SZ")
+    except (TypeError, ValueError, OverflowError):
+        return False
+    return True
 
 
 class BackupError(Exception):
@@ -150,30 +190,37 @@ def verify_backup(path: Path) -> dict[str, Any]:
         "schema_version": None,
     }
     reasons: list[str] = []
+    if manifest_path.is_symlink():
+        report.update(reasons=["manifest is a symbolic link"])
+        return report
     if not manifest_path.is_file():
-        reasons.append(f"manifest missing: {manifest_path.name}")
-        report.update(reasons=reasons)
+        report.update(reasons=[f"manifest missing: {manifest_path.name}"])
         return report
     try:
-        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-    except (OSError, ValueError):
+        if manifest_path.stat().st_size > _MAX_MANIFEST_BYTES:
+            raise ValueError("oversized metadata")
+        with manifest_path.open("rb") as handle:
+            raw = handle.read(_MAX_MANIFEST_BYTES + 1)
+        if len(raw) > _MAX_MANIFEST_BYTES:
+            raise ValueError("oversized metadata")
+        manifest = json.loads(raw.decode("utf-8"),
+                              object_pairs_hook=_strict_manifest_fields)
+    except (OSError, UnicodeError, ValueError, RecursionError):
         report.update(reasons=["manifest unreadable"])
         return report
-    if not isinstance(manifest, dict) or manifest.get("schema") != BACKUP_SCHEMA:
-        report.update(reasons=["manifest has unexpected schema"])
+    if not _valid_manifest_fields(manifest, db_path.name):
+        report.update(reasons=["manifest has invalid fields"])
         return report
-    if manifest.get("status") != "verified":
-        reasons.append("manifest status is not verified")
-    if manifest.get("file") != db_path.name:
-        reasons.append("manifest names a different file")
     expected_size = manifest.get("size_bytes")
     expected_digest = manifest.get("sha256")
-    if not db_path.is_file():
+    if db_path.is_symlink():
+        reasons.append("database file is a symbolic link")
+    elif not db_path.is_file():
         reasons.append(f"database file missing: {db_path.name}")
     else:
         actual_size = db_path.stat().st_size
         report["size_bytes"] = actual_size
-        if isinstance(expected_size, int) and actual_size != expected_size:
+        if actual_size != expected_size:
             reasons.append(
                 f"size mismatch (manifest {expected_size}, actual {actual_size})"
             )
@@ -194,6 +241,8 @@ def verify_backup(path: Path) -> dict[str, Any]:
             reasons.append(f"database unreadable: {exc}")
         else:
             report["schema_version"] = version
+            if type(version) is int and version != manifest["source_schema_version"]:
+                reasons.append("source schema version mismatch")
             if integrity is None or integrity[0] != "ok":
                 reasons.append("integrity_check failed")
             if not isinstance(version, int) or version < 0:

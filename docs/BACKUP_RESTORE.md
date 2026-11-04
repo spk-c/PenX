@@ -29,6 +29,15 @@ A backup is **valid** only when all of the following hold:
 A crash or interrupt can leave a `.tmp` file or a manifest without its
 database file behind; neither state passes verification.
 
+The SQLite v1 manifest reader now additionally enforces a small, bounded
+metadata file (16 KiB), exact expected field names and types, non-duplicated
+JSON keys, a valid UTC creation timestamp and a matching source schema
+version. Symlinked backup files or manifests are rejected. Old PenX v1
+backups with the documented fields remain readable without migration.
+These checks defend against malformed, redirected or ambiguous local backup
+inputs; **SHA-256 and a writable sidecar manifest are not a cryptographic
+signature**. Protect backups with local access control and offline copies.
+
 ## Commands
 
 Run through the PenX entrypoint (`penx.py`, `PenX.exe`, or `penx` on PATH):
