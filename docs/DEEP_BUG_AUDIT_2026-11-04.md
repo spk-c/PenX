@@ -94,7 +94,7 @@ Status-Stand: 2026-11-04, Branch `fix/p3-audit-hardening` — **N1–N4 alle beh
 - **Repro (statisch):** Code-Lektüre; Runtime: Stub-Installer mit Exit-Code 1 starten.
 - **Empfohlener Fix:** Entweder dokumentieren (fire-and-forget ist beabsichtigt) oder ein `proc.wait()` in einem Daemon-Thread mit Ergebnis-Ausgabe.
 - **Regressionstest:** Optional; gepatchtes `Popen`, Assert auf dokumentiertes Verhalten.
-- **Fix-Status (2026-11-04, `fix/p3-audit-hardening`):** Behoben — `update_interactive` wartet jetzt synchron auf den Installer (`process.wait()`) und meldet das Ergebnis: Exit 0 → `[OK] ... successfully`, Exit 2/3 (Inno Setup: Neustart erforderlich) → `[OK] ... reboot may be required`, sonst → `[ERROR] Installer exited with code N` und `False` (damit liefert `--update` per `bootstrap.py` den korrekten Prozess-Exit-Code). Regressionstest `tests/test_installer_updates.py::test_installer_exit_code_is_waited_and_reported` (Exit 0/2/3/1; assertet `wait()`-Aufruf und Rückgabewert). Test schlägt am alten Code fehl (`Expected 'wait' to be called once. Called 0 times.` / `True != False`), neu grün.
+- **Fix-Status (2026-11-04, `fix/p3-audit-hardening`):** Behoben — `update_interactive` wartet jetzt synchron auf den Installer (`process.wait()`) und meldet das Ergebnis: Exit 0 → `[OK] ... successfully`, Exit 2/5 → Abbruch (Warnung, `False`), Exit 8 → Neustart vor erneutem Versuch nötig (`False`), alle übrigen Nonzero-Codes → Fehler und `False` (damit liefert `--update` per `bootstrap.py` den korrekten Prozess-Exit-Code). Regressionstest `tests/test_installer_updates.py::test_installer_exit_code_is_waited_and_reported` (Exit 0/1/2/3/4/5/8/999; assertet `wait()`-Aufruf und Rückgabewert; ohne globale `os.name`-Manipulation). Test schlägt am alten Code fehl (`Expected 'wait' to be called once. Called 0 times.` / `True != False`), neu grün.
 
 ### N4 — `?mode=ro`-Öffnungen in backup.py ohne Fallback (P3, SUSPECTED)
 
@@ -141,7 +141,7 @@ Status-Stand: 2026-11-04, Branch `fix/p3-audit-hardening` — **N1–N4 alle beh
 | CVE-Engine (Rate-Limit, 429-Retry, Bounded JSON, Disk-Cache) | OK (N1/N2 latent) | Review `intelligence/cve_engine.py:151-280,560-640`, `nvd_disk_cache.py` (vollständig) + Tests |
 | Source-Verification (NVD/KEV, Strict-Validierung) | OK (N2 latent) | Review `intelligence/source_verification.py` (vollständig) + Tests |
 | PHP2Shell-Posture (Version-Beobachtung nur) | OK | Review `intelligence/php2shell_audit.py` (vollständig) + Tests |
-| Updates (SHA-256-Verifikation, Bounded Download) | OK (N3: Popen fire-and-forget) | Review `updates.py:120-232` + `test_updates.py` |
+| Updates (SHA-256-Verifikation, Bounded Download) | OK (N3: Installer-Exit-Codes geprüft) | Review `updates.py:120-232` + `test_updates.py` |
 | Setup (Native-Scanner atomares Install, Nuclei-Templates) | OK | Review `setup/native_scanner_setup.py:101-210` + Setup-Tests |
 | CLI (Signal-Scoping, Navigation, Cancellation) | OK | Review `cli/scanner_cancellation.py` (vollständig) + `test_scanner_cancellation.py` |
 | Scan-Planner (Topologie, Deadlines, CancellingPool) | OK | Review `application/scan_planner.py` + Plan-Tests |
