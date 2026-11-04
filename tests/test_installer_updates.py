@@ -8,7 +8,7 @@ import os
 from pathlib import Path
 import tempfile
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from penx_app import app_paths, updates
 from penx_app.version import VERSION
@@ -114,13 +114,39 @@ class InstallerUpdateTests(unittest.TestCase):
             NEXT_RELEASE_URL)
         with patch.object(updates, "check_update", return_value=release), \
              patch.object(updates, "installed_mode", return_value=True), \
-             patch.object(updates.os, "name", "nt"), \
+             patch.object(updates, "is_windows", return_value=True), \
              patch("builtins.input", return_value="n"), \
              patch.object(updates, "download_verified_installer") as download, \
              patch.object(updates.subprocess, "Popen") as proc:
             self.assertFalse(updates.update_interactive())
             download.assert_not_called()
             proc.assert_not_called()
+
+    def test_installer_exit_code_is_waited_and_reported(self):
+        release = updates.Release(
+            NEXT_TAG, NEXT_PREFIX + "PenX-Setup-x64.exe",
+            NEXT_PREFIX + "SHA256SUMS.txt",
+            NEXT_RELEASE_URL)
+        # Inno Setup: only zero means installation completed. 2/5 are
+        # cancellations, 3 is a fatal prepare error, 8 needs a retry after
+        # a system restart. Never treat these as successful updates.
+        for exit_code, expected in (
+            (0, True), (1, False), (2, False), (3, False),
+            (4, False), (5, False), (8, False), (999, False),
+        ):
+            with self.subTest(exit_code=exit_code):
+                popen = Mock()
+                popen.return_value.wait.return_value = exit_code
+                with patch.object(updates, "check_update", return_value=release), \
+                     patch.object(updates, "installed_mode", return_value=True), \
+                     patch.object(updates, "is_windows", return_value=True), \
+                     patch("builtins.input", return_value="y"), \
+                     patch.object(updates, "download_verified_installer",
+                                  return_value=Path("penx-update-fake.exe")), \
+                     patch.object(updates.subprocess, "Popen", popen):
+                    self.assertEqual(updates.update_interactive(), expected)
+                popen.assert_called_once()
+                popen.return_value.wait.assert_called_once_with()
 
     def test_startup_notice_never_checks_in_portable_mode(self):
         with patch.object(updates, "installed_mode", return_value=False), \

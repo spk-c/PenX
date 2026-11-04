@@ -192,8 +192,22 @@ def update_interactive() -> bool:
     try:
         installer = download_verified_installer(latest)
         print("[OK] Installer checksum verified. Starting interactive setup...")
-        subprocess.Popen([str(installer)], shell=False, cwd=str(installer.parent))
-        return True
+        process = subprocess.Popen([str(installer)], shell=False, cwd=str(installer.parent))
+        # Inno Setup returns 0 for a completed installation. Code 2 is
+        # cancellation before install, 5 is cancellation during install,
+        # and 8 means setup could not proceed until after a restart.
+        # No non-zero exit code should be reported as a successful update.
+        exit_code = process.wait()
+        if exit_code == 0:
+            print("[OK] Installer finished successfully.")
+            return True
+        if exit_code in (2, 5):
+            print(f"[WARN] Installer cancelled (exit code {exit_code}).")
+        elif exit_code == 8:
+            print("[ERROR] Installer could not proceed; restart Windows and retry (exit code 8).")
+        else:
+            print(f"[ERROR] Installer exited with code {exit_code}.")
+        return False
     except (OSError, ValueError, TimeoutError) as exc:
         print(f"[ERROR] Update aborted: {exc}")
         return False

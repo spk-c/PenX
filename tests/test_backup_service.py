@@ -402,5 +402,75 @@ class RestoreTests(BackupFixture):
             )
 
 
+class ReadOnlyOpenFallbackTests(BackupFixture):
+    """Strict ``?mode=ro`` opens may be rejected (hot journal/WAL on read-only
+    media); the backup path must fall back to a plain connect that still
+    only reads."""
+
+    def _reject_strict_ro(self):
+        real_connect = sqlite3.connect
+        ro_attempts = 0
+        plain_attempts = 0
+
+        def guarded(path, *args, **kwargs):
+            nonlocal ro_attempts, plain_attempts
+            if isinstance(path, str) and path.endswith("?mode=ro"):
+                ro_attempts += 1
+                raise sqlite3.OperationalError("unable to open database file")
+            plain_attempts += 1
+            return real_connect(path, *args, **kwargs)
+
+        return guarded, lambda: (ro_attempts, plain_attempts)
+
+    def test_open_ro_falls_back_to_query_only_connect(self):
+        source = self.source_dir / "penx.db"
+        self.make_current(source)
+        guarded, counts = self._reject_strict_ro()
+        with patch("sqlite3.connect", side_effect=guarded):
+            with backup_store._open_ro(source) as conn:
+                self.assertEqual(
+                    conn.execute("PRAGMA query_only").fetchone()[0], 1)
+                self.assertEqual(
+                    conn.execute("SELECT COUNT(*) FROM history").fetchone()[0],
+                    1,
+                )
+        self.assertEqual(counts(), (1, 1))
+
+    def test_backup_and_verify_proceed_when_strict_open_rejected(self):
+        source = self.source_dir / "penx.db"
+        self.make_current(source)
+        guarded, counts = self._reject_strict_ro()
+        with patch("sqlite3.connect", side_effect=guarded):
+            db, manifest = backup_store.create_backup(source, self.dest_dir)
+            report = backup_store.verify_backup(db)
+        self.assertTrue(report["valid"], report["reasons"])
+        self.assertEqual(report["schema_version"], SCHEMA_VERSION)
+        self.assertGreaterEqual(counts()[0], 2)
+        self.assertGreaterEqual(counts()[1], 2)
+
+    def test_restore_proceeds_when_strict_open_rejected(self):
+        live = self.root / "live" / "penx.db"
+        live.parent.mkdir()
+        self.make_current(live)
+        with closing(sqlite3.connect(str(live))) as conn:
+            conn.execute(
+                "INSERT INTO history (target, scan_date) "
+                "VALUES ('after.example.test', '2025-03-03')"
+            )
+            conn.commit()
+        source = self.source_dir / "penx.db"
+        self.make_current(source)
+        db, _ = self.create_and_verify(source)
+        guarded, _ = self._reject_strict_ro()
+        with patch("sqlite3.connect", side_effect=guarded):
+            result = backup_store.restore(db, live, self.dest_dir)
+        self.assertTrue(Path(result["pre_restore_backup"]).is_file())
+        with closing(sqlite3.connect(str(live))) as conn:
+            targets = {
+                row[0] for row in conn.execute("SELECT target FROM history")
+            }
+        self.assertEqual(targets, {"fixture.example.test"})
+
+
 if __name__ == "__main__":
     unittest.main()

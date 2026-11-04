@@ -49,6 +49,22 @@ def _sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
+def _open_ro(path: Path):
+    """Open ``path`` read-only for verification or online backup.
+
+    The strict read-only URI open is preferred; when SQLite rejects it
+    (read-only media where even a rollback journal cannot be created, or
+    WAL edge cases) fall back to a plain connect restricted by
+    ``PRAGMA query_only``.
+    """
+    try:
+        return closing(sqlite3.connect(path.as_uri() + "?mode=ro", uri=True))
+    except sqlite3.OperationalError:
+        connection = sqlite3.connect(str(path), timeout=5)
+        connection.execute("PRAGMA query_only=ON")
+        return closing(connection)
+
+
 def _unique_backup_name(dest_dir: Path) -> str:
     stamp = time.strftime("%Y%m%d-%H%M%S", time.gmtime())
     return f"penx-backup-{stamp}-{uuid.uuid4().hex[:8]}.sqlite"
@@ -90,9 +106,7 @@ def create_backup(source: Path, dest_dir: Path) -> tuple[Path, dict[str, Any]]:
     tmp_db = final_db.with_name(final_db.name + ".tmp")
     tmp_manifest = final_manifest.with_name(final_manifest.name + ".tmp")
     try:
-        with closing(
-            sqlite3.connect(source.as_uri() + "?mode=ro", uri=True)
-        ) as src, closing(sqlite3.connect(str(tmp_db))) as dst:
+        with _open_ro(source) as src, closing(sqlite3.connect(str(tmp_db))) as dst:
             src.backup(dst)
             version = dst.execute("PRAGMA user_version").fetchone()[0]
         size = tmp_db.stat().st_size
@@ -168,9 +182,7 @@ def verify_backup(path: Path) -> dict[str, Any]:
         if not isinstance(expected_digest, str) or actual_digest != expected_digest:
             reasons.append("sha256 mismatch")
         try:
-            with closing(
-                sqlite3.connect(db_path.as_uri() + "?mode=ro", uri=True)
-            ) as conn:
+            with _open_ro(db_path) as conn:
                 # Diagnostics may quote raw bytes from a corrupt page; the
                 # only value we compare strictly is the first column.
                 conn.text_factory = lambda b: b.decode("utf-8", "replace")
@@ -204,7 +216,7 @@ def preview_restore(path: Path) -> dict[str, Any]:
     if not report["valid"]:
         raise BackupError("Backup not valid: " + "; ".join(report["reasons"]))
     db_path = Path(report["db"])
-    with closing(sqlite3.connect(db_path.as_uri() + "?mode=ro", uri=True)) as ro:
+    with _open_ro(db_path) as ro:
         version = ro.execute("PRAGMA user_version").fetchone()[0]
         rows = table_row_counts(ro)
     migration: dict[str, Any] = {
@@ -276,9 +288,7 @@ def _restore_unlocked(backup: Path, live_db: Path, backup_dir: Path) -> dict[str
 
     original_journal: str | None = None
     if live_db.exists():
-        with closing(
-            sqlite3.connect(live_db.as_uri() + "?mode=ro", uri=True)
-        ) as conn:
+        with _open_ro(live_db) as conn:
             original_journal = conn.execute("PRAGMA journal_mode").fetchone()[0]
 
     tmp = live_db.with_name(live_db.name + ".restoring.tmp")
