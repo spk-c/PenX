@@ -193,6 +193,23 @@ class ProjectDispatchTests(unittest.TestCase):
                                            connection_factory=db_failure), 2)
             runner.assert_not_called()
 
+    def test_candidate_approval_and_revocation_rechecked_at_dispatch(self):
+        self.add(as_candidate=True)
+        with self.assertRaises(ProjectScopeDenied):
+            self.policy().prepare(self.plan())
+        self.service.approve_candidate('audit', 'example.test', confirmed=True)
+        policy = self.policy()
+        plan = policy.prepare(self.plan())
+        self.assertEqual(plan.target, 'example.test')
+        self.service.revoke_approval('audit', 'example.test', confirmed=True)
+        with self.assertRaises(ProjectScopeDenied):
+            policy.check(plan.target)
+        with patch("penx_app.scanners.tools.TOOLS_MENU",
+                   {"4": ("headers", Mock())}) as menu:
+            with self.assertRaises(ProjectScopeDenied):
+                run_plan(plan, menu=menu, project_policy=policy)
+            menu["4"][1].assert_not_called()
+
     def test_candidate_and_expired_approval_fail_before_adapter(self):
         self.add(as_candidate=True)
         with patch("penx_app.application.headless_scan.run_plan") as runner:

@@ -103,6 +103,53 @@ class ProjectService:
         except Exception as exc:
             raise ValueError(f'Could not record asset for {name}: {exc}') from exc
 
+    def approve_candidate(self, name: str, raw: str, *,
+                          confirmed: bool = False,
+                          now: datetime | None = None) -> str:
+        """Require an explicit action to approve an already-recorded candidate.
+
+        No discovered target or missing asset is ever auto-added. Existing
+        expiry/rate/budget/tags survive, and expired grants cannot be revived.
+        """
+        if confirmed is not True:
+            raise ValueError('Candidate approval requires explicit --confirm.')
+        project = self.repository.get_project(name)
+        if project is None:
+            raise KeyError(f'Unknown project: {name}')
+        kind, canonical = canonicalize(raw)
+        rows = [row for row in self.repository.list_assets(project.id)
+                if row.canonical == canonical and row.kind == kind.value]
+        if len(rows) != 1 or rows[0].status != AssetStatus.CANDIDATE.value:
+            raise ValueError('Only one existing candidate may be approved.')
+        candidate = self._to_asset(rows[0])
+        approval_time = now if now is not None else _utc_now()
+        # Validates timezone, expiry and retained per-asset constraints before
+        # any write. A stale expiry cannot be cleared by promotion.
+        Asset(raw=candidate.raw, canonical=candidate.canonical,
+              kind=candidate.kind, approved_at=approval_time,
+              expires_at=candidate.expires_at, max_rate=candidate.max_rate,
+              max_budget=candidate.max_budget, tags=candidate.tags,
+              status=AssetStatus.APPROVED)
+        if not self.repository.approve_candidate(
+                project.id, canonical, kind.value,
+                approved_at=approval_time.isoformat(),
+                expected_candidate_at=rows[0].approved_at):
+            raise ValueError('Candidate was changed or already approved.')
+        return canonical
+
+    def revoke_approval(self, name: str, raw: str, *,
+                        confirmed: bool = False) -> str:
+        """Explicitly demote an exact approval without deleting its record."""
+        if confirmed is not True:
+            raise ValueError('Approval revocation requires explicit --confirm.')
+        project = self.repository.get_project(name)
+        if project is None:
+            raise KeyError(f'Unknown project: {name}')
+        kind, canonical = canonicalize(raw)
+        if not self.repository.revoke_approval(project.id, canonical, kind.value):
+            raise ValueError('No currently approved exact asset to revoke.')
+        return canonical
+
     def check(self, name: str, target: str, *, now: datetime | None = None) -> bool:
         return authorize(self.scope(name), target, now=now)
 
@@ -196,6 +243,16 @@ def main(argv: list[str], *, connection_factory=None) -> int:
     p_add.add_argument('--tags', default='', help='Comma-separated tags')
     p_add.add_argument('--as-candidate', action='store_true',
                       help='Record as a candidate (never authorized until approved)')
+    p_approve = sub.add_parser('approve', help='Explicitly approve an existing candidate')
+    p_approve.add_argument('name')
+    p_approve.add_argument('--target', required=True)
+    p_approve.add_argument('--confirm', action='store_true',
+                           help='Required: explicitly authorize the exact candidate')
+    p_revoke = sub.add_parser('revoke', help='Demote an approved target to candidate')
+    p_revoke.add_argument('name')
+    p_revoke.add_argument('--target', required=True)
+    p_revoke.add_argument('--confirm', action='store_true',
+                          help='Required: explicitly revoke this exact approval')
     p_list = sub.add_parser('list', help='List projects, or a project\'s assets')
     p_list.add_argument('name', nargs='?')
     p_check = sub.add_parser('check', help='Check whether a target is authorized')
@@ -222,6 +279,16 @@ def main(argv: list[str], *, connection_factory=None) -> int:
                 max_budget=args.budget, tags=args.tags, as_candidate=args.as_candidate)
             label = 'candidate' if args.as_candidate else 'approved asset'
             print(f'Recorded {label} for {args.name}: id={asset_id}')
+            return 0
+        if args.action == 'approve':
+            canonical = service.approve_candidate(
+                args.name, args.target, confirmed=args.confirm)
+            print(f'Approved existing candidate for {args.name}: {canonical}')
+            return 0
+        if args.action == 'revoke':
+            canonical = service.revoke_approval(
+                args.name, args.target, confirmed=args.confirm)
+            print(f'Revoked approval for {args.name}: {canonical} (now candidate)')
             return 0
         if args.action == 'list':
             if args.name:

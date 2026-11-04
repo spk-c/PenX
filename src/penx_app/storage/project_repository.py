@@ -93,6 +93,37 @@ class ProjectRepository:
                 "WHERE project_id = %s ORDER BY id", (project_id,))
             return [AssetRow(*row) for row in cursor.fetchall()]
 
+    def approve_candidate(self, project_id: int, canonical: str, kind: str,
+                          *, approved_at: str, expected_candidate_at: str) -> bool:
+        """Atomically promote one exact candidate; never insert a new approval.
+
+        Compare the original candidate timestamp to reject a stale approval
+        request. In particular, a concurrent revoke/promotion cannot be
+        overwritten by an earlier read.
+        """
+        with closing(self.connection_factory()) as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "UPDATE project_assets SET status = %s, approved_at = %s "
+                "WHERE project_id = %s AND canonical = %s AND kind = %s "
+                "AND status = %s AND approved_at = %s",
+                ("approved", approved_at, project_id, canonical, kind,
+                 "candidate", expected_candidate_at))
+            conn.commit()
+            return cursor.rowcount == 1
+
+    def revoke_approval(self, project_id: int, canonical: str, kind: str) -> bool:
+        """Demote an exact approved grant, retaining it as a non-scannable candidate."""
+        with closing(self.connection_factory()) as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                "UPDATE project_assets SET status = %s "
+                "WHERE project_id = %s AND canonical = %s AND kind = %s "
+                "AND status = %s",
+                ("candidate", project_id, canonical, kind, "approved"))
+            conn.commit()
+            return cursor.rowcount == 1
+
     def delete_asset(self, project_id: int, canonical: str, kind: str) -> bool:
         with closing(self.connection_factory()) as conn:
             cursor = conn.cursor()

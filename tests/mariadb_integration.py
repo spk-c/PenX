@@ -178,6 +178,20 @@ class MariaDBIntegrationTests(unittest.TestCase):
             self.assertEqual(repo.asset_count(project_id), 1)
             with self.assertRaises(ValueError):
                 service.add(name, 'example.test:8443')
+            # The same conditional transitions must work on MariaDB, not
+            # only the default SQLite backend. Nothing here performs a scan.
+            self.assertEqual(service.revoke_approval(
+                name, 'example.test:8443', confirmed=True),
+                'example.test:8443')
+            self.assertFalse(service.check(name, 'example.test:8443'))
+            with self.assertRaises(ValueError):
+                service.revoke_approval(name, 'example.test:8443', confirmed=True)
+            self.assertEqual(service.approve_candidate(
+                name, 'example.test:8443', confirmed=True),
+                'example.test:8443')
+            self.assertTrue(service.check(name, 'example.test:8443'))
+            with self.assertRaises(ValueError):
+                service.approve_candidate(name, 'example.test:8443', confirmed=True)
             self.assertTrue(repo.delete_asset(project_id, 'example.test:8443', 'host'))
             self.assertEqual(repo.asset_count(project_id), 0)
         finally:

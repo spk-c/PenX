@@ -92,6 +92,39 @@ class ProjectRepositoryTests(unittest.TestCase):
         self._add(pid, 'other.test', 'other.test')
         self.assertEqual(self.repo.asset_count(pid), 2)
 
+    def test_candidate_promotion_is_atomic_and_one_time(self):
+        pid = self.repo.create_project('p1', '2026-01-01T00:00:00+00:00')
+        self._add(pid, 'example.test', 'example.test', status='candidate')
+        original = self.repo.list_assets(pid)[0].approved_at
+        timestamp = '2026-11-04T12:00:00+00:00'
+        self.assertFalse(self.repo.approve_candidate(
+            pid, 'other.test', 'host',
+            approved_at=timestamp, expected_candidate_at=original))
+        self.assertFalse(self.repo.approve_candidate(
+            pid, 'example.test', 'host',
+            approved_at=timestamp, expected_candidate_at='wrong-timestamp'))
+        self.assertTrue(self.repo.approve_candidate(
+            pid, 'example.test', 'host',
+            approved_at=timestamp, expected_candidate_at=original))
+        self.assertFalse(self.repo.approve_candidate(
+            pid, 'example.test', 'host',
+            approved_at=timestamp, expected_candidate_at=original))
+        after = self.repo.list_assets(pid)[0]
+        self.assertEqual((after.status, after.approved_at), ('approved', timestamp))
+
+    def test_revocation_demotes_without_deletion_or_target_expansion(self):
+        pid = self.repo.create_project('p1', '2026-01-01T00:00:00+00:00')
+        self._add(pid, 'example.test:443', 'example.test:443')
+        self._add(pid, 'example.test:8443', 'example.test:8443')
+        self.assertFalse(self.repo.revoke_approval(pid, 'example.test', 'host'))
+        self.assertTrue(self.repo.revoke_approval(pid, 'example.test:443', 'host'))
+        self.assertFalse(self.repo.revoke_approval(pid, 'example.test:443', 'host'))
+        rows = self.repo.list_assets(pid)
+        self.assertEqual([(r.canonical, r.status) for r in rows], [
+            ('example.test:443', 'candidate'),
+            ('example.test:8443', 'approved')])
+        self.assertEqual(self.repo.asset_count(pid), 2)
+
     def test_delete_asset(self):
         pid = self.repo.create_project('p1', '2026-01-01T00:00:00+00:00')
         self._add(pid, 'example.test', 'example.test')
