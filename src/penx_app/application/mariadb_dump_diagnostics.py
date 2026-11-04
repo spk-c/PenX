@@ -98,7 +98,6 @@ def inspect_logical_dump(path: str | Path) -> dict:
     manifest = _read_manifest(sql.with_suffix(".json"))
     expected_tables = set(manifest["tables"])
     created: set[str] = set()
-    created_order: list[str] = []
     duplicate_create = False
     unknown_tables = False
     insert_before_create = False
@@ -106,16 +105,19 @@ def inspect_logical_dump(path: str | Path) -> dict:
         create = _TABLE_DDL.match(line)
         if create:
             name = create.group(1) or create.group(2)
+            if name is None:
+                raise ValueError("Invalid CREATE TABLE identifier")
             if name in created:
                 duplicate_create = True
             else:
                 created.add(name)
-                created_order.append(name)
             if name not in expected_tables:
                 unknown_tables = True
         insertion = _TABLE_INSERT.match(line)
         if insertion:
             name = insertion.group(1) or insertion.group(2)
+            if name is None:
+                raise ValueError("Invalid INSERT target")
             if name not in expected_tables:
                 unknown_tables = True
             if name not in created:
