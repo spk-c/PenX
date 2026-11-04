@@ -296,6 +296,17 @@ class RestoreTests(BackupFixture):
         with closing(sqlite3.connect(str(live))) as conn:
             self.assertEqual(conn.execute("PRAGMA journal_mode=WAL").fetchone()[0], "wal")
         db, _ = self.create_and_verify(live)
+        # A read-only SQLite backup can leave an inert WAL/SHM sidecar on
+        # some runners. The restore must fail closed until it is gone.
+        pending = [Path(str(live) + suffix)
+                   for suffix in ("-wal", "-shm", "-journal")]
+        if any(p.exists() for p in pending):
+            with self.assertRaisesRegex(backup_store.BackupError, "journal/WAL"):
+                backup_store.restore(db, live, self.dest_dir)
+            # Only disposable, fully closed fixture files are cleaned here
+            # to exercise WAL-mode retention. Never do this with user data.
+            for p in pending:
+                p.unlink(missing_ok=True)
         backup_store.restore(db, live, self.dest_dir)
         with closing(sqlite3.connect(str(live))) as conn:
             self.assertEqual(conn.execute("PRAGMA journal_mode").fetchone()[0], "wal")
@@ -357,6 +368,108 @@ class RestoreTests(BackupFixture):
                 first.close()
                 second.close()
         self.assertIsNotNone(backup_store.restore(db, live, self.dest_dir))
+
+    def test_external_uncheckpointed_wal_blocks_restore_without_data_loss(self):
+        live = self.root / "live" / "penx.db"
+        live.parent.mkdir()
+        self.make_current(live)
+        db, _ = self.create_and_verify(live)
+        original_backups = set(self.dest_dir.iterdir())
+        with closing(sqlite3.connect(str(live))) as external:
+            self.assertEqual(
+                external.execute("PRAGMA journal_mode=WAL").fetchone()[0],
+                "wal")
+            external.execute(
+                "INSERT INTO history (target, scan_date) "
+                "VALUES ('pending-wal.example.test', '2026-11-04')")
+            external.commit()
+            wal = Path(str(live) + "-wal")
+            self.assertTrue(wal.exists(), "external writer must keep WAL open")
+            main_before = _sha256(live)
+            wal_before = _sha256(wal)
+            with self.assertRaisesRegex(
+                    backup_store.BackupError, "external SQLite journal/WAL"):
+                backup_store.restore(db, live, self.dest_dir)
+            self.assertEqual(_sha256(live), main_before)
+            self.assertEqual(_sha256(wal), wal_before)
+            self.assertEqual(set(self.dest_dir.iterdir()), original_backups)
+            self.assertEqual(
+                external.execute(
+                    "SELECT COUNT(*) FROM history "
+                    "WHERE target='pending-wal.example.test'").fetchone()[0], 1)
+        # Closing the independent connection checkpoints WAL. The operator
+        # must close external clients before PenX can proceed.
+        # The fixture's committed row must be on the main database before
+        # any synthetic cleanup; an ordinary external-client close may still
+        # leave an inert SHM sidecar on hosted CI.
+        with closing(sqlite3.connect(str(live))) as verified:
+            self.assertEqual(
+                verified.execute(
+                    "SELECT COUNT(*) FROM history "
+                    "WHERE target='pending-wal.example.test'").fetchone()[0], 1)
+        pending = [Path(str(live) + suffix)
+                   for suffix in ("-wal", "-shm", "-journal")]
+        if any(p.exists() for p in pending):
+            with self.assertRaisesRegex(backup_store.BackupError, "journal/WAL"):
+                backup_store.restore(db, live, self.dest_dir)
+            # This temporary fixture has no remaining connections. Clearing
+            # inert test-only sidecars is not an operator recovery procedure.
+            for p in pending:
+                p.unlink(missing_ok=True)
+        result = backup_store.restore(db, live, self.dest_dir)
+        self.assertTrue(Path(result["pre_restore_backup"]).is_file())
+
+    def test_orphaned_wal_blocks_creation_of_missing_live_db(self):
+        live = self.root / "live" / "penx.db"
+        live.parent.mkdir()
+        source = self.source_dir / "penx.db"
+        self.make_current(source)
+        db, _ = self.create_and_verify(source)
+        orphan_wal = Path(str(live) + "-wal")
+        orphan_wal.write_bytes(b"synthetic orphan WAL")
+        with self.assertRaisesRegex(backup_store.BackupError, "journal/WAL"):
+            backup_store.restore(db, live, self.dest_dir)
+        self.assertFalse(live.exists())
+        self.assertEqual(orphan_wal.read_bytes(), b"synthetic orphan WAL")
+
+    def test_stale_journal_sidecar_fails_closed_without_cleanup(self):
+        live = self.root / "live" / "penx.db"
+        live.parent.mkdir()
+        self.make_current(live)
+        db, _ = self.create_and_verify(live)
+        journal = Path(str(live) + "-journal")
+        journal.write_bytes(b"synthetic leftover journal")
+        before = _sha256(live)
+        with self.assertRaisesRegex(backup_store.BackupError, "journal/WAL"):
+            backup_store.restore(db, live, self.dest_dir)
+        self.assertEqual(journal.read_bytes(), b"synthetic leftover journal")
+        self.assertEqual(_sha256(live), before)
+        self.assertEqual(len(list(self.dest_dir.glob("*.sqlite"))), 1)
+
+    def test_external_wal_appearing_during_staging_blocks_atomic_replace(self):
+        live = self.root / "live" / "penx.db"
+        live.parent.mkdir()
+        self.make_current(live)
+        db, _ = self.create_and_verify(live)
+        live_hash = _sha256(live)
+        wal = Path(str(live) + "-wal")
+        original_copy = backup_store.shutil.copyfile
+
+        def create_external_wal_on_stage(source, destination, *args, **kwargs):
+            result = original_copy(source, destination, *args, **kwargs)
+            if Path(destination).name.endswith(".restoring.tmp"):
+                wal.write_bytes(b"synthetic external WAL race")
+            return result
+
+        with patch.object(backup_store.shutil, "copyfile",
+                          side_effect=create_external_wal_on_stage):
+            with self.assertRaisesRegex(backup_store.BackupError, "journal/WAL"):
+                backup_store.restore(db, live, self.dest_dir)
+        self.assertEqual(_sha256(live), live_hash)
+        self.assertEqual(wal.read_bytes(), b"synthetic external WAL race")
+        self.assertFalse(Path(str(live) + ".restoring.tmp").exists())
+        self.assertTrue(any(self.dest_dir.glob("*.sqlite")),
+                        "pre-restore backup must survive aborted replacement")
 
     def test_restore_invalid_backup_touches_nothing(self):
         live = self.root / "live" / "penx.db"
