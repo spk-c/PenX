@@ -121,6 +121,13 @@ class MariaDBLogicalBackupIntegration(unittest.TestCase):
                 self.assertFalse(diagnostic["restore_available"])
                 self.assertFalse(diagnostic["sql_semantics_verified"])
                 self.assertFalse(diagnostic["historical_backup_rows_verified"])
+                # Real native mariadb-dump output must reach a lexical
+                # statement boundary. This is not an assertion that the
+                # executable SQL is harmless, accurate or restore-approved.
+                for flag in ("unterminated-quoted-token",
+                             "unterminated-block-comment",
+                             "unfinished-sql-statement"):
+                    self.assertNotIn(flag, diagnostic["risk_flags"])
                 self.assertFalse(mariadb_backup.preview_logical_backup(
                     sql)["restore_available"])
                 # This target is exclusively a fresh scratch schema in a

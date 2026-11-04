@@ -221,10 +221,22 @@ out-of-order INSERT targets and an unobserved completion footer. Some
 **ordinary** `mariadb-dump` files contain versioned executable comments;
 they are flagged for manual review, not rejected as definitely malicious.
 A missing `-- Dump completed on ...` line is **not** definitive truncation:
-the dump client can omit it when comments are disabled. Text inside quoted
-rows can cause a conservative false positive; conversely, crafted SQL can
-evade lexical patterns. The tool does **not** verify individual historical
-row values against the saved dump.
+the dump client can omit it when comments are disabled. The scanner also
+reports `unfinished-sql-statement` when SQL remains after the last
+non-quoted semicolon, `unterminated-quoted-token` for unclosed single,
+double or backtick quotes, and `unterminated-block-comment` for a
+truncated `/* ... */` comment. It ignores apparent semicolons inside
+quoted strings/identifiers or normal SQL comments; the check uses bounded,
+single-pass state tracking. Common doubled quotes and MariaDB dump
+backslash escapes are handled, but **SQL modes such as
+`NO_BACKSLASH_ESCAPES`, client directives and unusual statements are not
+fully interpreted**. These flags indicate only possible truncation,
+not complete SQL syntax validation.
+
+Text inside quoted rows can cause a conservative false positive; conversely,
+crafted SQL can evade lexical patterns. The tool does **not** verify
+individual historical row values against the saved dump. It never reports
+a pass or authorizes restore merely because there are no lexical flags.
 
 Malformed UTF-8, binary controls, mismatched hashes, unverified manifests,
 files above 8 MiB, lines above 64 KiB, or over 100,000 lines make this
