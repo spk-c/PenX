@@ -272,8 +272,6 @@ def _reject_unmanaged_sqlite_sidecars(live_db: Path) -> None:
     file and deleting its -wal/-shm would discard data or strand that client.
     Sidecars can also be stale; we deliberately never clean them up here.
     """
-    if not live_db.exists():
-        return
     for suffix in ("-wal", "-shm", "-journal"):
         sidecar = Path(str(live_db) + suffix)
         if sidecar.exists() or sidecar.is_symlink():
