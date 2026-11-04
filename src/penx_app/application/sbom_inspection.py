@@ -41,7 +41,9 @@ def main(argv: list[str] | None = None) -> int:
     except (OSError, ValueError, TypeError, RecursionError, SBOMError):
         print(json.dumps({
             "status": "unverified",
-            "error": "sbom-offline-check-failed",
+            "error": ("sbom-offline-check-failed"
+                      if args.command == "compare-osv"
+                      else "sbom-inventory-check-failed"),
             "vulnerability_verified": False,
             "network_access": False,
         }))
