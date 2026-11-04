@@ -2,15 +2,59 @@
 
 **Roadmap source:** [ROADMAP.md](ROADMAP.md). The repository [AGENTS.md](../AGENTS.md) contains short permanent constraints. This playbook is for **implementing one item at a time**, not for treating all roadmap entries as one unlimited change request.
 
-## Start here: current main and next verified gap (3 November 2026)
+## Start here: current main and next verified gap (4 November 2026)
 
-**Do not repeat the old PX-003/PX-002 starter PRs.** Main includes the merged PX-003 corpus slices [#124–#131](https://github.com/spk-c/PenX/pulls?q=is%3Apr+PX-003), PX-002 taxonomy [#132](https://github.com/spk-c/PenX/pull/132), PX-001 Kali worksheets [#133](https://github.com/spk-c/PenX/pull/133), PX-101 asset registry [#134](https://github.com/spk-c/PenX/pull/134), PX-004 SQLite backup [#135](https://github.com/spk-c/PenX/pull/135), PX-005 release provenance [#136](https://github.com/spk-c/PenX/pull/136) and the PX-103 plain-mode foundation [#137](https://github.com/spk-c/PenX/pull/137). This is source progress, **not full feature acceptance**. The latest published binaries are still v0.6.0.
+**Merged source is not a released binary or field sign-off.** The published
+release remains v0.6.0. The [roadmap tracker #123](https://github.com/spk-c/PenX/issues/123)
+and the [updated snapshot](ROADMAP.md) distinguish implementation,
+CI evidence, operator acceptance, and release status. Never assume all
+36 roadmap items are implemented because a few PRs passed.
 
-**First recommended implementation slice: PX-101 runtime authorization enforcement.** The project CLI stores/verifies approved assets. The first opt-in headless project-dispatch implementation intentionally supports only audited HTTP-header/DNS/TLS and passive adapters; other adapters remain fail-closed pending separate review. Extend the verified scope-aware paths only after a source and field audit, without weakening the independent explicit-consent CLI path. Before a runnable job queue (PX-102), enforce approved exact target, expiry, scope/rate/budget and fail-closed behavior at the scan dispatch boundary. Keep discovered assets as candidates; no silent authorization, no new live targets, no batch scans in this slice. P0 evidence/field gaps PX-001/PX-003/PX-004 remain open and may block implementation/release.
+**Do not recreate merged starter work.** In addition to earlier PX-002/003
+provenance and PX-101 scope slices, main includes [#162](https://github.com/spk-c/PenX/pull/162)
+(explicit project asset approval/revocation), [#163](https://github.com/spk-c/PenX/pull/163)
+(SQLite WAL-sidecar refusal), [#164](https://github.com/spk-c/PenX/pull/164)
+(strict backup manifest), [#165](https://github.com/spk-c/PenX/pull/165)
+(offline labelled AI fixture scorer) and [#166](https://github.com/spk-c/PenX/pull/166)
+(manual CI/SARIF workflow hardening). No real model, production database
+restore or target scan was exercised by those PRs.
+
+**Next P0 design/code slice: PX-004 historical MariaDB dump verification.**
+The current checksum pairs protect local file identity, and optional scratch
+audits compare *current*, separately observed source/scratch rows. They do
+not prove the actual saved SQL's provenance, semantic validity or
+historical contents. Implement one small offline, deliberately
+fail-closed diagnostic/fixture step that identifies untrusted dump
+constructs without claiming a general SQL parser or enabling imports.
+Start with real disposable `mariadb-dump` fixtures and negative tests;
+reject ambiguous syntax and avoid any live restore. Do not silently loosen
+the existing conservative MariaDB gates.
+
+**Parallel operator acceptance remains separate:** PX-001/PX-003 Windows,
+Kali/Npcap, real old databases and report review; PX-101 blocked external
+adapters need per-adapter scope/rate/redirect audits. PX-102 persistent jobs
+cannot auto-resume active work until those grants and PX-004 recovery
+guarantees are demonstrated. PX-403's offline benchmark is not an actual
+NInfer/Strata accuracy result, and PX-501's workflow is manual only.
 
 ### Copy into Codex
 
-> You are working in https://github.com/spk-c/PenX. Read AGENTS.md, docs/ROADMAP.md, docs/CODEX_EXECUTION.md and the latest merged code on main; check open PRs/issues and avoid duplicate implementations. Work on **one PX-101 follow-up slice only**: audit the new project-bound dispatch gate and its approved asset/expiry/rate/budget checks, then address one demonstrated gap only; preserve fail-closed treatment of unsupported adapters. Keep standalone scans and existing explicit user consent backward compatible. Do not enable batch scanning, auto-approve discovered targets, contact unrelated external systems, publish releases or rewrite history. First document a threat model and an offline failing test matrix for unauthorized/expired/candidate/ambiguous targets, redirects, concurrent revocation and cancellation. Use owned loopback fixtures; no live third-party scans. Make the smallest typed/migration-safe changes needed, run targeted tests, python offline_tests.py, static checks and relevant CI, push a focused branch and open a PR linking Issue #123. State clearly what remains NOT RUN and stop after the PR. Do **not** start PX-102 until the dispatch-authorization acceptance is proven.
+> Work in https://github.com/spk-c/PenX. Read AGENTS.md, ROADMAP.md,
+> CODEX_EXECUTION.md and open PRs/issues first. Do **one PX-004 P0
+> non-executing SQL-dump diagnostic slice** only, against bounded synthetic
+> and disposable CI MariaDB dump fixtures. State up front what the
+> diagnostic can and cannot prove; no user DB credentials, production
+> restore, arbitrary SQL execution, external network scans or release
+> publication. Add negative tests for malformed dump statements, hidden
+> executable comments, delimiter/charset traps, statement reordering,
+> SQL injection payloads and incomplete files. Keep all existing
+> `restore_available: false` semantics, preserve old backup manifests,
+> and reject ambiguous syntax rather than treating it as verified.
+> Run focused and complete offline tests, static checks and relevant
+> disposable CI, then submit one reviewable PR referencing #123. Record
+> Windows/field tests as NOT RUN unless actually observed, and stop at
+> the accepted PR boundary. Never mark PX-004 or the entire roadmap done
+> from synthetic CI alone.
 
 ## Workflow Codex must follow
 
