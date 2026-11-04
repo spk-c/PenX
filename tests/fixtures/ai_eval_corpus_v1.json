@@ -1,0 +1,70 @@
+{
+  "schema": "penx-ai-eval-corpus-v1",
+  "prompt_sha256": "7f4c0f41bfdbaf2534029dfe8cfeefb16f8ad0d77e4f6485b40cdaa670b88a05",
+  "cases": [
+    {
+      "id": "http-header-observed",
+      "evidence": "HTTP/1.1 200 OK\nStrict-Transport-Security: max-age=31536000\nX-Frame-Options: DENY",
+      "expected": [
+        {
+          "id": "hsts-present",
+          "supported": true,
+          "quote": "Strict-Transport-Security: max-age=31536000"
+        },
+        {
+          "id": "hsts-missing",
+          "supported": false,
+          "quote": null
+        }
+      ]
+    },
+    {
+      "id": "service-is-not-exploit",
+      "evidence": "PORT STATE SERVICE\n443/tcp open https\nNo exploit test was conducted.",
+      "expected": [
+        {
+          "id": "port-open",
+          "supported": true,
+          "quote": "443/tcp open https"
+        },
+        {
+          "id": "remote-code-execution",
+          "supported": false,
+          "quote": null
+        }
+      ]
+    },
+    {
+      "id": "tls-unknown-is-not-trusted",
+      "evidence": "[!] TLS handshake timed out. No certificate was retrieved.",
+      "expected": [
+        {
+          "id": "certificate-trusted",
+          "supported": false,
+          "quote": null
+        },
+        {
+          "id": "certificate-expired",
+          "supported": false,
+          "quote": null
+        }
+      ]
+    },
+    {
+      "id": "dns-observation",
+      "evidence": "example.test. TXT \"v=spf1 -all\"",
+      "expected": [
+        {
+          "id": "spf-record-present",
+          "supported": true,
+          "quote": "v=spf1 -all"
+        },
+        {
+          "id": "domain-exploitable",
+          "supported": false,
+          "quote": null
+        }
+      ]
+    }
+  ]
+}

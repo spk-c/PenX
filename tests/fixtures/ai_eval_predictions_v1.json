@@ -1,0 +1,40 @@
+{
+  "schema": "penx-ai-eval-predictions-v1",
+  "prompt_sha256": "7f4c0f41bfdbaf2534029dfe8cfeefb16f8ad0d77e4f6485b40cdaa670b88a05",
+  "cases": [
+    {
+      "id": "http-header-observed",
+      "status": "complete",
+      "findings": [
+        {
+          "id": "hsts-present",
+          "quote": "Strict-Transport-Security: max-age=31536000"
+        }
+      ]
+    },
+    {
+      "id": "service-is-not-exploit",
+      "status": "complete",
+      "findings": [
+        {
+          "id": "port-open",
+          "quote": "443/tcp open https"
+        },
+        {
+          "id": "remote-code-execution",
+          "quote": "remote shell confirmed"
+        }
+      ]
+    },
+    {
+      "id": "tls-unknown-is-not-trusted",
+      "status": "refusal",
+      "findings": []
+    },
+    {
+      "id": "dns-observation",
+      "status": "timeout",
+      "findings": []
+    }
+  ]
+}
