@@ -10,7 +10,8 @@ import subprocess
 import tempfile
 import unittest
 
-from penx_app.application import (mariadb_backup, mariadb_restore_audit,
+from penx_app.application import (mariadb_backup, mariadb_dump_diagnostics,
+                                   mariadb_restore_audit,
                                    mariadb_restore_plan)
 from penx_app.application.backup_service import main as backup_main
 from penx_app.storage import db, db_backend
@@ -112,6 +113,14 @@ class MariaDBLogicalBackupIntegration(unittest.TestCase):
                 self.assertGreater(created["tables_in_manifest"], 6)
                 sql = output / created["file"]
                 self.assertEqual(mariadb_backup.verify_logical_backup(sql), created)
+                # Native mariadb-dump fixture: diagnostic does not import SQL
+                # or grant restore authorization, including when no flags occur.
+                diagnostic = mariadb_dump_diagnostics.inspect_logical_dump(sql)
+                self.assertEqual(diagnostic["status"], "manual-review-required")
+                self.assertEqual(diagnostic["backup_sha256"], created["sha256"])
+                self.assertFalse(diagnostic["restore_available"])
+                self.assertFalse(diagnostic["sql_semantics_verified"])
+                self.assertFalse(diagnostic["historical_backup_rows_verified"])
                 self.assertFalse(mariadb_backup.preview_logical_backup(
                     sql)["restore_available"])
                 # This target is exclusively a fresh scratch schema in a
