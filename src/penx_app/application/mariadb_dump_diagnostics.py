@@ -23,7 +23,7 @@ _TABLE_DDL = re.compile(
 )
 _TABLE_INSERT = re.compile(
     r"(?im)^\s*INSERT\s+INTO\s+"
-    r"(?:`([A-Za-z0-9_]{1,64})`|([A-Za-z0-9_]{1,64}))\b?"
+    r"(?:`([A-Za-z0-9_]{1,64})`|([A-Za-z0-9_]{1,64}))(?=\s|\(|;|$)"
 )
 # Inspect *potentially* executable statements even when not at a line start.
 # Quoted data can trigger these expressions: such a result means manual review,
