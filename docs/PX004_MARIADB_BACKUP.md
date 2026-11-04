@@ -117,6 +117,45 @@ that explicitly granted metadata visibility permits an absent-name
 snapshot, and that the same snapshot check refuses the target after
 it is created. **The CI-only grant does not apply to user databases.**
 
+## Read-only post-import scratch comparison
+
+After an operator independently creates a scratch database and imports a
+trusted dump, the separate `mariadb-restore-audit` command compares
+the **current** source database and the scratch database using two
+server-enforced `READ ONLY` transactions. It checks that the exact
+manifest-listed InnoDB tables exist on both sides, then compares column
+definitions, indexes and per-table row counts. No individual assessment
+row or raw scanner text is printed.
+
+Use two explicit, separate SELECT-only accounts. The source password
+comes only from `PENX_VERIFY_MARIADB_PASSWORD`, the scratch password
+only from `PENX_SCRATCH_AUDIT_PASSWORD`. The host must be loopback
+(or an already approved local tunnel). The target name remains limited to
+`penx_restore_<32 lowercase hex>`:
+
+~~~powershell
+$env:PENX_VERIFY_MARIADB_PASSWORD = Read-Host "Source reader password" -AsSecureString | ConvertFrom-SecureString -AsPlainText
+$env:PENX_SCRATCH_AUDIT_PASSWORD = Read-Host "Scratch reader password" -AsSecureString | ConvertFrom-SecureString -AsPlainText
+python penx.py backup mariadb-restore-audit --file "C:\PenX\private-backups\YOUR-BACKUP.sql" --target-schema penx_restore_0123456789abcdef0123456789abcdef --host 127.0.0.1 --port 3306 --source-user penx_source_reader --target-user penx_scratch_reader
+Remove-Item Env:\PENX_VERIFY_MARIADB_PASSWORD
+Remove-Item Env:\PENX_SCRATCH_AUDIT_PASSWORD
+~~~
+
+Success returns `observed-read-only-structural-parity` with a hash of
+observed schema metadata and aggregate row counts. Every result
+explicitly states `restore_available: false`,
+`snapshot_contents_verified: false` and
+`historical_backup_rows_verified: false`. Identical table counts
+**do not prove equal records**, and live source data may have changed
+since the dump. These are two separate read-only database snapshots,
+not a cross-server atomic snapshot or a semantic SQL validation.
+
+CI restores a generated dump into a disposable scratch schema, verifies
+this parity, modifies only the scratch table definition and proves
+that the audit then fails closed. Neither the CLI nor the audit module
+performs an import, creation or cleanup of any user database.
+
+
 ## Restore acceptance and remaining work
 
 PenX does **not** offer a MariaDB in-place restore command. The new
