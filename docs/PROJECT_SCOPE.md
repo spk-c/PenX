@@ -13,12 +13,33 @@ python penx.py project create acme
 python penx.py project add acme --target example.test
 python penx.py project add acme --target 192.168.0.0/30
 python penx.py project add acme --target sub.example.test --as-candidate
+python penx.py project approve acme --target sub.example.test --confirm
+python penx.py project revoke acme --target sub.example.test --confirm
 python penx.py project add acme --target api.example.test --expiry 2026-12-31T00:00:00+00:00 --rate 20 --budget 5000 --tags prod,web
 python penx.py project list
 python penx.py project list acme
 python penx.py project check acme --target example.test:443
 python penx.py project preview acme
 ```
+
+## Explicit candidate approval and revocation
+
+An operator may add a candidate without authorizing it. Promoting an existing
+candidate requires an exact `--target` and `--confirm` on
+`project approve`. The command **cannot** create an unknown asset or
+approve an already-approved record. It preserves the candidate's stored
+expiry, per-run rate, budget and tags, records a fresh approval timestamp, and
+rejects any candidate whose expiry has already passed. A compare-and-set
+database update prevents stale concurrent promotion requests.
+
+`project revoke NAME --target TARGET --confirm` immediately demotes the
+exact currently-approved row to a non-scannable candidate; it does **not**
+delete the record or grant a different port/host. Repeated revocation fails.
+A running project-bound scan checks the stored status again before subsequent
+supported outbound calls, but I/O already in flight cannot be revoked
+retroactively. Both commands are **local storage changes only** and do not
+run scans or discover/approve additional hosts. No schema migration is needed.
+The operator must independently verify permission for every approval.
 
 ## Opt-in project-bound headless scans (PX-101 follow-up)
 
@@ -117,8 +138,9 @@ stored. Wildcards cannot carry a port.
 - A target is authorized only while its asset is `approved` **and** not
   expired. An `approved_at`/`expiry` pair with `expiry <= approved_at` is
   rejected at write time.
-- **Candidates** (`--as-candidate`) are never authorized until explicitly
-  re-recorded as approved.
+- **Candidates** (`--as-candidate`) are never authorized unless an operator
+  explicitly promotes the exact record with `project approve --confirm`.
+  `project revoke --confirm` moves an approval back to candidate status.
 - An unparseable target is never authorized.
 
 ## Exit codes
