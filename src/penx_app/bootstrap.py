@@ -15,6 +15,7 @@ USAGE = ('Usage: PenX.exe [--version | --check | --setup-status | --setup | '
          'profiles --validate FILE | profiles --export ID | '
          'guided [--target HOST] [--output DIR] | review-scan FILE --model ID | '
          'evidence verify (--metadata FILE | --session ID --sqlite-db FILE | --session ID --mariadb-host LOOPBACK --mariadb-db DB --mariadb-user USER) --artifacts DIR | '
+           'history list --sqlite-db FILE [--limit N] [--before-id ID] [--target EXACT] [--show-target] | '
            'project <create|add|list|check|preview> | '
            'backup <create|verify|preview|restore|mariadb-create|mariadb-verify|mariadb-preview|mariadb-restore-plan|mariadb-restore-preflight|mariadb-restore-audit> ...]')
 
@@ -94,6 +95,9 @@ def main() -> int:
         if command == 'evidence' and len(args) >= 2 and args[1] == 'verify':
             from penx_app.application.evidence_verification import main as evidence_main
             return evidence_main(args[2:])
+        if command == 'history':
+            from penx_app.application.history_listing import main as history_main
+            return history_main(args[1:])
         if command == 'project':
             from penx_app.application.project_service import main as project_main
             return project_main(args[1:])
