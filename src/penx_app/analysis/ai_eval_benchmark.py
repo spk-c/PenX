@@ -134,7 +134,7 @@ def score_predictions(corpus: dict, predictions: dict) -> dict:
         if case_id in supplied:
             raise ValueError("Duplicate prediction case")
         status, claims = item["status"], item["findings"]
-        if status not in _FAILURE_STATUSES | {"complete"}:
+        if not isinstance(status, str) or status not in _FAILURE_STATUSES | {"complete"}:
             raise ValueError("Invalid prediction status")
         if not isinstance(claims, list) or len(claims) > MAX_ITEMS_PER_CASE:
             raise ValueError("Unbounded prediction findings")
