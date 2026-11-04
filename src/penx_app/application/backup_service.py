@@ -208,6 +208,7 @@ def _cmd_mariadb_restore_audit(args: argparse.Namespace) -> int:
             source_password=os.environ.get("PENX_VERIFY_MARIADB_PASSWORD", ""),
             target_user=args.target_user,
             target_password=os.environ.get("PENX_SCRATCH_AUDIT_PASSWORD", ""),
+            verify_content=args.verify_content,
         )
     except Exception:
         # Never disclose DB driver messages, SQL source text or credentials.
@@ -289,6 +290,9 @@ def main(argv: list[str] | None = None) -> int:
     p_audit.add_argument("--port", type=int, default=3306)
     p_audit.add_argument("--source-user", required=True)
     p_audit.add_argument("--target-user", required=True)
+    p_audit.add_argument(
+        "--verify-content", action="store_true",
+        help="Opt-in bounded row multiset compare; no content logged")
 
     try:
         args = parser.parse_args(argv)
