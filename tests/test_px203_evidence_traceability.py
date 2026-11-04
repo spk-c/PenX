@@ -78,6 +78,19 @@ class EvidenceTraceabilityContracts(unittest.TestCase):
         exported = report_payload(self.data)
         self.assertEqual(exported["findings"][1]["confidence"], "possible")
 
+    def test_complete_adapter_without_usable_evidence_stays_tier_one(self):
+        # COMPLETE is collection status, not a promise of usable observations.
+        self.data["scan_result"] = ScanResult((
+            ScannerResult("nmap", self.nmap, "COMPLETE", False, "Nmap"),
+            ScannerResult("httpx", self.httpx, "PARTIAL", True, "Httpx"),
+        ))
+        info = self.qualities()
+        self.assertEqual(info[1]["traceability_tier"], 1)
+        self.assertEqual(info[1]["dimensions"]["coverage"], "COMPLETE")
+        self.assertEqual(info[1]["dimensions"]["typed_usable_evidence"],
+                         "not-established")
+        self.assertFalse(info[1]["vulnerability_verified"])
+
     def test_missing_adapter_metadata_does_not_claim_complete(self):
         self.data.pop("scan_result")
         info = self.qualities()
@@ -108,7 +121,7 @@ class EvidenceTraceabilityContracts(unittest.TestCase):
     def test_raw_reference_is_not_revalidated_source_proof(self):
         trace = {
             "scanner": "NMAP", "scanner_status": "COMPLETE",
-            "recorded_at": "2026-11-04",
+            "scanner_evidence": True, "recorded_at": "2026-11-04",
             "artifact_status": "stored-reference-not-revalidated",
             "raw_artifact": {"sha256": "0" * 64},
         }
