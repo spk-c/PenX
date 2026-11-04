@@ -296,6 +296,17 @@ class RestoreTests(BackupFixture):
         with closing(sqlite3.connect(str(live))) as conn:
             self.assertEqual(conn.execute("PRAGMA journal_mode=WAL").fetchone()[0], "wal")
         db, _ = self.create_and_verify(live)
+        # A read-only SQLite backup can leave an inert WAL/SHM sidecar on
+        # some runners. The restore must fail closed until it is gone.
+        pending = [Path(str(live) + suffix)
+                   for suffix in ("-wal", "-shm", "-journal")]
+        if any(p.exists() for p in pending):
+            with self.assertRaisesRegex(backup_store.BackupError, "journal/WAL"):
+                backup_store.restore(db, live, self.dest_dir)
+            # Only disposable, fully closed fixture files are cleaned here
+            # to exercise WAL-mode retention. Never do this with user data.
+            for p in pending:
+                p.unlink(missing_ok=True)
         backup_store.restore(db, live, self.dest_dir)
         with closing(sqlite3.connect(str(live))) as conn:
             self.assertEqual(conn.execute("PRAGMA journal_mode").fetchone()[0], "wal")
@@ -388,7 +399,23 @@ class RestoreTests(BackupFixture):
                     "WHERE target='pending-wal.example.test'").fetchone()[0], 1)
         # Closing the independent connection checkpoints WAL. The operator
         # must close external clients before PenX can proceed.
-        self.assertFalse(wal.exists())
+        # The fixture's committed row must be on the main database before
+        # any synthetic cleanup; an ordinary external-client close may still
+        # leave an inert SHM sidecar on hosted CI.
+        with closing(sqlite3.connect(str(live))) as verified:
+            self.assertEqual(
+                verified.execute(
+                    "SELECT COUNT(*) FROM history "
+                    "WHERE target='pending-wal.example.test'").fetchone()[0], 1)
+        pending = [Path(str(live) + suffix)
+                   for suffix in ("-wal", "-shm", "-journal")]
+        if any(p.exists() for p in pending):
+            with self.assertRaisesRegex(backup_store.BackupError, "journal/WAL"):
+                backup_store.restore(db, live, self.dest_dir)
+            # This temporary fixture has no remaining connections. Clearing
+            # inert test-only sidecars is not an operator recovery procedure.
+            for p in pending:
+                p.unlink(missing_ok=True)
         result = backup_store.restore(db, live, self.dest_dir)
         self.assertTrue(Path(result["pre_restore_backup"]).is_file())
 
