@@ -109,7 +109,7 @@ class OfflineAiEvalTests(unittest.TestCase):
             sample.write_bytes(b"X" * (1024 * 1024 + 1))
             with self.assertRaises(ValueError):
                 read_bounded_json(sample)
-            sample.write_bytes(b"\\xff")
+            sample.write_bytes(bytes([0xFF]))
             with self.assertRaises(ValueError):
                 read_bounded_json(sample)
             real = root / "real.json"
@@ -125,11 +125,11 @@ class OfflineAiEvalTests(unittest.TestCase):
     def test_cli_never_runs_model_network_or_scanner(self):
         from scripts.benchmark_ai_assessment import main
         output = StringIO()
-        with patch("socket.create_connection",
-                   side_effect=AssertionError("no network")) as network, \\
-             patch("subprocess.run",
-                   side_effect=AssertionError("no process")) as process, \\
-             redirect_stdout(output):
+        with (patch("socket.create_connection",
+                    side_effect=AssertionError("no network")) as network,
+              patch("subprocess.run",
+                    side_effect=AssertionError("no process")) as process,
+              redirect_stdout(output)):
             self.assertEqual(main([]), 0)
         network.assert_not_called()
         process.assert_not_called()
