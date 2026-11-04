@@ -161,6 +161,30 @@ def _cmd_mariadb_preview(args: argparse.Namespace) -> int:
     return _mariadb_result("preview", args)
 
 
+def _cmd_mariadb_verify_pinned(args: argparse.Namespace) -> int:
+    """Compare against two external, operator-held file digests; no DB access."""
+    from penx_app.application.mariadb_backup_pins import (
+        verify_pinned_logical_backup,
+    )
+
+    try:
+        report = verify_pinned_logical_backup(
+            args.file,
+            expected_sql_sha256=args.sql_sha256,
+            expected_manifest_sha256=args.manifest_sha256,
+        )
+    except (OSError, ValueError, TypeError):
+        # Never reflect caller-supplied hashes, paths or SQL to stdout.
+        print(json.dumps({
+            "status": "unverified",
+            "error": "mariadb-operator-pins-check-failed",
+            "restore_available": False,
+        }))
+        return 2
+    print(json.dumps(report, sort_keys=True))
+    return 0
+
+
 def _cmd_mariadb_dump_inspect(args: argparse.Namespace) -> int:
     """Read hash-bound MariaDB SQL for generic red flags; never restore."""
     from penx_app.application.mariadb_dump_diagnostics import inspect_logical_dump
@@ -275,6 +299,16 @@ def main(argv: list[str] | None = None) -> int:
                           help="Offline preview only; never imports SQL")
     p_mp.add_argument("--file", required=True, help="Explicit .sql or .json backup")
 
+    p_pins = sub.add_parser(
+        "mariadb-verify-pinned",
+        help="Offline independent SQL+manifest hash pins; NEVER authorizes restore")
+    p_pins.add_argument("--file", required=True,
+                        help="Existing .sql/.json MariaDB backup pair")
+    p_pins.add_argument("--sql-sha256", required=True,
+                        help="Original SQL SHA-256, recorded separately")
+    p_pins.add_argument("--manifest-sha256", required=True,
+                        help="Original manifest SHA-256, recorded separately")
+
     p_inspect = sub.add_parser(
         "mariadb-dump-inspect",
         help="Offline red-flag SQL dump diagnostics; NEVER authorizes restore")
@@ -326,6 +360,7 @@ def main(argv: list[str] | None = None) -> int:
         "restore": _cmd_restore,
         "mariadb-create": _cmd_mariadb_create,
         "mariadb-verify": _cmd_mariadb_verify,
+        "mariadb-verify-pinned": _cmd_mariadb_verify_pinned,
         "mariadb-preview": _cmd_mariadb_preview,
         "mariadb-dump-inspect": _cmd_mariadb_dump_inspect,
         "mariadb-restore-plan": _cmd_mariadb_restore_plan,

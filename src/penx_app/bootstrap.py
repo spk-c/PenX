@@ -18,7 +18,7 @@ USAGE = ('Usage: PenX.exe [--version | --check | --setup-status | --setup | '
            'history list --sqlite-db FILE [--limit N] [--before-id ID] [--target EXACT] [--show-target] | '
            'sbom inspect --file PATH [--show-identities] | '
            'project <create|add|list|check|preview> | '
-           'backup <create|verify|preview|restore|mariadb-create|mariadb-verify|mariadb-preview|mariadb-restore-plan|mariadb-restore-preflight|mariadb-restore-audit> ...]')
+           'backup <create|verify|preview|restore|mariadb-create|mariadb-verify|mariadb-verify-pinned|mariadb-preview|mariadb-dump-inspect|mariadb-restore-plan|mariadb-restore-preflight|mariadb-restore-audit> ...]')
 
 
 def _force_utf8_text_streams(streams) -> None:

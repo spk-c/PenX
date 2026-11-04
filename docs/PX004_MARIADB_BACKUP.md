@@ -54,6 +54,44 @@ match, **not** that the executable SQL is authentic, semantically valid
 or guaranteed to restore. A forged dump and forged manifest can match.
 The preview explicitly returns `restore_available: false`.
 
+## External SQL + manifest SHA-256 pins (PX-004; offline identity only)
+
+The adjacent `.sql` and `.json` files can be **forged together**, so their
+matching internal hashes are not proof of a genuine backup. If an operator
+records **both original hashes out-of-band at a trusted time** (e.g. in a
+separate immutable evidence ledger), this additional opt-in command checks
+that the two existing files still match those previously retained values.
+
+~~~powershell
+$sql = "C:\\PenX\\private-backups\\YOUR-BACKUP.sql"
+$manifest = [System.IO.Path]::ChangeExtension($sql, ".json")
+# Run these two commands only on the original verified pair; record BOTH
+# digest values in a separate controlled location, not beside the pair:
+(Get-FileHash -LiteralPath $sql -Algorithm SHA256).Hash.ToLowerInvariant()
+(Get-FileHash -LiteralPath $manifest -Algorithm SHA256).Hash.ToLowerInvariant()
+
+# Supply the TWO values previously captured and stored independently:
+python penx.py backup mariadb-verify-pinned --file $sql --sql-sha256 YOUR_64_HEX_SQL_HASH --manifest-sha256 YOUR_64_HEX_MANIFEST_HASH
+~~~
+
+The command accepts lowercase, exactly 64-character SHA-256 values only.
+It compares the entire SQL dump (up to the existing **512 MiB** cap) and
+bounded manifest (**16 KiB**) against their independent pins. If either file
+is changed but its companion JSON/SQL hash is also rewritten, the previously
+recorded pin prevents the modified pair from passing. Malformed digest
+arguments, symlinks and mismatched or missing files cause generic failure.
+
+Every successful result is labelled
+`status: operator-pinned-file-identity-only`, with
+`pin_origin_authenticated: false`,
+`historical_backup_rows_verified: false`,
+`sql_semantics_verified: false`, `restore_available: false` and
+`sql_executed: false`. A malicious or incorrect *original* pair could have
+been pinned, and attacker-supplied new pins prove nothing about origin.
+There are no signatures, external notarization, DB accesses or SQL imports.
+The before/after manifest hash checks are **not atomic file locking**;
+protect the original backups from adversarial concurrent replacement.
+
 ## New: non-executable scratch restore plan
 
 The `mariadb-restore-plan` subcommand accepts a verified backup and a

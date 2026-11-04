@@ -2,6 +2,7 @@
 from __future__ import annotations
 from contextlib import redirect_stdout
 from io import StringIO
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -10,8 +11,8 @@ import subprocess
 import tempfile
 import unittest
 
-from penx_app.application import (mariadb_backup, mariadb_dump_diagnostics,
-                                   mariadb_restore_audit,
+from penx_app.application import (mariadb_backup, mariadb_backup_pins,
+                                   mariadb_dump_diagnostics, mariadb_restore_audit,
                                    mariadb_restore_plan)
 from penx_app.application.backup_service import main as backup_main
 from penx_app.storage import db, db_backend
@@ -113,6 +114,18 @@ class MariaDBLogicalBackupIntegration(unittest.TestCase):
                 self.assertGreater(created["tables_in_manifest"], 6)
                 sql = output / created["file"]
                 self.assertEqual(mariadb_backup.verify_logical_backup(sql), created)
+                # Both hashes independently pinned to this disposable dump
+                # match exactly; this does not validate historical row
+                # provenance, SQL semantics or any real operator backup.
+                pinned = mariadb_backup_pins.verify_pinned_logical_backup(
+                    sql, expected_sql_sha256=created["sha256"],
+                    expected_manifest_sha256=hashlib.sha256(
+                        sql.with_suffix(".json").read_bytes()).hexdigest())
+                self.assertEqual(pinned["status"],
+                                 "operator-pinned-file-identity-only")
+                self.assertFalse(pinned["pin_origin_authenticated"])
+                self.assertFalse(pinned["historical_backup_rows_verified"])
+                self.assertFalse(pinned["restore_available"])
                 # Native mariadb-dump fixture: diagnostic does not import SQL
                 # or grant restore authorization, including when no flags occur.
                 diagnostic = mariadb_dump_diagnostics.inspect_logical_dump(sql)

@@ -19,6 +19,8 @@ on:
       - 'src/penx_app/application/mariadb_restore_audit.py'
       - 'src/penx_app/application/mariadb_restore_plan.py'
       - 'src/penx_app/application/mariadb_backup.py'
+      - 'src/penx_app/application/mariadb_backup_pins.py'
+      - 'tests/test_px004_mariadb_backup_pins.py'
       - 'src/penx_app/application/mariadb_dump_diagnostics.py'
       - 'tests/test_px004_mariadb_dump_inspection.py'
       - 'src/penx_app/application/backup_service.py'
