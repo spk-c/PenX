@@ -117,7 +117,7 @@ def _incomplete_sql_flags(text: str) -> set[str]:
         elif char == '"':
             state = "double-quote"
             has_unfinished_code = True
-        elif char == "\`":
+        elif char == "`":
             state = "backtick"
             has_unfinished_code = True
         elif char == ";":
