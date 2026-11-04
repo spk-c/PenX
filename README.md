@@ -167,7 +167,7 @@ PenX connects to an **OpenAI-compatible model endpoint** you configure, such as 
 - **Sensitive data stays your responsibility.** SQLite/MariaDB history, `.env` and reports may contain identifiers or secrets. Exports can contain sensitive values even with `--redact`.
 - **Missing scanner evidence must not be replaced by model guesses.** Review the original evidence and limitations before acting.
 
-[Local AI setup and CVE research](docs/LOCAL_AI_AND_CVE.md) · [Human review workflow](docs/LOCAL_REVIEW.md).
+[Local AI setup and CVE research](docs/LOCAL_AI_AND_CVE.md) · [Human review workflow](docs/LOCAL_REVIEW.md) · [Offline AI finding fixture benchmark (PX-403)](docs/AI_EVAL_BENCHMARK.md).
 
 ## Reports and exports
 
