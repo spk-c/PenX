@@ -156,6 +156,46 @@ that the audit then fails closed. Neither the CLI nor the audit module
 performs an import, creation or cleanup of any user database.
 
 
+## Opt-in bounded row-content comparison
+
+The existing post-import command now offers **`--verify-content`**.
+Without it, the original structure-and-row-count comparison is unchanged.
+With it, PenX also reads row values within each of the two server-enforced
+`READ ONLY` snapshots and compares per-table SHA-256 multisets, preserving
+duplicates while ignoring SQL result order:
+
+~~~powershell
+python penx.py backup mariadb-restore-audit --file "C:\PenX\private-backups\YOUR-BACKUP.sql" --target-schema penx_restore_0123456789abcdef0123456789abcdef --host 127.0.0.1 --port 3306 --source-user penx_source_reader --target-user penx_scratch_reader --verify-content
+~~~
+
+Before running, configure the **same two dedicated, separate password
+environment variables** described above. This command is deliberately
+opt-in because it reads sensitive row contents **into local process
+memory**. Neither row contents nor per-row/table hashes are printed,
+saved or returned. Unknown connector data types, nonfinite numbers,
+incomplete reads and resource overruns fail closed. The fixed limits
+are **2,000 rows per table, 10,000 rows total, 256 KiB per field,
+512 KiB per row and 32 MiB encoded content per database side**.
+The read-only source/scratch accounts need SELECT on all relevant
+tables. Run only from a trusted local host.
+
+A successful comparison reports
+`observed-read-only-content-parity` and
+`current_row_multiset_compared: true`, but still sets
+`restore_available: false` and
+`historical_backup_rows_verified: false`. Only the **current rows
+observed in two separate read-only snapshots** are compared.
+It is not an atomic cross-schema snapshot, a digital signature,
+a comparison against the historical dump's actual row data, or a
+replacement for stopping writes and rehearsing a restore. Identical
+row hashes have a negligible but nonzero collision probability.
+
+The isolated MariaDB CI validates a successful content comparison,
+changes one field in **scratch only** while retaining the same row
+counts and schema, confirms that structural-only audit still passes
+but content audit fails, then restores that CI-only value and checks
+success again. No production data is modified.
+
 ## Restore acceptance and remaining work
 
 PenX does **not** offer a MariaDB in-place restore command. The new

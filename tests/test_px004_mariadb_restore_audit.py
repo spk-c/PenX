@@ -2,6 +2,8 @@
 from __future__ import annotations
 from contextlib import redirect_stdout
 from io import StringIO
+from datetime import date, datetime, time, timedelta
+from decimal import Decimal
 import json
 import os
 import unittest
@@ -21,6 +23,7 @@ class FakeCursor:
     def execute(self, sql, params=None):
         self.statements.append((sql, params))
         self.last = sql
+        self.row_index = 0
 
     def fetchall(self):
         if "information_schema.TABLES" in self.last:
@@ -39,6 +42,14 @@ class FakeCursor:
         raise AssertionError("Unexpected schema query")
 
     def fetchone(self):
+        if self.last.startswith("SELECT * FROM "):
+            key = "history_data" if "history" in self.last else "summary_data"
+            data = self.changes.get(key, [(1,), (2,)])
+            if self.row_index >= len(data):
+                return None
+            row = data[self.row_index]
+            self.row_index += 1
+            return row
         if "history" in self.last:
             return (self.changes.get("history_rows", 2),)
         if "summary" in self.last:
@@ -72,7 +83,7 @@ class ScratchAuditTests(unittest.TestCase):
             "plan_sha256": "c" * 64,
         }
 
-    def compare(self, source=None, target=None):
+    def compare(self, source=None, target=None, *, verify_content=False):
         src = FakeConnection(source)
         dest = FakeConnection(target)
         with patch.object(audit, "plan_scratch_restore",
@@ -85,7 +96,8 @@ class ScratchAuditTests(unittest.TestCase):
                 self.file, target_schema=self.target,
                 host="127.0.0.1", port=3306,
                 source_user="src", source_password="secret1",
-                target_user="dest", target_password="secret2")
+                target_user="dest", target_password="secret2",
+                verify_content=verify_content)
         return result, src, dest, factory
 
     def test_parity_is_not_restore_authorization(self):
@@ -147,6 +159,121 @@ class ScratchAuditTests(unittest.TestCase):
                 self.file, target_schema=self.target, host="127.0.0.1",
                 port=3306, source_user="src", source_password="pw",
                 target_user="dest", target_password="pw")
+
+
+    def test_opt_in_content_equality_without_raw_or_row_digests(self):
+        result, src, dest, _ = self.compare(verify_content=True)
+        self.assertEqual(result["status"], "observed-read-only-content-parity")
+        self.assertTrue(result["current_row_multiset_compared"])
+        self.assertFalse(result["row_digests_exposed"])
+        self.assertFalse(result["historical_backup_rows_verified"])
+        self.assertFalse(result["snapshot_contents_verified"])
+        self.assertFalse(result["restore_available"])
+        self.assertNotIn("content_fingerprints", result)
+        self.assertNotIn("history_data", str(result))
+        for conn in (src, dest):
+            self.assertTrue(conn.closed)
+            self.assertTrue(conn.c.closed)
+            self.assertEqual(
+                sum(sql.startswith("SELECT * FROM ") for sql, _ in conn.c.statements),
+                2,
+            )
+            self.assertTrue(all(sql.startswith("SELECT ")
+                                for sql, _ in conn.c.statements))
+
+    def test_same_row_count_different_value_fails_content_mode_only(self):
+        changes = {"history_data": [(1,), (99,)]}
+        self.assertEqual(self.compare(target=changes)[0]["status"],
+                         "observed-read-only-structural-parity")
+        with self.assertRaisesRegex(ValueError, "differ"):
+            self.compare(target=changes, verify_content=True)
+
+    def test_order_independent_content_comparison(self):
+        result, *_ = self.compare(
+            target={"history_data": [(2,), (1,)]},
+            verify_content=True,
+        )
+        self.assertTrue(result["current_row_multiset_compared"])
+
+    def test_duplicate_multiplicities_are_significant(self):
+        before = {"history_data": [(1,), (1,)]}
+        after = {"history_data": [(1,), (2,)]}
+        self.assertTrue(self.compare(
+            source=before, target=before, verify_content=True,
+        )[0]["current_row_multiset_compared"])
+        with self.assertRaisesRegex(ValueError, "differ"):
+            self.compare(source=before, target=after, verify_content=True)
+
+    def test_null_and_binary_content_differences_are_significant(self):
+        same = {"history_data": [(None,), (b"\x00\xfe",)]}
+        different = {"history_data": [(None,), (b"\x00\xff",)]}
+        self.assertTrue(self.compare(
+            source=same, target=same, verify_content=True,
+        )[0]["current_row_multiset_compared"])
+        with self.assertRaises(ValueError):
+            self.compare(source=same, target=different, verify_content=True)
+
+    def test_cell_value_encoding_distinguishes_types_and_is_deterministic(self):
+        values = [
+            None, True, 0, "0", b"0", Decimal("0.00"), 0.0,
+            datetime(2026, 11, 4, 9, 0, 10),
+            date(2026, 11, 4), time(9, 0, 10),
+            timedelta(days=2, seconds=3, microseconds=4),
+        ]
+        encodings = [audit._canonical_cell(v) for v in values]
+        self.assertEqual(len(encodings), len(set(encodings)))
+        self.assertEqual(encodings, [audit._canonical_cell(v) for v in values])
+        for bad in (float("nan"), float("inf"), Decimal("NaN"), object()):
+            with self.subTest(value_type=type(bad)), self.assertRaises(ValueError):
+                audit._canonical_cell(bad)
+
+    def test_content_limits_fail_closed(self):
+        with patch.object(audit, "MAX_CONTENT_ROWS_PER_TABLE", 1), \
+             self.assertRaisesRegex(ValueError, "budget"):
+            self.compare(verify_content=True)
+        with patch.object(audit, "MAX_CONTENT_ROWS_TOTAL", 2), \
+             self.assertRaisesRegex(ValueError, "budget"):
+            self.compare(verify_content=True)
+        with patch.object(audit, "MAX_CONTENT_CELL_BYTES", 1), \
+             self.assertRaisesRegex(ValueError, "budget"):
+            self.compare(source={"history_data": [(b"abc",), (b"d",)]},
+                         verify_content=True)
+        with patch.object(audit, "MAX_CONTENT_BYTES_TOTAL", 1), \
+             self.assertRaisesRegex(ValueError, "budget"):
+            self.compare(verify_content=True)
+
+    def test_unsupported_row_data_fails_closed(self):
+        with self.assertRaises(ValueError):
+            self.compare(
+                source={"history_data": [("ok",), (object(),)]},
+                verify_content=True,
+            )
+        with self.assertRaises(ValueError):
+            self.compare(
+                source={"history_data": [(1,), (2,), (3,)]},
+                verify_content=True,
+            )
+        with self.assertRaises(ValueError):
+            self.compare(
+                source={"history_data": [(1, 2), (2,)]},
+                verify_content=True,
+            )
+
+    def test_cli_verify_content_is_explicit(self):
+        args = [
+            "mariadb-restore-audit", "--file", self.file,
+            "--target-schema", self.target, "--host", "127.0.0.1",
+            "--source-user", "source_reader", "--target-user", "target_reader",
+            "--verify-content",
+        ]
+        with patch.object(audit, "audit_scratch_restore", return_value={
+            "status": "observed-read-only-content-parity",
+            "restore_available": False, "sql_executed": False,
+        }) as fake, redirect_stdout(StringIO()) as stream:
+            code = backup_cli(args)
+        self.assertEqual(code, 0)
+        self.assertTrue(fake.call_args.kwargs["verify_content"])
+        self.assertFalse(json.loads(stream.getvalue())["restore_available"])
 
     def test_cli_secret_redaction(self):
         args = [

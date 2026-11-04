@@ -175,6 +175,52 @@ class MariaDBLogicalBackupIntegration(unittest.TestCase):
                 self.assertFalse(observed["restore_available"])
                 self.assertFalse(observed["sql_executed"])
                 self.assertGreater(observed["tables_compared"], 6)
+                # Compare actual row values as an order-independent bounded
+                # multiset, not merely row counts or indexes.
+                content = mariadb_restore_audit.audit_scratch_restore(
+                    sql, target_schema=RESTORE_DB, host="127.0.0.1",
+                    port=3306, source_user="penx_ci",
+                    source_password="integration-only",
+                    target_user="penx_ci", target_password="integration-only",
+                    verify_content=True)
+                self.assertEqual(content["status"],
+                                 "observed-read-only-content-parity")
+                self.assertTrue(content["current_row_multiset_compared"])
+                self.assertFalse(content["historical_backup_rows_verified"])
+                self.assertFalse(content["restore_available"])
+                self.assertNotIn("content_fingerprints", content)
+
+                # Same table definitions and row counts, different value:
+                # legacy structural-only mode still passes; content mode
+                # MUST fail. Mutate *only* disposable scratch assessment.
+                self.root_query(
+                    "-e", "UPDATE " + RESTORE_DB +
+                    ".summary SET risk_level='HIGH' WHERE sl_no=" + str(sl))
+                structural_only = mariadb_restore_audit.audit_scratch_restore(
+                    sql, target_schema=RESTORE_DB, host="127.0.0.1",
+                    port=3306, source_user="penx_ci",
+                    source_password="integration-only",
+                    target_user="penx_ci", target_password="integration-only")
+                self.assertEqual(structural_only["status"],
+                                 "observed-read-only-structural-parity")
+                with self.assertRaisesRegex(ValueError, "differ"):
+                    mariadb_restore_audit.audit_scratch_restore(
+                        sql, target_schema=RESTORE_DB, host="127.0.0.1",
+                        port=3306, source_user="penx_ci",
+                        source_password="integration-only",
+                        target_user="penx_ci",
+                        target_password="integration-only",
+                        verify_content=True)
+                self.root_query(
+                    "-e", "UPDATE " + RESTORE_DB +
+                    ".summary SET risk_level='LOW' WHERE sl_no=" + str(sl))
+                corrected = mariadb_restore_audit.audit_scratch_restore(
+                    sql, target_schema=RESTORE_DB, host="127.0.0.1",
+                    port=3306, source_user="penx_ci",
+                    source_password="integration-only",
+                    target_user="penx_ci", target_password="integration-only",
+                    verify_content=True)
+                self.assertTrue(corrected["current_row_multiset_compared"])
                 # Corrupt only the scratch schema; it must immediately
                 # fail the independent structural parity audit.
                 self.root_query(
