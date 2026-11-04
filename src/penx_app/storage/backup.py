@@ -264,6 +264,26 @@ def restore(backup: Path, live_db: Path, backup_dir: Path) -> dict[str, Any]:
         raise BackupError(str(exc)) from exc
 
 
+def _reject_unmanaged_sqlite_sidecars(live_db: Path) -> None:
+    """Fail closed if SQLite journal state might belong to an external client.
+
+    The PenX use-lock protects PenX-owned connections only. An unrelated
+    SQLite connection can keep committed pages in WAL, so replacing the main
+    file and deleting its -wal/-shm would discard data or strand that client.
+    Sidecars can also be stale; we deliberately never clean them up here.
+    """
+    if not live_db.exists():
+        return
+    for suffix in ("-wal", "-shm", "-journal"):
+        sidecar = Path(str(live_db) + suffix)
+        if sidecar.exists() or sidecar.is_symlink():
+            raise BackupError(
+                "SQLite restore blocked: external SQLite journal/WAL state "
+                "may still be in use. Stop all SQLite clients, checkpoint "
+                "and close the database, then retry; no sidecars were removed."
+            )
+
+
 def _restore_unlocked(backup: Path, live_db: Path, backup_dir: Path) -> dict[str, Any]:
     """Restore a verified backup over ``live_db`` (atomic, never in place).
 
@@ -280,6 +300,10 @@ def _restore_unlocked(backup: Path, live_db: Path, backup_dir: Path) -> dict[str
     backup_dir = Path(backup_dir)
     if live_db.exists() and not live_db.is_file():
         raise BackupError(f"Live database path is not a file: {live_db}")
+
+    # Check before even making the pre-restore backup. External WAL pages
+    # must never be silently detached from the file they belong to.
+    _reject_unmanaged_sqlite_sidecars(live_db)
 
     pre_restore: str | None = None
     if live_db.exists():
@@ -304,9 +328,11 @@ def _restore_unlocked(backup: Path, live_db: Path, backup_dir: Path) -> dict[str
                 conn.execute("PRAGMA journal_mode=WAL")
         for suffix in ("-wal", "-shm"):
             Path(str(tmp) + suffix).unlink(missing_ok=True)
+        # An external client might have appeared while we staged/migrated.
+        # This is a best-effort second guard, not a lock against clients that
+        # bypass the PenX use-lock. Never delete live WAL/SHM on success.
+        _reject_unmanaged_sqlite_sidecars(live_db)
         os.replace(tmp, live_db)
-        for suffix in ("-wal", "-shm"):
-            Path(str(live_db) + suffix).unlink(missing_ok=True)
     except BaseException as exc:
         for suffix in ("", "-wal", "-shm"):
             Path(str(tmp) + suffix).unlink(missing_ok=True)
