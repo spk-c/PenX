@@ -196,6 +196,30 @@ def _cmd_mariadb_restore_preflight(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_mariadb_restore_audit(args: argparse.Namespace) -> int:
+    """Compare read-only source/scratch metadata without importing SQL."""
+    from penx_app.application.mariadb_restore_audit import audit_scratch_restore
+
+    try:
+        result = audit_scratch_restore(
+            args.file, target_schema=args.target_schema,
+            host=args.host, port=args.port,
+            source_user=args.source_user,
+            source_password=os.environ.get("PENX_VERIFY_MARIADB_PASSWORD", ""),
+            target_user=args.target_user,
+            target_password=os.environ.get("PENX_SCRATCH_AUDIT_PASSWORD", ""),
+        )
+    except Exception:
+        # Never disclose DB driver messages, SQL source text or credentials.
+        print(json.dumps({
+            "status": "unverified",
+            "error": "mariadb-scratch-audit-failed",
+        }))
+        return 2
+    print(json.dumps(result, sort_keys=True))
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="penx backup",
@@ -256,6 +280,16 @@ def main(argv: list[str] | None = None) -> int:
     p_preflight.add_argument("--user", required=True,
                              help="Read-only user with explicit SHOW DATABASES privilege")
 
+    p_audit = sub.add_parser(
+        "mariadb-restore-audit",
+        help="READ ONLY source/scratch schema and row-count comparison")
+    p_audit.add_argument("--file", required=True)
+    p_audit.add_argument("--target-schema", required=True)
+    p_audit.add_argument("--host", required=True, help="Loopback only")
+    p_audit.add_argument("--port", type=int, default=3306)
+    p_audit.add_argument("--source-user", required=True)
+    p_audit.add_argument("--target-user", required=True)
+
     try:
         args = parser.parse_args(argv)
     except SystemExit:
@@ -270,5 +304,6 @@ def main(argv: list[str] | None = None) -> int:
         "mariadb-preview": _cmd_mariadb_preview,
         "mariadb-restore-plan": _cmd_mariadb_restore_plan,
         "mariadb-restore-preflight": _cmd_mariadb_restore_preflight,
+        "mariadb-restore-audit": _cmd_mariadb_restore_audit,
     }
     return handlers[args.command](args)

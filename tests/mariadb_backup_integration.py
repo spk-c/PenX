@@ -10,7 +10,8 @@ import subprocess
 import tempfile
 import unittest
 
-from penx_app.application import mariadb_backup, mariadb_restore_plan
+from penx_app.application import (mariadb_backup, mariadb_restore_audit,
+                                   mariadb_restore_plan)
 from penx_app.application.backup_service import main as backup_main
 from penx_app.storage import db, db_backend
 
@@ -159,6 +160,33 @@ class MariaDBLogicalBackupIntegration(unittest.TestCase):
                 self.assertEqual(
                     [self.root_query("-N", "-B", "-e", q) for q in queries],
                     ["1", "1", "1"])
+                # Disposable CI only: grant SELECT on this one scratch
+                # schema. Production accounts are never modified.
+                self.root_query(
+                    "-e", "GRANT SELECT ON " + RESTORE_DB +
+                    ".* TO 'penx_ci'@'%'")
+                observed = mariadb_restore_audit.audit_scratch_restore(
+                    sql, target_schema=RESTORE_DB, host="127.0.0.1",
+                    port=3306, source_user="penx_ci",
+                    source_password="integration-only", target_user="penx_ci",
+                    target_password="integration-only")
+                self.assertEqual(observed["status"],
+                                 "observed-read-only-structural-parity")
+                self.assertFalse(observed["restore_available"])
+                self.assertFalse(observed["sql_executed"])
+                self.assertGreater(observed["tables_compared"], 6)
+                # Corrupt only the scratch schema; it must immediately
+                # fail the independent structural parity audit.
+                self.root_query(
+                    "-e", "ALTER TABLE " + RESTORE_DB +
+                    ".summary ADD COLUMN px004_ci_fault INT NULL")
+                with self.assertRaisesRegex(ValueError, "differ"):
+                    mariadb_restore_audit.audit_scratch_restore(
+                        sql, target_schema=RESTORE_DB, host="127.0.0.1",
+                        port=3306, source_user="penx_ci",
+                        source_password="integration-only",
+                        target_user="penx_ci",
+                        target_password="integration-only")
                 with redirect_stdout(StringIO()) as stream:
                     self.assertEqual(backup_main([
                         "mariadb-verify", "--file", str(sql)]), 0)
