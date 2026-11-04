@@ -82,7 +82,7 @@ def _safe_label(value: object, *, max_chars: int) -> str:
 def _exact_package_url(value: object, *, version: str) -> tuple[str, str, str] | None:
     if value is None or value == "":
         return None
-    _safe_label(value, max_chars=400)
+    value = _safe_label(value, max_chars=400)
     if _INVALID_PERCENT.search(value):
         raise SBOMError("Malformed percent escape in package URL")
     match = _PURL.fullmatch(value)
