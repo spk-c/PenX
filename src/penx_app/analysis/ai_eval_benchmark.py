@@ -126,7 +126,7 @@ def score_predictions(corpus: dict, predictions: dict) -> dict:
     if corpus_prompt != prediction_prompt:
         raise ValueError("Prompt versions do not match")
     rubric, _ = _rubric(corpus)
-    supplied: dict[str, dict[str, str | None]] = {}
+    supplied: dict[str, dict[str, str]] = {}
     failed = {status: 0 for status in sorted(_FAILURE_STATUSES)}
     for row in entries:
         item = _keys(row, {"id", "status", "findings"}, "prediction case")
