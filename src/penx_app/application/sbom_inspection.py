@@ -9,7 +9,7 @@ from penx_app.intelligence.sbom_inventory import SBOMError, inspect_sbom
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="penx sbom",
-        description="Strict offline package inventory; no vulnerability lookup",
+        description="Strict local-only SBOM inventory and exact OSV snapshots; no online lookup",
     )
     sub = parser.add_subparsers(dest="command", required=True)
     audit = sub.add_parser("inspect", help="Inspect a local CycloneDX/SPDX JSON file")
