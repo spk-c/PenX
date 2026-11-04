@@ -19,6 +19,13 @@ class History(NamedTuple):
     status: str
 
 
+@dataclass(frozen=True)
+class HistoryPage:
+    """One bounded keyset page, not a full history/materialized snapshot."""
+    entries: tuple[History, ...]
+    next_before_id: int | None
+
+
 class Finding(NamedTuple):
     id: int
     session_id: int
@@ -158,6 +165,80 @@ class SessionRepository:
                 metadata = cursor.fetchone()
                 scan_result = ScanResult.from_metadata(metadata[0]) if metadata and metadata[0] else None
                 return SessionSnapshot(history, findings, fixes, exploits, summary, corrections, evaluations, scan_result)
+
+    def history_page(
+        self, *, limit: int = 50, before_id: int | None = None,
+        status: str = "active", target: str | None = None,
+        from_date: str | None = None, until_date: str | None = None,
+    ) -> HistoryPage:
+        """Bounded, deterministic history paging without fetching scan contents.
+
+        Keyset paging is stable under inserts: newer session IDs never
+        displace older pages. This is not a consistent snapshot across calls.
+        """
+        from datetime import date, timedelta
+
+        if type(limit) is not int or not 1 <= limit <= 100:
+            raise ValueError("History page limit must be between 1 and 100")
+        if before_id is not None and (
+                type(before_id) is not int or before_id <= 0):
+            raise ValueError("Invalid history cursor")
+        if status not in {"active", "pending"}:
+            raise ValueError("Invalid history status")
+        if target is not None and (
+                not isinstance(target, str) or not target
+                or len(target) > 1024
+                or any(ord(ch) < 32 for ch in target)):
+            raise ValueError("Invalid exact target filter")
+        for candidate in (from_date, until_date):
+            if candidate is not None:
+                if not isinstance(candidate, str) or len(candidate) != 10:
+                    raise ValueError("Invalid ISO date filter")
+                try:
+                    parsed = date.fromisoformat(candidate)
+                except ValueError as exc:
+                    raise ValueError("Invalid ISO date filter") from exc
+                if parsed.isoformat() != candidate:
+                    raise ValueError("Invalid ISO date filter")
+        if from_date and until_date and from_date > until_date:
+            raise ValueError("Date range is reversed")
+        predicates = ["status = %s"]
+        params: list[object] = [status]
+        if before_id is not None:
+            predicates.append("sl_no < %s")
+            params.append(before_id)
+        if target is not None:
+            predicates.append("target = %s")
+            params.append(target)
+        if from_date is not None:
+            predicates.append("scan_date >= %s")
+            params.append(from_date)
+        if until_date is not None:
+            # ISO scan_date values may contain local time, so inclusive
+            # calendar end uses a next-day strict upper bound.
+            day = date.fromisoformat(until_date)
+            if day == date.max:
+                raise ValueError("History end date is not representable")
+            predicates.append("scan_date < %s")
+            params.append((day + timedelta(days=1)).isoformat())
+        sql = ("SELECT sl_no, target, scan_date, status FROM history WHERE "
+               + " AND ".join(predicates)
+               + " ORDER BY sl_no DESC LIMIT %s")
+        params.append(limit + 1)
+        with closing(self.connection_factory()) as connection:
+            cursor = connection.cursor()
+            try:
+                cursor.execute(sql, tuple(params))
+                rows = cursor.fetchmany(limit + 1)
+            finally:
+                cursor.close()
+        if not isinstance(rows, (list, tuple)) or len(rows) > limit + 1:
+            raise ValueError("Invalid bounded history page")
+        entries = tuple(History(*row) for row in rows[:limit])
+        return HistoryPage(
+            entries=entries,
+            next_before_id=entries[-1].session_id if len(rows) > limit else None,
+        )
 
     def history(self) -> list[History]:
         with closing(self.connection_factory()) as connection:
