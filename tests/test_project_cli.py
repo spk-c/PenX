@@ -9,10 +9,12 @@ import io
 import sqlite3
 import tempfile
 import unittest
+from datetime import datetime, timedelta, timezone
 from contextlib import closing
 
-from penx_app.application.project_service import main
+from penx_app.application.project_service import ProjectService, main
 from penx_app.storage.db_backend import SQLiteConnection
+from penx_app.storage.project_repository import ProjectRepository
 from penx_app.storage.schema_migrations import initialize_sqlite
 
 
@@ -86,6 +88,98 @@ class ProjectCliTests(unittest.TestCase):
                         self.factory)
         self.assertEqual(code, 1, out)
         self.assertIn('not authorized', out)
+
+    def test_candidate_promotion_requires_explicit_confirmation(self):
+        self._create()
+        self.assertEqual(_run(['add', 'proj1', '--target', 'sub.example.test',
+                               '--as-candidate'], self.factory)[0], 0)
+        args = ['approve', 'proj1', '--target', 'sub.example.test']
+        code, out = _run(args, self.factory)
+        self.assertEqual(code, 2, out)
+        self.assertIn('--confirm', out)
+        self.assertEqual(_run(['check', 'proj1', '--target',
+                               'sub.example.test'], self.factory)[0], 1)
+        code, out = _run(args + ['--confirm'], self.factory)
+        self.assertEqual(code, 0, out)
+        self.assertIn('Approved existing candidate', out)
+        self.assertEqual(_run(['check', 'proj1', '--target',
+                               'sub.example.test'], self.factory)[0], 0)
+        self.assertEqual(_run(args + ['--confirm'], self.factory)[0], 2)
+
+    def test_approve_missing_or_already_approved_is_not_an_upsert(self):
+        self._create()
+        args = ['approve', 'proj1', '--target', 'example.test', '--confirm']
+        self.assertEqual(_run(args, self.factory)[0], 2)
+        self._add_ok('example.test')
+        self.assertEqual(_run(args, self.factory)[0], 2)
+        repo = ProjectRepository(self.factory)
+        self.assertEqual(repo.asset_count(repo.get_project('proj1').id), 1)
+
+    def test_promotion_preserves_candidate_constraints(self):
+        self._create()
+        until = (datetime.now(timezone.utc) + timedelta(days=365)).isoformat()
+        self.assertEqual(_run([
+            'add', 'proj1', '--target', 'example.test:8443',
+            '--as-candidate', '--expiry', until, '--rate', '2',
+            '--budget', '120', '--tags', 'lab,owner'], self.factory)[0], 0)
+        repo = ProjectRepository(self.factory)
+        before = repo.list_assets(repo.get_project('proj1').id)[0]
+        self.assertEqual(_run(['approve', 'proj1', '--target', 'example.test:8443',
+                               '--confirm'], self.factory)[0], 0)
+        after = repo.list_assets(repo.get_project('proj1').id)[0]
+        self.assertEqual(after.status, 'approved')
+        self.assertEqual((after.expires_at, after.max_rate, after.max_budget, after.tags),
+                         (before.expires_at, before.max_rate, before.max_budget, before.tags))
+        self.assertNotEqual(after.approved_at, before.approved_at)
+        self.assertEqual(_run(['check', 'proj1', '--target',
+                               'example.test:443'], self.factory)[0], 1)
+
+    def test_expired_candidate_cannot_be_promoted(self):
+        self._create()
+        now = datetime.now(timezone.utc)
+        service = ProjectService(ProjectRepository(self.factory))
+        service.add('proj1', 'example.test', as_candidate=True,
+                    now=now - timedelta(days=3),
+                    expires_at=(now - timedelta(days=1)).isoformat())
+        self.assertEqual(_run(['approve', 'proj1', '--target', 'example.test',
+                               '--confirm'], self.factory)[0], 2)
+        self.assertEqual(_run(['check', 'proj1', '--target',
+                               'example.test'], self.factory)[0], 1)
+
+    def test_revocation_requires_confirm_and_keeps_reapprovable_candidate(self):
+        self._create()
+        self._add_ok('example.test')
+        args = ['revoke', 'proj1', '--target', 'example.test']
+        self.assertEqual(_run(args, self.factory)[0], 2)
+        self.assertEqual(_run(['check', 'proj1', '--target', 'example.test'],
+                              self.factory)[0], 0)
+        code, out = _run(args + ['--confirm'], self.factory)
+        self.assertEqual(code, 0, out)
+        self.assertIn('now candidate', out)
+        self.assertEqual(_run(['check', 'proj1', '--target', 'example.test'],
+                              self.factory)[0], 1)
+        self.assertEqual(_run(args + ['--confirm'], self.factory)[0], 2)
+        self.assertEqual(_run(['approve', 'proj1', '--target', 'example.test',
+                               '--confirm'], self.factory)[0], 0)
+        self.assertEqual(_run(['check', 'proj1', '--target', 'example.test'],
+                              self.factory)[0], 0)
+
+    def test_approval_and_revocation_use_exact_canonical_key(self):
+        self._create()
+        self.assertEqual(_run(['add', 'proj1', '--target', 'example.test:443',
+                               '--as-candidate'], self.factory)[0], 0)
+        self.assertEqual(_run(['add', 'proj1', '--target', 'example.test:8443',
+                               '--as-candidate'], self.factory)[0], 0)
+        self.assertEqual(_run(['approve', 'proj1', '--target', 'example.test:443',
+                               '--confirm'], self.factory)[0], 0)
+        self.assertEqual(_run(['check', 'proj1', '--target', 'example.test:443'],
+                              self.factory)[0], 0)
+        self.assertEqual(_run(['check', 'proj1', '--target', 'example.test:8443'],
+                              self.factory)[0], 1)
+        self.assertEqual(_run(['revoke', 'proj1', '--target', 'example.test:8443',
+                               '--confirm'], self.factory)[0], 2)
+        self.assertEqual(_run(['check', 'proj1', '--target', 'example.test:443'],
+                              self.factory)[0], 0)
 
     def test_list_projects(self):
         self._create('alpha')
