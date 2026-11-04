@@ -114,7 +114,7 @@ class InstallerUpdateTests(unittest.TestCase):
             NEXT_RELEASE_URL)
         with patch.object(updates, "check_update", return_value=release), \
              patch.object(updates, "installed_mode", return_value=True), \
-             patch.object(updates.os, "name", "nt"), \
+             patch.object(updates, "is_windows", return_value=True), \
              patch("builtins.input", return_value="n"), \
              patch.object(updates, "download_verified_installer") as download, \
              patch.object(updates.subprocess, "Popen") as proc:
@@ -127,15 +127,19 @@ class InstallerUpdateTests(unittest.TestCase):
             NEXT_TAG, NEXT_PREFIX + "PenX-Setup-x64.exe",
             NEXT_PREFIX + "SHA256SUMS.txt",
             NEXT_RELEASE_URL)
-        # Inno Setup: 0 completed normally, 2/3 completed but a reboot is
-        # required; 1 means aborted. Only the first group counts as success.
-        for exit_code, expected in ((0, True), (2, True), (3, True), (1, False)):
+        # Inno Setup: only zero means installation completed. 2/5 are
+        # cancellations, 3 is a fatal prepare error, 8 needs a retry after
+        # a system restart. Never treat these as successful updates.
+        for exit_code, expected in (
+            (0, True), (1, False), (2, False), (3, False),
+            (4, False), (5, False), (8, False), (999, False),
+        ):
             with self.subTest(exit_code=exit_code):
                 popen = Mock()
                 popen.return_value.wait.return_value = exit_code
                 with patch.object(updates, "check_update", return_value=release), \
                      patch.object(updates, "installed_mode", return_value=True), \
-                     patch.object(updates.os, "name", "nt"), \
+                     patch.object(updates, "is_windows", return_value=True), \
                      patch("builtins.input", return_value="y"), \
                      patch.object(updates, "download_verified_installer",
                                   return_value=Path("penx-update-fake.exe")), \
