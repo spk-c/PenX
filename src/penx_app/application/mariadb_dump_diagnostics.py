@@ -61,6 +61,79 @@ _COMPLETE_MARKER = re.compile(
 )
 
 
+def _incomplete_sql_flags(text: str) -> set[str]:
+    """One-pass *lexical* EOF guard; not a SQL parser or execution guarantee.
+
+    Ignore semicolons inside quoted strings/identifiers and comments. Count
+    only delimiters outside them. Supports common MariaDB dump quoting and
+    doubled quotes; unusual SQL modes/clients require separate human review.
+    This is an additive warning, never a positive safety certification.
+    """
+    flags: set[str] = set()
+    state = "code"
+    has_unfinished_code = False
+    index = 0
+    length = len(text)
+    while index < length:
+        char = text[index]
+        next_char = text[index + 1] if index + 1 < length else ""
+
+        if state == "line-comment":
+            if char == "\n" or char == "\r":
+                state = "code"
+        elif state == "block-comment":
+            if char == "*" and next_char == "/":
+                state = "code"
+                index += 1
+        elif state in {"single-quote", "double-quote", "backtick"}:
+            closing = {"single-quote": "'", "double-quote": '"',
+                       "backtick": "\`"}[state]
+            # SQL string escaping is mode-dependent. This handles the
+            # default MariaDB dump backslash form but proves no semantics.
+            if state != "backtick" and char == "\\" and next_char:
+                index += 1
+            elif char == closing and next_char == closing:
+                index += 1
+            elif char == closing:
+                state = "code"
+        elif char == "-" and next_char == "-" and (
+            index + 2 == length or text[index + 2].isspace()
+        ):
+            state = "line-comment"
+            index += 1
+        elif char == "#":
+            state = "line-comment"
+        elif char == "/" and next_char == "*":
+            # Versioned executable comments can contain SQL code; they
+            # remain flagged by the existing regex risk pass as well.
+            if text.startswith("/*!", index) or text[index:index + 4].upper() == "/*M!":
+                has_unfinished_code = True
+            state = "block-comment"
+            index += 1
+        elif char == "'":
+            state = "single-quote"
+            has_unfinished_code = True
+        elif char == '"':
+            state = "double-quote"
+            has_unfinished_code = True
+        elif char == "\`":
+            state = "backtick"
+            has_unfinished_code = True
+        elif char == ";":
+            has_unfinished_code = False
+        elif not char.isspace():
+            has_unfinished_code = True
+        index += 1
+
+    if state in {"single-quote", "double-quote", "backtick"}:
+        flags.add("unterminated-quoted-token")
+    if state == "block-comment":
+        flags.add("unterminated-block-comment")
+    if has_unfinished_code:
+        flags.add("unfinished-sql-statement")
+    return flags
+
+
 def inspect_logical_dump(path: str | Path) -> dict:
     """Inspect one hash-bound SQL pair locally and return only generic flags.
 
@@ -125,6 +198,7 @@ def inspect_logical_dump(path: str | Path) -> dict:
 
     flags = {name for name, pattern in _RISK_PATTERNS.items()
              if pattern.search(text)}
+    flags.update(_incomplete_sql_flags(text))
     if duplicate_create:
         flags.add("duplicate-create-table")
     if unknown_tables:
