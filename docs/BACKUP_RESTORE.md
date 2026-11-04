@@ -75,8 +75,23 @@ lifetime. Restore acquires an exclusive OS lock before copying or replacing
 files, and fails closed if any managed connection is still open. It also
 prevents new managed PenX connections from opening during the replacement.
 **Stop PenX and any other SQLite client before restore:** external clients
-that bypass the PenX lock do not participate. Do not restore a database
-on a network filesystem without verified file-locking semantics.
+that bypass the PenX lock do not participate. Before creating the mandatory
+pre-restore backup and again immediately before file replacement, PenX now
+refuses to proceed if any `<database>-wal`, `<database>-shm`, or
+`<database>-journal` file exists. It does **not** remove those files or
+silently discard uncheckpointed committed WAL pages. Stop independent
+SQLite applications and let them checkpoint and close their transactions
+normally, then inspect the database before retrying. Even a stale sidecar
+requires independent operator review: do not manually delete it merely to
+bypass the safety gate.
+
+**Limit:** this is a conservative file-based guard, not a transactional
+lock against all external processes. An idle external connection without
+sidecars, or an external client that starts between the second check and
+atomic replacement, cannot be reliably detected. The PenX shared/exclusive
+lock only coordinates PenX-managed clients. Use a maintenance window and
+stop all external clients. Do not restore on a network filesystem without
+verified file-locking semantics.
 
 Restore never overwrites the live database in place, and it is never
 performed without the explicit `--confirm` flag.
