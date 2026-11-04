@@ -16,19 +16,29 @@ provenance and PX-101 scope slices, main includes [#162](https://github.com/spk-
 (SQLite WAL-sidecar refusal), [#164](https://github.com/spk-c/PenX/pull/164)
 (strict backup manifest), [#165](https://github.com/spk-c/PenX/pull/165)
 (offline labelled AI fixture scorer) and [#166](https://github.com/spk-c/PenX/pull/166)
-(manual CI/SARIF workflow hardening). No real model, production database
-restore or target scan was exercised by those PRs.
+(manual CI/SARIF workflow hardening). Follow-up source includes
+[#168](https://github.com/spk-c/PenX/pull/168) and
+[#169](https://github.com/spk-c/PenX/pull/169) (offline lexical SQL-dump diagnostics),
+[#170](https://github.com/spk-c/PenX/pull/170) (redacted read-only SQLite
+history pagination), and [#171](https://github.com/spk-c/PenX/pull/171)
+(local CycloneDX/SPDX inventory parsing). These are **partial** roadmap
+slices; no real model, production database restore or external target scan
+was exercised. The [36-item acceptance matrix](ROADMAP.md#acceptance-matrix--all-36-roadmap-ids-4-november-2026)
+is the source of tracked remaining gates.
 
-**Next P0 design/code slice: PX-004 historical MariaDB dump verification.**
-The current checksum pairs protect local file identity, and optional scratch
-audits compare *current*, separately observed source/scratch rows. They do
-not prove the actual saved SQL's provenance, semantic validity or
-historical contents. Implement one small offline, deliberately
-fail-closed diagnostic/fixture step that identifies untrusted dump
-constructs without claiming a general SQL parser or enabling imports.
-Start with real disposable `mariadb-dump` fixtures and negative tests;
-reject ambiguous syntax and avoid any live restore. Do not silently loosen
-the existing conservative MariaDB gates.
+**Next P0 design/code slice: PX-004 historical dump provenance and safe
+recovery gates, NOT another lexical inspector.** [#168](https://github.com/spk-c/PenX/pull/168)
+and [#169](https://github.com/spk-c/PenX/pull/169) already identify
+suspicious SQL text and unclosed lexical tails, including actual disposable
+native MariaDB dump integration. **Neither proves that the saved SQL matches
+the source snapshot**, can be executed safely, or is complete. Design a
+reviewable, *non-mutating* historical dump-vs-scratch validation contract
+with trusted source evidence and a bounded fixture corpus. Distinguish
+original source, saved bytes, scratch imported rows and dates/times; do not
+equate separate present-day snapshots to historical parity. Preserve all
+`restore_available:false` contracts. No live/in-place MariaDB restore,
+operator data access or new automatic jobs without separately approved
+recovery and scope sign-off.
 
 **Parallel operator acceptance remains separate:** PX-001/PX-003 Windows,
 Kali/Npcap, real old databases and report review; PX-101 blocked external
@@ -39,22 +49,26 @@ NInfer/Strata accuracy result, and PX-501's workflow is manual only.
 
 ### Copy into Codex
 
-> Work in https://github.com/spk-c/PenX. Read AGENTS.md, ROADMAP.md,
-> CODEX_EXECUTION.md and open PRs/issues first. Do **one PX-004 P0
-> non-executing SQL-dump diagnostic slice** only, against bounded synthetic
-> and disposable CI MariaDB dump fixtures. State up front what the
-> diagnostic can and cannot prove; no user DB credentials, production
-> restore, arbitrary SQL execution, external network scans or release
-> publication. Add negative tests for malformed dump statements, hidden
-> executable comments, delimiter/charset traps, statement reordering,
-> SQL injection payloads and incomplete files. Keep all existing
-> `restore_available: false` semantics, preserve old backup manifests,
-> and reject ambiguous syntax rather than treating it as verified.
-> Run focused and complete offline tests, static checks and relevant
-> disposable CI, then submit one reviewable PR referencing #123. Record
-> Windows/field tests as NOT RUN unless actually observed, and stop at
-> the accepted PR boundary. Never mark PX-004 or the entire roadmap done
-> from synthetic CI alone.
+> Work in https://github.com/spk-c/PenX. Read AGENTS.md,
+> docs/ROADMAP.md (the 36-ID acceptance matrix), docs/CODEX_EXECUTION.md
+> and all open PRs/issues first. Do **one new PX-004 non-mutating
+> historical dump-content/source provenance safety slice** after merged
+> PRs #168/#169, rather than recreating their lexical red-flag work.
+> Use bounded disposable synthetic/CI MariaDB fixtures; no real database
+> credentials, no production restore/import, no external network scans,
+> no public release or unauthorized automated jobs. Document exactly
+> what a scratch comparison can/cannot prove and never mark historical
+> parity from a separate current-source snapshot. Keep
+> `restore_available:false`; preserve old manifests and CLI contracts.
+> Run focused and full offline regression, Ruff/mypy, packaging and
+> gated MariaDB CI; record human Windows/Kali/recovery field work as
+> NOT RUN unless directly observed. Add a small PR linked to #123,
+> with measured results and remaining blockers. Do not check off
+> PX-004 or the roadmap merely because CI passes.
+>
+> If advancing another P1/P2 roadmap ID instead, first check source
+> parity with recent #170 (PX-104 paging) and #171 (PX-304 inventory)
+> to avoid duplicating those partial implementations.
 
 ## Workflow Codex must follow
 

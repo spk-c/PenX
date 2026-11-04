@@ -7,20 +7,70 @@
 
 ## Implementation snapshot — 4 November 2026
 
-This table describes **merged source**, not the separately published v0.6.0 binaries or human field sign-off. On 4 November, `main` includes [#164](https://github.com/spk-c/PenX/pull/164), [#165](https://github.com/spk-c/PenX/pull/165) and [#166](https://github.com/spk-c/PenX/pull/166), up to commit `ee2d6020`. The [post-merge main offline run](https://github.com/spk-c/PenX/actions/runs/41843213864) passed. **No real target scan, live MariaDB restore, model accuracy measurement, signing or independent Windows/Kali field sign-off is implied.**
+This table describes **merged source**, not the separately published v0.6.0 binaries or human field sign-off. The 4 November source snapshot now includes [#168](https://github.com/spk-c/PenX/pull/168) and [#169](https://github.com/spk-c/PenX/pull/169) (MariaDB lexical SQL diagnostics), [#170](https://github.com/spk-c/PenX/pull/170) (bounded local session history) and [#171](https://github.com/spk-c/PenX/pull/171) (offline SBOM inventory), through merge commit `ef20dcc3e12f6289faa2ce0209ec535e1e9855d3`. All applicable PR checks for those slices passed; hosted Windows jobs were skipped for some branches but additional standalone Windows offline suites passed. **No real target scan, live MariaDB restore, model accuracy measurement, signed release or independent Windows/Kali field sign-off is implied.**
 
 | Roadmap ID | Implemented and merged | Remaining acceptance (not signed off) |
 | --- | --- | --- |
 | **PX-001** | [#133](https://github.com/spk-c/PenX/pull/133): additional Kali field worksheet and validator | Actual Windows/Npcap, Kali, upgrade/rollback, large-report and DB restore **human field evidence** |
 | **PX-002** | [#132](https://github.com/spk-c/PenX/pull/132), [#145](https://github.com/spk-c/PenX/pull/145): scanner reason taxonomy and post-wait errors; historical v1/v2/v3 metadata strict-version parsing with negative/downgrade fixtures | Remaining real-adapter failure matrix, live TUI parity, field acceptance of legacy stored databases; no full milestone sign-off |
 | **PX-003** | [#124–#131](https://github.com/spk-c/PenX/pulls?q=is%3Apr+is%3Amerged+PX-003), [#143](https://github.com/spk-c/PenX/pull/143), [#144](https://github.com/spk-c/PenX/pull/144): negative corpus, 1,000-finding report parity, hash-bound retained UTF-8 source. Opt-in original subprocess stdout-byte capture is now bound to eligible **headless report** adapter identities and version-3 metadata with a report SHA/filename manifest; offline three-way verification available (see `docs/PX003_STDOUT_BYTE_CAPTURE.md`) | Opt-in interactive scanner-menu capture and read-only SQLite session source verification added (see `docs/PX003_INTERACTIVE_SESSION_PROVENANCE.md`); Explicit loopback-only MariaDB READ ONLY session verification added (see `docs/PX003_MARIADB_READONLY.md`); real user DB/least-privilege field acceptance, transformed/mixed adapters, remaining negatives and human PDF/Kali/Windows sign-off still open |
-| **PX-004** | [#135](https://github.com/spk-c/PenX/pull/135), [#153](https://github.com/spk-c/PenX/pull/153), [#154](https://github.com/spk-c/PenX/pull/154), [#157](https://github.com/spk-c/PenX/pull/157), [#160](https://github.com/spk-c/PenX/pull/160), [#161](https://github.com/spk-c/PenX/pull/161): verified SQLite backup/preview/restore and MariaDB read-only scratch comparison. [#163](https://github.com/spk-c/PenX/pull/163) adds fail-closed external WAL/journal guards; [#164](https://github.com/spk-c/PenX/pull/164) adds strict bounded duplicate-free SQLite manifests, source-schema matching and symlink rejection | **Partial:** no production-safe MariaDB restore, verified historical dump SQL semantics, cross-schema atomicity, rollback/maintenance isolation or external operator recovery sign-off. Real user DBs are not tested |
+| **PX-004** | [#135](https://github.com/spk-c/PenX/pull/135), [#153](https://github.com/spk-c/PenX/pull/153), [#154](https://github.com/spk-c/PenX/pull/154), [#157](https://github.com/spk-c/PenX/pull/157), [#160](https://github.com/spk-c/PenX/pull/160), [#161](https://github.com/spk-c/PenX/pull/161): verified SQLite backup/preview/restore and MariaDB read-only scratch comparison. [#163](https://github.com/spk-c/PenX/pull/163) adds fail-closed external WAL/journal guards; [#164](https://github.com/spk-c/PenX/pull/164) adds strict bounded duplicate-free SQLite manifests, source-schema matching and symlink rejection; [#168](https://github.com/spk-c/PenX/pull/168) and [#169](https://github.com/spk-c/PenX/pull/169) add non-executing MariaDB dump red-flag/lexical EOF inspection and disposable native-dump CI coverage | **Partial:** no production-safe MariaDB restore, verified historical dump SQL semantics, cross-schema atomicity, rollback/maintenance isolation or external operator recovery sign-off. Real user DBs are not tested |
 | **PX-005** | [#136](https://github.com/spk-c/PenX/pull/136): CycloneDX SBOM, deterministic build manifest, offline asset verification | No signing/attestation claims; exercise on the next authorized tagged release and independent Windows field acceptance |
 | **PX-101** | [#134](https://github.com/spk-c/PenX/pull/134), [#141](https://github.com/spk-c/PenX/pull/141), [#142](https://github.com/spk-c/PenX/pull/142), [#162](https://github.com/spk-c/PenX/pull/162): explicit approved/candidate registry, confirmed approval/revocation CLI, opt-in constrained project-bound HTTP/DNS/TLS/httpx/passive scans and per-call storage checks | **Partial:** unaudited external adapters remain blocked, no project batch jobs or real operator field acceptance |
 | **PX-103** | [#137](https://github.com/spk-c/PenX/pull/137): TTY detection, no-color/plain mode, width-aware rendering helpers | Scanner live-progress integration, full wrapping and Windows/Linux keyboard/TTY field matrix |
+| **PX-104** | [#170](https://github.com/spk-c/PenX/pull/170): explicit read-only SQLite history keyset pages (1–100 headers), date/target/status filters and default target redaction | **Partial:** no combined project/scanner/evidence views, MariaDB history parity, durable batch jobs or owner field acceptance |
+| **PX-304** | [#171](https://github.com/spk-c/PenX/pull/171): strict local-only CycloneDX JSON 1.5/1.6 and SPDX JSON 2.3 import, bounded exact PyPI/npm purl identity counts and default redaction | **Partial:** no OSV/advisory matching, vendor-backport adjudication or field acceptance; **no vulnerability verdict** |
 | **PX-401** | [#146](https://github.com/spk-c/PenX/pull/146): noninteractive local `llm-info` model capability diagnostics, opt-in probe, redacted JSON | Provider identity, context retention and cancellation still need local NInfer/Strata/llama.cpp/Ollama field testing |
 | **PX-403** | [#165](https://github.com/spk-c/PenX/pull/165): versioned deterministic offline fixture benchmark, exact source-anchor scoring, bounded/redacted metrics, refusal/timeout/invalid-JSON cases | **Partial:** no actual model inference, loaded-model proof, independently reviewed dataset, live precision/recall or operator sign-off |
 | **PX-501** | [#166](https://github.com/spk-c/PenX/pull/166): hardened manual-only authorized scan/SARIF Actions example, pinned actions, no persisted checkout token and hash-locked dependencies with offline contract tests | **Partial:** no target-licensed end-to-end workflow field proof or independently verified SARIF upload in a configured repository |
+
+## Acceptance matrix — all 36 roadmap IDs (4 November 2026)
+
+**Every row below is an acceptance status, not a claim of absent code.**
+Twelve IDs have documented merged source/baseline slices, ten have explicit
+dependency blockers and the remaining fourteen have no documented milestone
+acceptance. Related pre-existing PenX functionality may exist; it does not
+by itself satisfy the new milestone's tests, safeguards and field criteria.
+**No complete 36-item roadmap or v1.0 field certification is claimed.**
+
+| ID | Status | Next unmet gate |
+| --- | --- | --- |
+| PX-001 | Partial source | Field matrix: human Windows/Npcap/Kali and backup acceptance |
+| PX-002 | Partial source | Remaining real-adapter taxonomy, legacy TUI/DB parity |
+| PX-003 | Partial source | External provenance and multi-adapter/PDF field sign-off |
+| PX-004 | Partial source | No SQL provenance, historical rows, maintenance/rollback or user DB restore |
+| PX-005 | Partial source | SBOM/manifests merged; tagged release verification/signing pending |
+| PX-101 | Partial source | Blocked scanner adapter audits, grants, owner field validation |
+| PX-102 | Blocked/dependent | Do not auto-resume work until recovery + scope gates |
+| PX-103 | Partial source | TTY progress, wrapping and human keyboard testing |
+| PX-104 | Partial source | SQLite redacted paging merged; project/MariaDB/evidence filters remain |
+| PX-105 | Blocked/dependent | Requires PX-101/102 acceptance and explicit opt-in |
+| PX-106 | Blocked/dependent | Depends on safely approved recurring work and history |
+| PX-201 | Not accepted | Human lifecycle/audit trail not accepted |
+| PX-202 | Blocked/dependent | Dependent on accepted finding lifecycle |
+| PX-203 | Not accepted | Quality vector and cross-format parity not accepted |
+| PX-204 | Blocked/dependent | Dependent human remediation audit workflow |
+| PX-205 | Blocked/dependent | Depends on reviewed evidence quality model |
+| PX-206 | Blocked/dependent | Depends on stable human finding identity and review |
+| PX-301 | Not accepted | Expanded HTTP policy fixture/field acceptance pending |
+| PX-302 | Not accepted | Certificate hygiene fixture/trust acceptance pending |
+| PX-303 | Not accepted | DNS/mail posture parser and resolver fixture matrix pending |
+| PX-304 | Partial source | Local CycloneDX/SPDX inventory merged; advisory/backport scoring absent |
+| PX-305 | Not accepted | Local IaC/config scan limits and fixture safety pending |
+| PX-306 | Not accepted | Third-party adapter SDK and isolation pending |
+| PX-307 | Not accepted | Template policy/capability and safe scope audit pending |
+| PX-401 | Partial source | Local LLM diagnostics merged, actual-provider field proof pending |
+| PX-402 | Not accepted | Model-to-source contradiction checks not accepted |
+| PX-403 | Partial source | Synthetic offline scorer merged; live model accuracy unmeasured |
+| PX-404 | Blocked/dependent | Second-pass disagreement dependent on source grounding |
+| PX-405 | Not accepted | Provider freshness/applicability proof pending |
+| PX-501 | Partial source | Manual-only SARIF workflow source merged, end-to-end field proof absent |
+| PX-502 | Not accepted | Safe bundle import/export acceptance pending |
+| PX-503 | Blocked/dependent | Depends on accepted PX-104/201 and localhost controls |
+| PX-504 | Not accepted | Native ARM64 runtime and artifact field matrix pending |
+| PX-505 | Blocked/dependent | Blocked on opted-in recurring and delta notifications |
+| PX-506 | Not accepted | Comparable performance budget and sanitized baselines pending |
+| PX-507 | Not accepted | Package manager installation/signing/owner sign-off pending |
 
 The [#138 CI repair](https://github.com/spk-c/PenX/pull/138) switched transiently failing Kali mirror installs to a bounded signed-repository CDN fallback. This is infrastructure work, not a roadmap item or a new release.
 
@@ -313,9 +363,12 @@ The original PR-A/B/C/D preparatory slices have already been merged: PX-003 ([#1
 2. **PX-003 remaining evidence/provenance coverage (P0):** inventory adapter-specific missing negative/partial golden packs and untested byte/JSONL source traceability. Extend HTML/PDF long-report and source-quote parity only for demonstrated gaps; do not duplicate existing fixtures.
 3. **PX-001 field acceptance (P0):** use the published Windows/Kali worksheets on disposable operator-owned environments. Record binary hash, OS, result, evidence and independent reviewer. CI does **not** sign off physical Npcap/UAC or production restore behavior.
 4. **PX-004 data-recovery follow-up (P0):** [#163](https://github.com/spk-c/PenX/pull/163) hardened SQLite WAL/journal rejection and [#164](https://github.com/spk-c/PenX/pull/164) hardened backup metadata. Next design an independently verifiable MariaDB-native recovery gate (SQL provenance, pre-restore backup, maintenance isolation, scratch/rollback, owner approval); keep live restore unavailable. Independent Windows/SQLite client/WAL acceptance remains outstanding.
+   **Merged follow-ups:** [#168](https://github.com/spk-c/PenX/pull/168) and [#169](https://github.com/spk-c/PenX/pull/169) cover bounded offline SQL red flags and incomplete lexical tails. Continue only with provenance/semantic validation and independent restore safety; lexical warnings never authorize execution.
 5. **PX-403/PX-501 next field gates:** [#165](https://github.com/spk-c/PenX/pull/165) added an offline synthetic AI-evidence rubric (not measured model accuracy); separately validate actual local model runs and independent human-labelled data. [#166](https://github.com/spk-c/PenX/pull/166) hardened the opt-in CI/SARIF example; its workflow remains manual-only, with end-to-end proof still needed. **Only then consider PX-102 (P1, large):** durable job journal/restart state after accepted PX-101 grants and PX-004 recovery; never auto-resume consent-gated active adapters.
 
 Each slice requires its own issue/PR, before/after tests, security review and an explicit remaining-gates list. Prioritize blocking P0 regressions over new features; do not combine these tasks into one broad PR.
+
+**Parallel safe source progress (4 November):** [#170](https://github.com/spk-c/PenX/pull/170) adds bounded redacted SQLite history pages (PX-104 partial). [#171](https://github.com/spk-c/PenX/pull/171) adds offline CycloneDX/SPDX inventory counts (PX-304 partial), not advisory scanning. These do not unblock PX-102 recurring/network work or PX-004 database recovery.
 
 ## 12. Release-wide metrics (proposed targets, not measured baselines)
 
