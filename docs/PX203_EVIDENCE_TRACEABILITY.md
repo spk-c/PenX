@@ -17,7 +17,11 @@ LLM inference.
 | --- | --- | --- |
 | **0/2** | No exact quote match in the saved scan | Absence of vulnerability or coverage |
 | **1/2** | An exact quote exists in saved scan text but no unambiguous typed completed source is proven | Independent provenance, applicability, complete coverage |
-| **2/2** | That quote also maps to one unambiguous saved scanner section **and** its stored typed metadata reports `COMPLETE` | That the saved raw capture has been independently revalidated, a CVE applies, or an exploit succeeds |
+| **2/2** | That quote also maps to one unambiguous saved scanner section **and** its stored typed metadata reports `COMPLETE` **with `evidence=true`** | That the saved raw capture has been independently revalidated, a CVE applies, or an exploit succeeds |
+
+An adapter reporting `COMPLETE` with `evidence=false` remains tier 1 at
+most even when the saved summary happens to contain matching text. Collection
+completion and usable source evidence are separate contracts.
 
 The distinction is an **ordinal local traceability tier**, never a
 probability, CVSS/EPSS risk value, claim of human review or proof of
