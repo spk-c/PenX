@@ -16,7 +16,7 @@ USAGE = ('Usage: PenX.exe [--version | --check | --setup-status | --setup | '
          'guided [--target HOST] [--output DIR] | review-scan FILE --model ID | '
          'evidence verify (--metadata FILE | --session ID --sqlite-db FILE | --session ID --mariadb-host LOOPBACK --mariadb-db DB --mariadb-user USER) --artifacts DIR | '
            'history list --sqlite-db FILE [--limit N] [--before-id ID] [--target EXACT] [--show-target] | '
-           'sbom inspect --file PATH [--show-identities] | '
+           'sbom <inspect|compare-osv> --file PATH [--osv-file LOCAL.json] | '
            'project <create|add|list|check|preview> | '
            'backup <create|verify|preview|restore|mariadb-create|mariadb-verify|mariadb-verify-pinned|mariadb-preview|mariadb-dump-inspect|mariadb-restore-plan|mariadb-restore-preflight|mariadb-restore-audit> ...]')
 

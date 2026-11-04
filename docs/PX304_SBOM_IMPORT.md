@@ -57,3 +57,50 @@ A future separately reviewed implementation must add reliable exact
 ecosystem/version/advisory matching, vendor/backport applicability, full
 CycloneDX/SPDX variants, and real operator field acceptance. This partial
 importer must **not** be treated as a vulnerability exposure scanner.
+
+## Offline local OSV exact-version candidate comparison (PX-304, partial)
+
+This optional command compares a local SBOM with a **separately supplied**
+local JSON collection of OSV vulnerability *detail* objects:
+
+~~~powershell
+python penx.py sbom compare-osv --file "C:\\PenX\\private\\inventory.cdx.json" --osv-file "C:\\PenX\\private\\osv-details.json"
+# Only when package identities / advisory identifiers may be disclosed:
+python penx.py sbom compare-osv --file "C:\\PenX\\private\\inventory.cdx.json" --osv-file "C:\\PenX\\private\\osv-details.json" --show-candidates
+~~~
+
+Local OSV input is a single JSON object with an exact `vulns` array of full
+OSV advisory detail objects, e.g. a manually prepared snapshot:
+
+~~~json
+{"vulns":[{"id":"GHSA-abcd-efgh-ijkl","affected":[{"package":{"ecosystem":"PyPI","name":"django"},"versions":["5.1.0"]}]}]}
+~~~
+
+**No OSV API requests are made.** The snapshot's authenticity, collection
+completeness and update time are **not** verified. The parser compares only
+exactly enumerated `affected[].versions` values with explicit PyPI/npm purl
+package identities from the saved SBOM. Package names are normalized under
+the same conservative rules as `sbom inspect`. It does **not** interpret
+`affected[].ranges` semantics or infer fixed versions, vendor/distro
+backports, exploitability, risk severity or running-software exposure.
+Unsupported, missing or range-only affected records remain **unresolved**
+and can never produce a negative security conclusion.
+
+The `penx-osv-exact-offline-candidates-v1` JSON output reports counts and
+redacts package names/advisory identifiers by default. `--show-candidates`
+explicitly reveals local package name, version, ecosystem and advisory ID.
+Even when this list is empty, `no_match_implies_safe=false` and
+`vulnerability_verified=false`; a locally absent advisory is not
+evidence that a package is patched or safe.
+
+Input limits: local regular non-symlink files up to 2 MiB each, at most
+2,000 SBOM components, 500 OSV detail records, 50 affected entries per
+advisory, 1,000 exact versions per affected record, 20,000 total version
+values and 2,000 candidates. Duplicate advisory IDs (case-insensitive),
+malformed versions, duplicate JSON object fields, non-JSON constants or
+invalid structures fail closed. There is no database, scan, external
+process, upload, network, LLM, write or user-data mutation.
+
+**Still missing for full PX-304:** verified OSV/NVD/provider provenance,
+correct version range/semantic comparisons, vendor/distro security backport
+adjudication, complete snapshot provenance/freshness and human acceptance.
