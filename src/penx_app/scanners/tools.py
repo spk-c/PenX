@@ -28,6 +28,7 @@ from penx_app.domain.scan_models import ScannerResult as ScannerResult, ScanResu
 from penx_app.scanners.scan_results import format_recon_for_llm, recon_has_evidence as recon_has_evidence
 from bs4 import BeautifulSoup
 
+from penx_app.application.project_dispatch import ProjectScopeDenied
 from penx_app.config import NMAP_PATH, NIKTO_PATH, WHATWEB_PATH
 from penx_app.scanners.scanner_targets import normalize_host, normalize_web_target, target_urls, MAX_CIDR_ADDRESSES
 from penx_app.scanners.project_rate import project_rate_before_io
@@ -638,6 +639,11 @@ def _run_native_web_scanner(scanner: str, target: str, *, cancel_event=None) -> 
             args = nuclei_args(executable, origin, templates)
             timeout = _scanner_timeout("nuclei", 240)
         elif scanner == 'httpx':
+            # Project-bound httpx performs exactly one bounded request
+            # against the approved origin: take the shared per-run rate
+            # slot (with a fresh grant check) right before the outbound
+            # process starts. No-op outside project dispatch.
+            project_rate_before_io(cancel_event)
             args = httpx_args(executable, origin)
             timeout = 45
         elif scanner == 'ffuf':
@@ -654,6 +660,10 @@ def _run_native_web_scanner(scanner: str, target: str, *, cancel_event=None) -> 
         return _summarize_native_run(scanner, _run_external(args, timeout=timeout,
                                                           cancel_event=cancel_event),
                                      expected_origin=origin)
+    except (ProjectScopeDenied, InterruptedError):
+        # Let the planner map project scope denial and cancellation to
+        # PARTIAL/scope_denied or PARTIAL/cancelled, not a plain error.
+        raise
     except (ValueError, OSError, UnicodeError) as exc:
         return ScannerOutput(f'[!] {scanner}: {exc}', status="FAILED", evidence=False,
                              reason="error")

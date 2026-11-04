@@ -4,7 +4,7 @@ Manage named projects with explicit, exact target approvals instead of
 re-entering isolated targets. The registry validates, previews, stores, and
 lists approved scopes. On current `main`, the opt-in `scan --project NAME`
 path enforces stored approval for the audited bounded adapters (HTTP headers,
-DNS, TLS) and passive profile. Unsupported adapters are **blocked** for
+DNS, TLS, httpx) and passive profile. Unsupported adapters are **blocked** for
 project-bound scans rather than being run with unchecked redirects or extra
 targets. There is still **no batch or scheduled scanning**.
 
@@ -42,7 +42,9 @@ python penx.py scan --project owned-assessment --target example.test --profile p
   **each** later adapter, with a second check in each worker. Passive collection
   rechecks before outbound provider requests. The audited Python adapters
   recheck before **each** outbound call (including HEAD-to-GET fallback and
-  retry) and after a project rate wait. An expired/revoked/ambiguous
+  retry) and after a project rate wait. The httpx adapter rechecks and takes
+  its shared per-run rate slot immediately before its single outbound
+  process starts. An expired/revoked/ambiguous
   grant, a candidate-only target, unreadable database or modified scan plan
   blocks further collection. In-flight I/O is cooperative; immediate revocation
   cannot retroactively cancel a blocking OS operation.
@@ -52,19 +54,21 @@ python penx.py scan --project owned-assessment --target example.test --profile p
   Port-specific approvals are allowed only with adapters preserving that port.
   DNS and passive lookups require a host without an explicit port.
 - Project-bound adapters currently supported: `4` HTTP headers (HEAD/GET,
-  redirects **not followed**), `5` DNS queries, `d` verified TLS handshake.
-  The `passive` profile is also supported. All other adapters are **rejected
-  before any network I/O or subprocess**, because their redirects, scanning
-  fan-out or rate policy have not been proven safe under this project contract.
-  This does not disable them for independent, explicitly authorized scans.
+  redirects **not followed**), `5` DNS queries, `8` httpx (single approved
+  origin, redirects **not followed**, one bounded request per origin,
+  port-preserving), `d` verified TLS handshake. The `passive` profile is
+  also supported. All other adapters are **rejected before any network I/O
+  or subprocess**, because their redirects, scanning fan-out or rate policy
+  have not been proven safe under this project contract. This does not
+  disable them for independent, explicitly authorized scans.
 - A project's `--rate` is a **per-run rate ceiling on logical outbound calls** for the
-  supported Python HTTP/DNS/TLS adapters and passive provider queries. It
+  supported HTTP/DNS/TLS/httpx adapters and passive provider queries. It
   cannot constrain every underlying DNS socket retry or network packet and is
   not a global multi-process bandwidth/request rate limit. A per-run shared cooperative limiter applies
   between requests, including TLS retry and HEAD-to-GET fallback. Values above
   60 or ones whose dispatch interval exceeds the 60-second scheduler limit are
-  refused, never silently ignored. External scanners without this control
-  are blocked.
+  refused, never silently ignored. External scanners that have not adopted
+  this control are blocked.
 - `--budget` on the project asset means total seconds. The project budget is
   an **upper bound**, applied alongside the CLI budget and a 3600-second
   project-run ceiling (minimum supported budget: 30 seconds). Project-bound
@@ -144,8 +148,10 @@ read time, so a row never silently flips status.
 
 - Batch scanning over a project's assets.
 - Automatic approval of discovered subdomains (they are candidates only).
-- Project rate/budget enforcement for **external scanners**, which are
-  deliberately blocked in project-bound mode pending audited controls.
+- Project rate/budget enforcement for the remaining **external scanners**
+  (Nmap, WhatWeb, Nikto, Nuclei, ffuf, Katana, Subfinder, endpoint
+  mapping), which are deliberately blocked in project-bound mode pending
+  audited controls. httpx already adopts the audited contract.
 
 ### MariaDB setup
 

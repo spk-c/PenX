@@ -111,6 +111,21 @@ class NativeWebScannerTests(unittest.TestCase):
         self.assertIn("-j", args)
         self.assertIn("-duc", args)
 
+    def test_httpx_args_pin_single_origin_bounded_no_redirect_contract(self):
+        args = httpx_args("httpx.exe", "https://example.test:8443")
+        self.assertEqual(args[0], "httpx.exe")
+        # Exactly one approved origin, no path or second target.
+        self.assertEqual(args.count("-u"), 1)
+        self.assertEqual(args[args.index("-u")+1], "https://example.test:8443")
+        # Redirects are not followed; one bounded request, no retries.
+        self.assertNotIn("-fr", args)
+        self.assertNotIn("--follow-redirects", args)
+        self.assertEqual(args[args.index("-t")+1], "1")
+        self.assertEqual(args[args.index("-rl")+1], "3")
+        self.assertEqual(args[args.index("-retries")+1], "0")
+        self.assertEqual(args[args.index("-timeout")+1], "7")
+        self.assertIn("-duc", args)
+
     def test_nuclei_metadata_only_not_payload(self):
         raw = '{"template-id":"CVE-2026-12345","info":{"severity":"medium","name":"Test"},"matched-at":"https://example.test","response":"PRIVATE_PAYLOAD"}'
         with patch("penx_app.scanners.tools.find_native", return_value="nuclei.exe"), patch(
