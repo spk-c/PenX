@@ -130,6 +130,11 @@ def finding_trace(row, data: dict) -> dict:
     if result is not None:
         adapters = [adapter for adapter in result.results
                     if (adapter.display_name or adapter.scanner_id).strip().upper() == name]
+        # A COMPLETE adapter with evidence=False cannot substantiate this
+        # finding even if an unrelated saved text section contains a quote.
+        # Distinguish stored collection status from usable typed evidence.
+        trace['scanner_evidence'] = bool(
+            len(adapters) == 1 and adapters[0].evidence)
         if len(adapters) == 1 and adapters[0].raw_artifact is not None:
             trace['raw_artifact'] = asdict(adapters[0].raw_artifact)
             trace['artifact_status'] = 'stored-reference-not-revalidated'
