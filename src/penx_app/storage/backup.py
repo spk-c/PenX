@@ -282,6 +282,37 @@ def _reject_unmanaged_sqlite_sidecars(live_db: Path) -> None:
             )
 
 
+def _release_empty_wal_after_backup(live_db: Path) -> None:
+    """Ask SQLite to release only inert WAL sidecars made by our read-only backup.
+
+    A mode=ro SQLite online backup can leave an empty -wal and a -shm file
+    even after the last read-only connection closes. Never unlink either
+    file: if the WAL contains even one byte or a sidecar is a link, refuse.
+    A short-lived query-only SQLite connection lets the engine remove its
+    own inert WAL bookkeeping on close when no other client remains.
+    """
+    wal = Path(str(live_db) + "-wal")
+    shm = Path(str(live_db) + "-shm")
+    if wal.is_symlink() or shm.is_symlink():
+        raise BackupError("SQLite restore blocked: linked WAL/SHM state")
+    if wal.exists() and (not wal.is_file() or wal.stat().st_size != 0):
+        raise BackupError("SQLite restore blocked: nonempty WAL after backup")
+    if shm.exists() and not shm.is_file():
+        raise BackupError("SQLite restore blocked: invalid SHM state")
+    if not (wal.exists() or shm.exists()):
+        return
+    try:
+        # This is a read-only SQL session through a normally opened SQLite
+        # connection. SQLite may clean up *its own* empty journal bookkeeping
+        # on close; PenX does not unlink live -wal/-shm.
+        with closing(sqlite3.connect(str(live_db), timeout=0.1)) as conn:
+            conn.execute("PRAGMA query_only=ON")
+            conn.execute("SELECT 1 FROM sqlite_schema LIMIT 1").fetchone()
+    except sqlite3.Error as exc:
+        raise BackupError("SQLite restore blocked: WAL cleanup unavailable") from exc
+    _reject_unmanaged_sqlite_sidecars(live_db)
+
+
 def _restore_unlocked(backup: Path, live_db: Path, backup_dir: Path) -> dict[str, Any]:
     """Restore a verified backup over ``live_db`` (atomic, never in place).
 
@@ -312,6 +343,11 @@ def _restore_unlocked(backup: Path, live_db: Path, backup_dir: Path) -> dict[str
     if live_db.exists():
         with _open_ro(live_db) as conn:
             original_journal = conn.execute("PRAGMA journal_mode").fetchone()[0]
+        if original_journal == "wal":
+            # Online source backup and journal-mode inspection may themselves
+            # create inert WAL/SHM files. Let SQLite close them safely before
+            # staging, but never bypass a nonempty WAL or an active client.
+            _release_empty_wal_after_backup(live_db)
 
     tmp = live_db.with_name(live_db.name + ".restoring.tmp")
     try:
