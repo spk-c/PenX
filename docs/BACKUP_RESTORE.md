@@ -79,11 +79,17 @@ that bypass the PenX lock do not participate. Before creating the mandatory
 pre-restore backup and again immediately before file replacement, PenX now
 refuses to proceed if any `<database>-wal`, `<database>-shm`, or
 `<database>-journal` file exists. It does **not** remove those files or
-silently discard uncheckpointed committed WAL pages. Stop independent
-SQLite applications and let them checkpoint and close their transactions
-normally, then inspect the database before retrying. Even a stale sidecar
-requires independent operator review: do not manually delete it merely to
-bypass the safety gate.
+silently discard uncheckpointed committed WAL pages. SQLite's
+own read-only online backup can create a **zero-byte** WAL with a shared-memory
+sidecar. In that narrowly checked case, PenX opens and closes a query-only
+SQLite session to let **SQLite itself** release inert bookkeeping files.
+A nonempty WAL, linked file, or sidecar that remains after the clean close
+still aborts the restore. PenX never directly unlinks live sidecars.
+
+Stop independent SQLite applications and let them checkpoint and close their
+transactions normally, then inspect the database before retrying. Even a
+stale sidecar requires independent operator review: do not manually delete
+it merely to bypass the safety gate.
 
 **Limit:** this is a conservative file-based guard, not a transactional
 lock against all external processes. An idle external connection without
