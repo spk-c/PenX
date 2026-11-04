@@ -243,6 +243,16 @@ def main(argv: list[str], *, connection_factory=None) -> int:
     p_add.add_argument('--tags', default='', help='Comma-separated tags')
     p_add.add_argument('--as-candidate', action='store_true',
                       help='Record as a candidate (never authorized until approved)')
+    p_approve = sub.add_parser('approve', help='Explicitly approve an existing candidate')
+    p_approve.add_argument('name')
+    p_approve.add_argument('--target', required=True)
+    p_approve.add_argument('--confirm', action='store_true',
+                           help='Required: explicitly authorize the exact candidate')
+    p_revoke = sub.add_parser('revoke', help='Demote an approved target to candidate')
+    p_revoke.add_argument('name')
+    p_revoke.add_argument('--target', required=True)
+    p_revoke.add_argument('--confirm', action='store_true',
+                          help='Required: explicitly revoke this exact approval')
     p_list = sub.add_parser('list', help='List projects, or a project\'s assets')
     p_list.add_argument('name', nargs='?')
     p_check = sub.add_parser('check', help='Check whether a target is authorized')
@@ -269,6 +279,16 @@ def main(argv: list[str], *, connection_factory=None) -> int:
                 max_budget=args.budget, tags=args.tags, as_candidate=args.as_candidate)
             label = 'candidate' if args.as_candidate else 'approved asset'
             print(f'Recorded {label} for {args.name}: id={asset_id}')
+            return 0
+        if args.action == 'approve':
+            canonical = service.approve_candidate(
+                args.name, args.target, confirmed=args.confirm)
+            print(f'Approved existing candidate for {args.name}: {canonical}')
+            return 0
+        if args.action == 'revoke':
+            canonical = service.revoke_approval(
+                args.name, args.target, confirmed=args.confirm)
+            print(f'Revoked approval for {args.name}: {canonical} (now candidate)')
             return 0
         if args.action == 'list':
             if args.name:
