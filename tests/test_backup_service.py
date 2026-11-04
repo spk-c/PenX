@@ -173,6 +173,76 @@ class VerifyBackupTests(BackupFixture):
         self.assertFalse(report["valid"])
         self.assertIn("manifest unreadable", report["reasons"])
 
+    def test_duplicate_manifest_fields_are_not_trusted(self):
+        source = self.source_dir / "penx.db"
+        self.make_current(source)
+        db, _ = self.create_and_verify(source)
+        manifest = db.with_suffix(".json")
+        raw = manifest.read_text(encoding="utf-8")
+        manifest.write_text(raw.replace(
+            '"status": "verified",',
+            '"status": "invalid", "status": "verified",', 1),
+            encoding="utf-8")
+        report = backup_store.verify_backup(db)
+        self.assertFalse(report["valid"])
+        self.assertIn("manifest unreadable", report["reasons"])
+
+    def test_manifest_malformed_fields_and_schema_version_mismatch(self):
+        source = self.source_dir / "penx.db"
+        self.make_current(source)
+        db, _ = self.create_and_verify(source)
+        manifest_path = db.with_suffix(".json")
+        original = json.loads(manifest_path.read_text())
+        cases = [
+            ({"size_bytes": True}, "manifest has invalid fields"),
+            ({"sha256": "0" * 63}, "manifest has invalid fields"),
+            ({"created_at": "2026-99-99T99:99:99Z"}, "manifest has invalid fields"),
+            ({"source_schema_version": -1}, "manifest has invalid fields"),
+            ({"file": "../elsewhere.sqlite"}, "manifest has invalid fields"),
+            ({"unknown_field": "ignore-me"}, "manifest has invalid fields"),
+            ({"source_schema_version": SCHEMA_VERSION - 1},
+             "source schema version mismatch"),
+        ]
+        for change, reason in cases:
+            with self.subTest(change=change):
+                manifest_path.write_text(
+                    json.dumps(original | change), encoding="utf-8")
+                result = backup_store.verify_backup(db)
+                self.assertFalse(result["valid"])
+                self.assertIn(reason, result["reasons"])
+        manifest_path.write_text(json.dumps(original), encoding="utf-8")
+        self.assertTrue(backup_store.verify_backup(db)["valid"])
+
+    def test_oversized_manifest_is_rejected_without_large_read(self):
+        source = self.source_dir / "penx.db"
+        self.make_current(source)
+        db, _ = self.create_and_verify(source)
+        db.with_suffix(".json").write_bytes(b" " * 17000)
+        report = backup_store.verify_backup(db)
+        self.assertFalse(report["valid"])
+        self.assertIn("manifest unreadable", report["reasons"])
+
+    def test_symlinked_manifest_and_db_are_never_verified(self):
+        source = self.source_dir / "penx.db"
+        self.make_current(source)
+        db, _ = self.create_and_verify(source)
+        meta = db.with_suffix(".json")
+        original_meta = meta.with_name("original.json")
+        meta.rename(original_meta)
+        try:
+            meta.symlink_to(original_meta)
+        except (OSError, NotImplementedError):
+            self.skipTest("File symlinks unavailable")
+        self.assertIn("manifest is a symbolic link",
+                      backup_store.verify_backup(db)["reasons"])
+        meta.unlink()
+        original_meta.rename(meta)
+        original_db = db.with_name("original.sqlite")
+        db.rename(original_db)
+        db.symlink_to(original_db)
+        self.assertIn("database file is a symbolic link",
+                      backup_store.verify_backup(db)["reasons"])
+
     def test_future_schema_version_is_rejected(self):
         source = self.source_dir / "penx.db"
         self.make_current(source)
