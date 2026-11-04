@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 from penx_app.intelligence.sbom_inventory import SBOMError, inspect_sbom
 
 
