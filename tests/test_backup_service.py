@@ -392,6 +392,19 @@ class RestoreTests(BackupFixture):
         result = backup_store.restore(db, live, self.dest_dir)
         self.assertTrue(Path(result["pre_restore_backup"]).is_file())
 
+    def test_orphaned_wal_blocks_creation_of_missing_live_db(self):
+        live = self.root / "live" / "penx.db"
+        live.parent.mkdir()
+        source = self.source_dir / "penx.db"
+        self.make_current(source)
+        db, _ = self.create_and_verify(source)
+        orphan_wal = Path(str(live) + "-wal")
+        orphan_wal.write_bytes(b"synthetic orphan WAL")
+        with self.assertRaisesRegex(backup_store.BackupError, "journal/WAL"):
+            backup_store.restore(db, live, self.dest_dir)
+        self.assertFalse(live.exists())
+        self.assertEqual(orphan_wal.read_bytes(), b"synthetic orphan WAL")
+
     def test_stale_journal_sidecar_fails_closed_without_cleanup(self):
         live = self.root / "live" / "penx.db"
         live.parent.mkdir()
