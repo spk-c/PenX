@@ -158,6 +158,8 @@ def sarif_payload(data: dict, *, redact: bool = False) -> dict:
 
 def sarif_from_report(report: dict) -> dict:
     """Shared SARIF formatting for saved assessments and headless captures."""
+    from penx_app.reporting.evidence_quality import evidence_traceability
+
     rules: dict[str, dict] = {}
     results = []
     for finding in report["findings"]:
@@ -181,7 +183,10 @@ def sarif_from_report(report: dict) -> dict:
                 "artifactStatus": finding["artifact_status"],
                 "confidence": finding["confidence"],
                 "evidenceStatus": finding["status"],
-                "evidenceQuality": finding.get("evidence_quality"),
+                "evidenceQuality": (
+                    finding.get("evidence_quality")
+                    or evidence_traceability(
+                        {}, quote_matched=bool(finding.get("evidence_ref")))),
                 "evidenceRef": finding["evidence_ref"],
                 "scanner": finding["scanner"],
                 "scannerVersion": finding["scanner_version"],
