@@ -125,6 +125,83 @@ class MariaDBDumpInspectTests(unittest.TestCase):
         self.assertIn("completion-marker-not-observed", report["risk_flags"])
         self.assertEqual(report["status"], "manual-review-required")
 
+    def test_incomplete_tail_and_open_tokens_are_never_silent(self):
+        cases = [
+            (b"INSERT INTO \`history\` VALUES (42)\n",
+             {"unfinished-sql-statement"}),
+            (b"INSERT INTO \`history\` VALUES ('unterminated);\n",
+             {"unterminated-quoted-token", "unfinished-sql-statement"}),
+            (b'INSERT INTO \`history\` VALUES ("unterminated);\n',
+             {"unterminated-quoted-token", "unfinished-sql-statement"}),
+            (b"SELECT \`open_identifier FROM history;\n",
+             {"unterminated-quoted-token", "unfinished-sql-statement"}),
+            (b"/* trailing comment never closes",
+             {"unterminated-block-comment"}),
+            (b"INSERT INTO \`history\` VALUES (42); /* unclosed",
+             {"unterminated-block-comment"}),
+            (b"INSERT INTO \`history\` VALUES (42) -- fake end ;\n",
+             {"unfinished-sql-statement"}),
+            (b"SELECT 1 /* semicolon ; inside block */\n",
+             {"unfinished-sql-statement"}),
+        ]
+        for suffix, expected in cases:
+            with self.subTest(suffix=suffix):
+                report = self.inspect(self.source + suffix)
+                self.assertTrue(expected.issubset(report["risk_flags"]))
+                self.assertEqual(report["status"], "manual-review-required")
+                self.assertFalse(report["restore_available"])
+                self.assertNotIn("unterminated", json.dumps(report).replace(
+                    "unterminated-quoted-token", "").replace(
+                    "unterminated-block-comment", ""))
+
+    def test_comment_and_quoted_semicolons_do_not_masquerade_as_terminators(self):
+        # All semicolons below either occur within a correctly closed
+        # token/comment or terminate the actual statement. Also exercise
+        # doubled quotes, backslash escape and escaped backticks.
+        fragments = [
+            b"INSERT INTO \`history\` VALUES ('text; inside');\n",
+            b"INSERT INTO \`history\` VALUES ('two''quotes;inside');\n",
+            b"INSERT INTO \`history\` VALUES ('escaped \\' quote;inside');\n",
+            b'INSERT INTO \`history\` VALUES ("quoted;identifier");\n',
+            b"INSERT INTO \`history\` VALUES (\`escaped\`\`identifier\`);\n",
+            b"INSERT INTO \`history\` VALUES ('one line\\nother;line');\n",
+            b"/* harmless multiline ;\\n still ignored */\\n",
+            b"# comment-only trailing ;",
+        ]
+        report = self.inspect(self.source + b"".join(fragments))
+        self.assertFalse({
+            "unterminated-quoted-token", "unterminated-block-comment",
+            "unfinished-sql-statement",
+        }.intersection(report["risk_flags"]))
+        self.assertFalse(report["restore_available"])
+
+    def test_line_comments_ignore_semicolons_and_eof_only_comments_are_valid(self):
+        self.assertNotIn(
+            "unfinished-sql-statement",
+            self.inspect(self.source + b"-- finished comment ;")["risk_flags"])
+        self.assertNotIn(
+            "unfinished-sql-statement",
+            self.inspect(self.source + b"# finished comment ;")["risk_flags"])
+        report = self.inspect(
+            self.source + b"SELECT 1 -- an apparent terminator ;\\n")
+        self.assertIn("unfinished-sql-statement", report["risk_flags"])
+
+    def test_diagnostic_is_read_only_even_for_unfinished_sql(self):
+        payload = self.source + b"SELECT 'incomplete\\n"
+        self.write_pair(payload)
+        with (patch("subprocess.run",
+                    side_effect=AssertionError("unexpected process")),
+              patch("socket.create_connection",
+                    side_effect=AssertionError("unexpected network")),
+              redirect_stdout(StringIO()) as output):
+            self.assertEqual(backup_cli(
+                ["mariadb-dump-inspect", "--file", str(self.path)]), 0)
+        report = json.loads(output.getvalue())
+        self.assertIn("unterminated-quoted-token", report["risk_flags"])
+        self.assertIn("unfinished-sql-statement", report["risk_flags"])
+        self.assertFalse(report["restore_available"])
+        self.assertNotIn("incomplete", output.getvalue())
+
     def test_invalid_utf8_nul_and_resource_budgets_fail_closed(self):
         for suffix in (b"\xff", b"\x00", b"\x01"):
             with self.subTest(suffix=suffix), self.assertRaises(ValueError):
