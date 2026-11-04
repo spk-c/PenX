@@ -75,5 +75,18 @@ defaults to binary-free HTTP/DNS/TLS adapters, preserves the collection exit cod
 after optional SARIF upload, and exposes the severity threshold as an input.
 Additional scanner binaries must be installed on the runner before selecting
 them. GitHub code scanning upload availability depends on repository settings.
+The example pins Checkout, setup-python and SARIF upload actions to immutable
+commit IDs, turns off persisted checkout credentials, installs the committed
+Python lockfile with `--require-hashes`, and keeps user-provided target/keys in
+quoted environment variables rather than interpolating them into the shell.
+The `tests/test_authorized_scan_workflow.py` suite verifies these workflow
+properties offline and makes no network calls. The example remains **manual
+only** (no push, pull request or scheduled trigger), and the job does not
+start unless the operator explicitly confirms authorization. Any scanner
+requiring extra consent still needs the separate `consent` input.
+
 Text redaction applies to reports; scanner progress logs and separately retained
-raw artifacts can still contain unredacted target data.
+raw artifacts can still contain unredacted target data. A GitHub-hosted runner
+is not a field sign-off of real targets, permission, scan exhaustiveness or
+finding applicability; use only owned targets and avoid exposing secrets to
+scan outputs or third-party native tools.
