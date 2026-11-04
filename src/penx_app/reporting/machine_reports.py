@@ -96,7 +96,10 @@ def _finding(row, raw_scan: str, target: str, redact: bool, *, session: dict | N
     # Model prose and guesses must never fill a missing scanner version.
     from penx_app.reporting.finding_trace import finding_trace
     trace = finding_trace(row, session) if session is not None else {}
+    from penx_app.reporting.evidence_quality import evidence_traceability
+    quality = evidence_traceability(trace, quote_matched=matched)
     return {
+        "evidence_quality": quality,
         "fingerprint": finding_fingerprint(name, row[5], row[6], target=target),
         "raw_artifact": trace.get("raw_artifact"),
         "artifact_status": trace.get("artifact_status", "not-retained"),
@@ -155,6 +158,8 @@ def sarif_payload(data: dict, *, redact: bool = False) -> dict:
 
 def sarif_from_report(report: dict) -> dict:
     """Shared SARIF formatting for saved assessments and headless captures."""
+    from penx_app.reporting.evidence_quality import evidence_traceability
+
     rules: dict[str, dict] = {}
     results = []
     for finding in report["findings"]:
@@ -178,6 +183,10 @@ def sarif_from_report(report: dict) -> dict:
                 "artifactStatus": finding["artifact_status"],
                 "confidence": finding["confidence"],
                 "evidenceStatus": finding["status"],
+                "evidenceQuality": (
+                    finding.get("evidence_quality")
+                    or evidence_traceability(
+                        {}, quote_matched=bool(finding.get("evidence_ref")))),
                 "evidenceRef": finding["evidence_ref"],
                 "scanner": finding["scanner"],
                 "scannerVersion": finding["scanner_version"],

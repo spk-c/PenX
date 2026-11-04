@@ -324,8 +324,11 @@ def render_terminal_pdf(r, destination, paragraph, severity, counts, summary, se
         checked = verified_finding(v, r["raw_scan"], r["target"], False)
         status = ("Confirmed" if checked["confidence"] == "confirmed"
                   and checked["evidence_ref"] else "Potential")
+        quality = r["evidence_quality_by_id"][int(v[0])]
         meta = (f"[{sev.upper()}]  Status: {status}  Confidence: {checked['confidence']}  "
-                f"Port: {v[5] or '-'}  Service: {v[6] or '-'}")
+                f"Port: {v[5] or '-'}  Service: {v[6] or '-'}  "
+                f"Evidence traceability: {quality['traceability_tier']}/2 "
+                f"({quality['traceability_label']}; no source-byte proof)")
         if checked["evidence_ref"]:
             evidence = ("\nEvidence reference: " + checked["evidence_ref"]
                         + "\nScanner quote: " + checked["evidence"][:280]

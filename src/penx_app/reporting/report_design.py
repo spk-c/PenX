@@ -145,7 +145,15 @@ def _report(data):
     risk = _s(summary[4] or "UNKNOWN").upper()
     from penx_app.intelligence.php2shell_audit import assess_php2shell
     php2shell = assess_php2shell(str(summary[2] or ""))
+    from penx_app.reporting.machine_reports import _finding as verified_finding
+    quality_by_id = {
+        int(row[0]): verified_finding(
+            row, str(summary[2] or ""), str(h[1] or ""), False, session=data
+        )["evidence_quality"]
+        for row in findings
+    }
     return {
+        "evidence_quality_by_id": quality_by_id,
         "id": h[0], "target": _s(h[1]), "date": _s(h[2]),
         "risk": risk, "analysis": _s(summary[3]),
         "coverage": coverage(data.get('scan_result') or _s(summary[2])),
@@ -240,13 +248,18 @@ def export_html(data: dict, output_dir: str, *, mode: str = "technical") -> str:
         scanner_name = trace["scanner"] or "Unattributed"
         scanner_version = trace["scanner_version"] or "Not recorded"
         scan_date = trace["recorded_at"] or "Unknown"
+        quality = r["evidence_quality_by_id"][int(item[0])]
+        quality_text = ("Tier " + str(quality["traceability_tier"]) + "/2"
+                        + " — " + quality["traceability_label"]
+                        + "; source bytes not independently revalidated")
         port = _h(item[5] or "-")
         service = _h(item[6] or "-")
         return f"""<article class="finding severity-{_severity(item[3])} status-{status.lower()}">
           <div class="finding-top"><span class="item-number">[F-{i:02d}]</span>
             <h3>{title}</h3>{badge(item[3])}</div>
           <div class="finding-meta"><span>Status: {status}</span><span>Confidence: {confidence}</span>
-            <span>Port: {port}</span><span>Service: {service}</span></div>
+            <span>Port: {port}</span><span>Service: {service}</span>
+            <span>Evidence traceability: {_h(quality_text)}</span></div>
           <p>{desc}</p><details class="evidence"><summary>Saved scan evidence</summary><pre>{_h(evidence)}</pre><small>Source: {_h(scanner_name)} · Scanner version: {_h(scanner_version)} · Scan date: {_h(scan_date)} · Evidence reference: {_h(evidence_ref)} · Exact quote matching is not confirmation of exploitability.</small></details></article>"""
 
     def rec(item, i):
