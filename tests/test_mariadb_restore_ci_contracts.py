@@ -18,6 +18,12 @@ class MariaDBBackupRestoreContracts(unittest.TestCase):
         self.assertIn("'tests/test_px004_mariadb_dump_inspection.py'", workflow)
         self.assertIn("Native PenX dump and restore into separate disposable schema", workflow)
 
+    def test_external_pin_changes_trigger_disposable_native_dump_ci(self):
+        workflow = (ROOT / ".github/workflows/mariadb-integration.yml").read_text()
+        self.assertIn("'src/penx_app/application/mariadb_backup_pins.py'", workflow)
+        self.assertIn("'tests/test_px004_mariadb_backup_pins.py'", workflow)
+        self.assertIn("Native PenX dump and restore into separate disposable schema", workflow)
+
     def test_fail_closed_ci_only_database_guards(self):
         script = (ROOT / "scripts/ci_mariadb_backup_restore.sh").read_text()
         for item in ("PENX_MARIADB_TEST", "penx_ci_test", "penx_ci_restore_test",
