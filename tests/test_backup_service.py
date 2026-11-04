@@ -179,9 +179,12 @@ class VerifyBackupTests(BackupFixture):
         db, _ = self.create_and_verify(source)
         manifest = db.with_suffix(".json")
         raw = manifest.read_text(encoding="utf-8")
+        # The writer sorts keys, so "status" is the final field without
+        # a comma. Inject a conflicting duplicate while keeping valid JSON.
+        self.assertIn('"schema": "penx-backup-v1",', raw)
         manifest.write_text(raw.replace(
-            '"status": "verified",',
-            '"status": "invalid", "status": "verified",', 1),
+            '"schema": "penx-backup-v1",',
+            '"schema": "invalid", "schema": "penx-backup-v1",', 1),
             encoding="utf-8")
         report = backup_store.verify_backup(db)
         self.assertFalse(report["valid"])
