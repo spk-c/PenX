@@ -21,8 +21,13 @@ provenance and PX-101 scope slices, main includes [#162](https://github.com/spk-
 [#169](https://github.com/spk-c/PenX/pull/169) (offline lexical SQL-dump diagnostics),
 [#170](https://github.com/spk-c/PenX/pull/170) (redacted read-only SQLite
 history pagination), and [#171](https://github.com/spk-c/PenX/pull/171)
-(local CycloneDX/SPDX inventory parsing). These are **partial** roadmap
-slices; no real model, production database restore or external target scan
+(local CycloneDX/SPDX inventory parsing), plus
+[#173](https://github.com/spk-c/PenX/pull/173) (two operator-held MariaDB
+SQL/manifest SHA-256 pins, file identity only),
+[#174](https://github.com/spk-c/PenX/pull/174) (local exact OSV version
+candidate comparisons), and [#175](https://github.com/spk-c/PenX/pull/175)
+(saved-report evidence traceability 0–2 with JSON/SARIF/HTML/PDF parity).
+These are **partial** roadmap slices; no real model, production database restore or external target scan
 was exercised. The [36-item acceptance matrix](ROADMAP.md#acceptance-matrix--all-36-roadmap-ids-4-november-2026)
 is the source of tracked remaining gates.
 
@@ -30,7 +35,9 @@ is the source of tracked remaining gates.
 recovery gates, NOT another lexical inspector.** [#168](https://github.com/spk-c/PenX/pull/168)
 and [#169](https://github.com/spk-c/PenX/pull/169) already identify
 suspicious SQL text and unclosed lexical tails, including actual disposable
-native MariaDB dump integration. **Neither proves that the saved SQL matches
+native MariaDB dump integration. [#173](https://github.com/spk-c/PenX/pull/173)
+adds two out-of-band hash pins, so do **not** repeat an external file-identity
+check as if it proved signed origin or historical row integrity. **Neither proves that the saved SQL matches
 the source snapshot**, can be executed safely, or is complete. Design a
 reviewable, *non-mutating* historical dump-vs-scratch validation contract
 with trusted source evidence and a bounded fixture corpus. Distinguish
@@ -53,7 +60,8 @@ NInfer/Strata accuracy result, and PX-501's workflow is manual only.
 > docs/ROADMAP.md (the 36-ID acceptance matrix), docs/CODEX_EXECUTION.md
 > and all open PRs/issues first. Do **one new PX-004 non-mutating
 > historical dump-content/source provenance safety slice** after merged
-> PRs #168/#169, rather than recreating their lexical red-flag work.
+> PRs #168/#169 and dual external hash pins #173, rather than
+> recreating lexical dump checks or file-identity-only validation.
 > Use bounded disposable synthetic/CI MariaDB fixtures; no real database
 > credentials, no production restore/import, no external network scans,
 > no public release or unauthorized automated jobs. Document exactly
@@ -67,7 +75,8 @@ NInfer/Strata accuracy result, and PX-501's workflow is manual only.
 > PX-004 or the roadmap merely because CI passes.
 >
 > If advancing another P1/P2 roadmap ID instead, first check source
-> parity with recent #170 (PX-104 paging) and #171 (PX-304 inventory)
+> parity with #170 (PX-104 paging), #171/#174 (PX-304 local
+> inventory and exact OSV matching) and #175 (PX-203 saved evidence tiers)
 > to avoid duplicating those partial implementations.
 
 ## Workflow Codex must follow
