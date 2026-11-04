@@ -72,6 +72,8 @@ def _incomplete_sql_flags(text: str) -> set[str]:
     flags: set[str] = set()
     state = "code"
     has_unfinished_code = False
+    quote_closers = {"single-quote": "'", "double-quote": '"',
+                     "backtick": "`"}
     index = 0
     length = len(text)
     while index < length:
@@ -86,8 +88,7 @@ def _incomplete_sql_flags(text: str) -> set[str]:
                 state = "code"
                 index += 1
         elif state in {"single-quote", "double-quote", "backtick"}:
-            closing = {"single-quote": "'", "double-quote": '"',
-                       "backtick": "\`"}[state]
+            closing = quote_closers[state]
             # SQL string escaping is mode-dependent. This handles the
             # default MariaDB dump backslash form but proves no semantics.
             if state != "backtick" and char == "\\" and next_char:
