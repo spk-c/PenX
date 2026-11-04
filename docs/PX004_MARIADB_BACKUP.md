@@ -196,6 +196,49 @@ counts and schema, confirms that structural-only audit still passes
 but content audit fails, then restores that CI-only value and checks
 success again. No production data is modified.
 
+## Offline SQL dump diagnostics (PX-004; not a restore authorization)
+
+The opt-in command below checks a **hash-matching local backup pair** and
+inspects at most **8 MiB of its UTF-8 SQL text** for generic red flags:
+
+~~~powershell
+python penx.py backup mariadb-dump-inspect --file "C:\\PenX\\private-backups\\YOUR-BACKUP.sql"
+~~~
+
+The diagnostic reports only SHA-256, byte and table counts, and generic
+`risk_flags`. It never echoes SQL statements, raw scan records or schema
+names, contacts MariaDB, or executes a subprocess. **Every successful
+diagnostic reports `status: manual-review-required`,
+`sql_semantics_verified: false`, `historical_backup_rows_verified: false`,
+`sql_executed: false` and `restore_available: false`.** Even an empty
+`risk_flags` list does not mean the SQL is safe or executable.
+
+Flags are conservative, lexical indicators, *not a SQL grammar, allowlist or
+completeness proof*. They include executable/versioned comments, client
+`DELIMITER`/`SOURCE`, cross-schema references, unexpected write/privilege
+statements, charset/session settings, missing/duplicate/unlisted table DDL,
+out-of-order INSERT targets and an unobserved completion footer. Some
+**ordinary** `mariadb-dump` files contain versioned executable comments;
+they are flagged for manual review, not rejected as definitely malicious.
+A missing `-- Dump completed on ...` line is **not** definitive truncation:
+the dump client can omit it when comments are disabled. Text inside quoted
+rows can cause a conservative false positive; conversely, crafted SQL can
+evade lexical patterns. The tool does **not** verify individual historical
+row values against the saved dump.
+
+Malformed UTF-8, binary controls, mismatched hashes, unverified manifests,
+files above 8 MiB, lines above 64 KiB, or over 100,000 lines make this
+optional diagnostic fail closed (CLI status 2). Ordinary hash-only
+`mariadb-verify` and `mariadb-preview` remain available for larger dumps,
+but neither proves SQL semantics. The diagnostic's double hash/read is not
+an atomic lock against concurrent adversarial file modification; keep offline
+copies private and immutable, and separately validate restores only on
+approved disposable scratch databases.
+
+Tests use bounded synthetic SQL and the *actual* `mariadb-dump` output from
+the disposable MariaDB CI container. No actual user data or restoration is
+performed by this command.
+
 ## Restore acceptance and remaining work
 
 PenX does **not** offer a MariaDB in-place restore command. The new
