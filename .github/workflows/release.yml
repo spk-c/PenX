@@ -39,6 +39,8 @@ jobs:
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
+          # The release gate must validate HEAD^, including on a main push.
+          fetch-depth: 2
       - uses: actions/setup-python@v7
         with:
           python-version: '3.13'
@@ -142,6 +144,8 @@ jobs:
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
+          # The release gate must validate HEAD^, including on a main push.
+          fetch-depth: 2
       - uses: actions/setup-python@v7
         with:
           python-version: '3.13'
