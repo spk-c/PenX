@@ -1,25 +1,17 @@
 # Distributing PenX: GitHub, WinGet, Scoop and PyPI
 
-**v0.6.1 is a source-only release candidate.** It is not yet a downloadable
-installer or Debian package. Its planned Windows/Linux packaged binaries
-will be checked against the pinned dnspython/certifi/Pillow versions inside
-the frozen executables (PR #179); no new tag or Release has been published.
-The v0.6.0 downloads below remain unpatched and historical. Do not update
-the Scoop/WinGet draft URLs until verified v0.6.1 assets exist.
-
-
-**Latest published release:** [PenX v0.6.0](https://github.com/spk-c/PenX/releases/tag/v0.6.0) (2 November 2026). The [tagged GitHub Actions workflow](https://github.com/spk-c/PenX/actions/runs/41518241245) completed successfully and published the Windows installer/ZIP and Linux amd64 Debian/portable archives, together with separate SHA-256 files.
+**Latest published release:** [PenX v0.6.1](https://github.com/spk-c/PenX/releases/tag/v0.6.1) (10 November 2026), from immutable commit `897c18811110dcef5d35eca08886c7d958afaa94`. The [release workflow](https://github.com/spk-c/PenX/actions/runs/42865524891) successfully built and verified Windows/Linux binaries, imported frozen dependency versions and checksum/SBOM/build-manifest integrity.
 
 | Platform | File | Verified SHA-256 |
 | --- | --- | --- |
-| Windows installer | `PenX-Setup-x64.exe` | `2560cdc2b0ff239f148da1508f07243af907c90fbc7516e3395c7f5bcad03f5f` |
-| Windows portable | `PenX-Windows-x64.zip` | `0851e9fb77ee222ec48b229876893bd588472337b9064ad1868182ab039a14a0` |
-| Linux Debian amd64 | `penx_0.6.0_amd64.deb` | `e023a0d48f570cdf80c46b941b70d76a747574579352e95c2c57ca488179defb` |
-| Linux portable x86-64 | `PenX-Linux-x86_64.tar.gz` | `036106a138636c93dd3284218975b56b7de06a15230015a0b4fb4bab35caa3df` |
+| Windows installer | `PenX-Setup-x64.exe` | `a99922e88a3a3c83b12bf017b7bae3eba68c8313bd547d58087aa53c383e602a` |
+| Windows portable | `PenX-Windows-x64.zip` | `5d37fbc3d50e524d8335cb9b3b8ca5c8191d4e6216fb574ba009f2454d626e44` |
+| Linux Debian amd64 | `penx_0.6.1_amd64.deb` | `e5549c9fcbe46d5bcfbf8e40c18312c973512bcfcb78278af2842ba8b7c4a801` |
+| Linux portable x86-64 | `PenX-Linux-x86_64.tar.gz` | `1faab42155e1dc706d2723e5e9303e3664ac850680c07388ca6d21605c6453d0` |
 
-**Package manager status:** Scoop and WinGet manifests below are **drafts**, not official community-registry listings. Both pin the published v0.6.0 Windows ZIP and its actual SHA-256. The `SLP-DEV1.PenX` package identifier remains a draft pending independent publisher validation. GitHub CI does not prove unattended upgrades, Windows/Npcap runtime acceptance, database restore behavior or manual report review: **NOT SIGNED OFF**.
+**Package-manager status:** Scoop and WinGet are **drafts** pinned to the released v0.6.1 ZIP and verified SHA-256; no community registry publication or unsupported upgrade promises. Independent Windows/Npcap/installer upgrades, real database recovery, visual reports and signed installer acceptance remain **NOT SIGNED OFF**.
 
-Historical v0.5.0 [release](https://github.com/spk-c/PenX/releases/tag/v0.5.0) and its manifest versions remain retrievable from Git history. No package is published to PyPI or npm.
+The historical [v0.6.0 release](https://github.com/spk-c/PenX/releases/tag/v0.6.0) contains unpatched dependencies and is not the current security release. No package has been published to PyPI or npm.
 
 ## Supply-chain verification (SBOM and build manifest)
 
@@ -46,7 +38,7 @@ both `SHA256SUMS*.txt` files, the manifest, and the SBOM in one directory
 ```powershell
 python release_supply_chain.py verify-release <bundle-directory>
 # Optional pins:
-python release_supply_chain.py verify-release <bundle-directory> --expect-version 0.6.0 --expect-commit <40-hex-commit>
+python release_supply_chain.py verify-release <bundle-directory> --expect-version 0.6.1 --expect-commit <40-hex-commit>
 ```
 
 Exit code 0 means every check passed; 1 means at least one check failed;

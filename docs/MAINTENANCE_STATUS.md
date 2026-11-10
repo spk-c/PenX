@@ -1,27 +1,23 @@
 # PenX — maintenance and release status
 
-**Next source candidate: v0.6.1 (10 November 2026), not published.**
-Security fixes and accumulated main-branch changes are being prepared in
-[PR #179](https://github.com/spk-c/PenX/pull/179); **publication is pending**.
-The v0.6.0 release binaries below remain historical/unpatched (dnspython
-2.8.0). No new tag, bundle signature, or independent field acceptance is
-claimed. See [release blocker #178](https://github.com/spk-c/PenX/issues/178).
+## Current release: v0.6.1 (10 November 2026)
 
+**Published:** [PenX v0.6.1](https://github.com/spk-c/PenX/releases/tag/v0.6.1) from immutable commit [`897c1881`](https://github.com/spk-c/PenX/commit/897c18811110dcef5d35eca08886c7d958afaa94). The [authorized Windows/Linux release workflow](https://github.com/spk-c/PenX/actions/runs/42865524891) passed all Linux/Kali, Windows installer, bundled dependency, offline regression, SHA-256, SBOM and build-manifest checks before publication.
 
-## Current release: v0.6.0 (2 November 2026)
+**Published assets:** Windows installer `PenX-Setup-x64.exe`, portable ZIP `PenX-Windows-x64.zip`, Debian `penx_0.6.1_amd64.deb`, Linux `PenX-Linux-x86_64.tar.gz`, two checksum files, SBOM, build manifest and CVE quality fixture. SHA-256 digests below are from the published GitHub release assets.
 
-**Published:** [PenX v0.6.0 for Windows and Kali/Linux](https://github.com/spk-c/PenX/releases/tag/v0.6.0). Release PR [#120](https://github.com/spk-c/PenX/pull/120) was merged into `main`. The new immutable `v0.6.0` tag resolves to reviewed commit `eb22080352a4137cd4324be7f48244ad649dc8ea`. The [tagged multi-platform release workflow](https://github.com/spk-c/PenX/actions/runs/41518241245) finished with **success**.
+- **Windows ZIP SHA-256:** `5d37fbc3d50e524d8335cb9b3b8ca5c8191d4e6216fb574ba009f2454d626e44`
+- **Windows installer SHA-256:** `a99922e88a3a3c83b12bf017b7bae3eba68c8313bd547d58087aa53c383e602a`
+- **Linux Debian SHA-256:** `e5549c9fcbe46d5bcfbf8e40c18312c973512bcfcb78278af2842ba8b7c4a801`
+- **Linux TAR.GZ SHA-256:** `1faab42155e1dc706d2723e5e9303e3664ac850680c07388ca6d21605c6453d0`
 
-**Downloads:** Windows installer `PenX-Setup-x64.exe`, portable `PenX-Windows-x64.zip`, Linux amd64 `penx_0.6.0_amd64.deb`, portable `PenX-Linux-x86_64.tar.gz`, `SHA256SUMS.txt`, `SHA256SUMS-Linux.txt`, `CVE-QUALITY.json`. GitHub additionally generates source archives, which are not packaged applications.
+**Security:** v0.6.1 packages dnspython 2.9.2, certifi 2026.10.23 and Pillow 13.0.0 (source installs require Python 3.11–3.13). The historical [v0.6.0](https://github.com/spk-c/PenX/releases/tag/v0.6.0) downloads are **unpatched** and must not be presented as the security update.
 
-- **Windows ZIP SHA-256:** `0851e9fb77ee222ec48b229876893bd588472337b9064ad1868182ab039a14a0`.
-- **Windows installer SHA-256:** `2560cdc2b0ff239f148da1508f07243af907c90fbc7516e3395c7f5bcad03f5f`.
-- **Linux Debian SHA-256:** `e023a0d48f570cdf80c46b941b70d76a747574579352e95c2c57ca488179defb`.
-- **Linux TAR.GZ SHA-256:** `036106a138636c93dd3284218975b56b7de06a15230015a0b4fb4bab35caa3df`.
-- **Packaging manifests:** Scoop and WinGet **drafts** now reference the verified published v0.6.0 Windows ZIP. They are not distributed through the community registries.
-- **Field evidence:** Eleven Kali scanner adapters were tested against controlled local fixtures. Owner-authorized passive provider checks, local AI, SQLite crash recovery, and report checks are detailed in [Linux acceptance](LINUX_ACCEPTANCE_2026-11-02.md). Independent field acceptance remains **NOT SIGNED OFF** for all environments.
+**Package-manager status:** versioned Scoop and WinGet manifests are **drafts**, not submissions to community registries. They pin the verified v0.6.1 Windows ZIP. No signed installer is claimed: the release manifest records `signing.scheme: none`.
 
-**Historical releases:** [v0.5.0](https://github.com/spk-c/PenX/releases/tag/v0.5.0) (1 November 2026) and [v0.4.11](https://github.com/spk-c/PenX/releases/tag/v0.4.11) remain available. Do not move existing release tags or confuse source archives with executable downloads. Existing security issues [#81](https://github.com/spk-c/PenX/issues/81) and [#82](https://github.com/spk-c/PenX/issues/82) were closed historically but are not evidence that all manual field checks are complete.
+**Field acceptance: NOT SIGNED OFF.** Real Windows/Npcap/UAC, production upgrades/rollback, database recovery and visual report audits are still independent gates. The 36-item roadmap [#123](https://github.com/spk-c/PenX/issues/123) remains open.
+
+**Historical:** [v0.6.0](https://github.com/spk-c/PenX/releases/tag/v0.6.0), [v0.5.0](https://github.com/spk-c/PenX/releases/tag/v0.5.0), and [v0.4.11](https://github.com/spk-c/PenX/releases/tag/v0.4.11) remain immutable. Never move existing tags.
 
 ## Outstanding independent acceptance
 
