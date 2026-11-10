@@ -68,6 +68,11 @@ class ReleasePipelineContracts(unittest.TestCase):
                       (ROOT / "installer/penx.iss").read_text())
         guide = (ROOT / ".github/RELEASE_DOWNLOAD_GUIDE.md").read_text()
         self.assertIn("NOT SIGNED OFF", guide)
+        # The Debian package carries a versioned filename, unlike the other
+        # stable asset names. Every release must render its direct link.
+        self.assertIn("penx_{{PENX_VERSION}}_amd64.deb", guide)
+        self.assertIn('https://github.com/spk-c/PenX/releases/download/v{{PENX_VERSION}}/', guide)
+        self.assertIn('$guide.Replace("{{PENX_VERSION}}", $guideVersion)', workflow)
         if published_version != version:
             self.assertIn("source-only release candidate", packaging)
             self.assertIn("publication is pending", status)
