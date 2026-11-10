@@ -15,7 +15,7 @@
 
 **Package-manager status:** versioned Scoop and WinGet manifests are **drafts**, not submissions to community registries. They pin the verified v0.6.1 Windows ZIP. No signed installer is claimed: the release manifest records `signing.scheme: none`.
 
-**Field acceptance: NOT SIGNED OFF.** Real Windows/Npcap/UAC, production upgrades/rollback, database recovery and visual report audits are still independent gates. The 36-item roadmap [#123](https://github.com/spk-c/PenX/issues/123) remains open.
+**Field acceptance: NOT SIGNED OFF.** Real Windows/Npcap/UAC, production upgrades/rollback, database recovery and visual report audits are still independent gates. The 36-item roadmap [#123](https://github.com/spk-c/PenX/issues/123) was closed as an **administrative tracker**, not completed; see [ROADMAP.md](ROADMAP.md) for remaining milestones.
 
 **Historical:** [v0.6.0](https://github.com/spk-c/PenX/releases/tag/v0.6.0), [v0.5.0](https://github.com/spk-c/PenX/releases/tag/v0.5.0), and [v0.4.11](https://github.com/spk-c/PenX/releases/tag/v0.4.11) remain immutable. Never move existing tags.
 
@@ -23,8 +23,8 @@
 
 | Priority | Work item | Definition of done |
 | --- | --- | --- |
-| P1 | [#81 Windows/Npcap/12 scanners](https://github.com/spk-c/PenX/issues/81) | All scanner choices on an explicitly authorized disposable target; cancellation, timeouts, process tree, missing dependencies, UAC/Npcap, operator-reviewed logs |
-| P1 | [#82 Database/installer/report recovery](https://github.com/spk-c/PenX/issues/82) | Restore sanitized SQLite WAL and MariaDB test copies; Windows upgrade/rollback/uninstall; long PDF/HTML/JSON/SARIF review and interrupted-publication recovery |
+| P1 | [Historical #81 Windows/Npcap/12 scanners (closed tracker)](https://github.com/spk-c/PenX/issues/81) | All scanner choices on an explicitly authorized disposable target; cancellation, timeouts, process tree, missing dependencies, UAC/Npcap, operator-reviewed logs |
+| P1 | [Historical #82 DB/installer/report acceptance (closed tracker)](https://github.com/spk-c/PenX/issues/82) | Restore sanitized SQLite WAL and MariaDB test copies; Windows upgrade/rollback/uninstall; long PDF/HTML/JSON/SARIF review and interrupted-publication recovery |
 | P1 | [FIELD_ACCEPTANCE.md](FIELD_ACCEPTANCE.md) | Operator evidence matrix, exact test build, results, rollback and reviewer sign-off; currently **NOT SIGNED OFF** |
 | P2 | Source/architecture cleanup | Compatibility facades inventoried via `scripts/import_inventory.py` and retired: the `llm`/`app_paths` shims were removed on 2026-10-31 and the `penx` module entrypoint is pinned public API until v1; Ruff W/B + mypy gates and the Python 3.13 compatibility matrix are in place |
 
@@ -33,16 +33,16 @@
 ## Repository hygiene
 
 - **Main protection:** GitHub reported the `PenX protect main (PR + CI)` ruleset active on 22 October 2026; its tracked template is at [`.github/rulesets/protect-main.json`](../.github/rulesets/protect-main.json). Verify continued server-side enforcement through repository Settings → Rules. Required PR checks include Linux offline tests, Windows checks and Gitleaks; manual Windows field checks are independent.
-- **CI:** Pull requests run Linux offline/test/lint checks and every push to `main` receives post-merge Linux verification. `release/*` PRs also run Windows offline regression and packaged installer smoke tests; tagged releases run the Windows release pipeline. Physical Windows/Npcap scanner and backup/recovery field acceptance remains manual and unsigned.
+- **CI:** Every pull request and `main` push runs Linux **and** Windows offline regression checks. `release/*` PRs additionally run the Windows packaged installer smoke tests; tagged releases run the dedicated Windows/Linux release pipeline. These automated checks are not independent hardware/field sign-off. Physical Windows/Npcap scanner and backup/recovery field acceptance remains manual and unsigned.
 - **Documentation:** `docs/REFACTOR_ACCEPTANCE.md` was intentionally deleted in [#79](https://github.com/spk-c/PenX/pull/79); [FIELD_ACCEPTANCE.md](FIELD_ACCEPTANCE.md) is now the single operator field acceptance checklist. Historical refactor, audit and release notes are available through Git history, merged pull requests and tagged [GitHub Releases](https://github.com/spk-c/PenX/releases), rather than duplicated in current public documentation.
 - **Branches:** The original 17 stale topic branches were removed on 22 October 2026. New temporary feature/release branches may appear while PRs are being reviewed. The [branch-prune helper](../scripts/prune_merged_github_branches.ps1) requires explicit `-Apply`, validates merged or ancestor status and live SHA, and leaves `main` untouched. GitHub's delete-ref API has no atomic SHA lease; avoid concurrent pushes during cleanup.
 - **Mirrors and packaging:** Optional `.gitlab-ci.yml` and GitLab release/triage scripts are retained for the mirror. Only the current WinGet draft is kept in the working tree; older manifest snapshots remain in Git history. Do not mistake manifests for public registry availability.
 
 ## Next release checklist
 
-1. For the **next version after v0.6.0**, update the application, packaging, installer version and reviewed release notes together; do not move existing immutable release tags.
+1. For the **next version after v0.6.1**, update application, packaging and installer versions plus reviewed release notes together. The v0.6.1 one-time main-push authorization is historical and must **not** be reused; do not move existing tags.
 2. Use a protected `release/*` PR, confirm successful Linux/Windows packaged-app, Security and applicable path-filtered package checks, then the exact `main` post-merge CI.
-3. Create a **new** version tag only after the reviewed source commit is green. Publish and verify Windows/Linux assets and both SHA-256 checksum files using the tagged release workflow.
+3. After the reviewed source commit passes required CI, explicitly authorize the **new** release tag and verify the existing tagged-release pipeline is valid for that version. Publish and verify Windows/Linux assets, both SHA-256 files, manifest and SBOM; never recreate/move the v0.6.1 tag.
 4. Only **after the next version's assets exist**, update WinGet/Scoop draft manifests and public documentation to verified URLs and checksums. Keep Windows/Npcap, installer upgrade/rollback, database recovery and visual report field acceptance explicitly **NOT SIGNED OFF** until supported by independent operator evidence.
 
 No production scanner targets, private credentials or customer databases are required for documentation/CI maintenance.

@@ -1,13 +1,13 @@
 # PenX — Product and Engineering Roadmap (Codex-ready)
 
-**Status:** proposal/implementation tracker, with pending acceptance noted below. **Release baseline:** published PenX v0.6.0 (2 November 2026); current `main` is newer than the released binaries.
+**Status:** proposal/implementation tracker, with pending acceptance noted below. **Release baseline:** [PenX v0.6.1](https://github.com/spk-c/PenX/releases/tag/v0.6.1), published 10 November 2026 from commit `897c1881`. `main` also includes post-release documentation/CI work; this is not a new binary release. The 36-item tracker [#123](https://github.com/spk-c/PenX/issues/123) was closed administratively on 10 November, **not** marked implemented. Manual field acceptance remains **NOT SIGNED OFF**.
 **Audience:** maintainers and Codex implementation agents. **Scope:** Windows 10/11, Kali Linux, Debian, Ubuntu; defensive and authorized assessments only.
 **Implementation protocol:** [CODEX_EXECUTION.md](CODEX_EXECUTION.md), repository [AGENTS.md](../AGENTS.md).
 **Not a release promise.** Version targets, estimates and performance criteria below are proposals, subject to benchmark and operator validation.
 
-## Implementation snapshot — 4 November 2026
+## Implementation snapshot — 4 November 2026 (historical source snapshot)
 
-This table describes **merged source**, not the separately published v0.6.0 binaries or human field sign-off. On 4 November 2026, `main` includes the earlier backup/scanner/report work through [#172](https://github.com/spk-c/PenX/pull/172), plus [#173](https://github.com/spk-c/PenX/pull/173) (independently pinned MariaDB SQL/manifest hashes), [#174](https://github.com/spk-c/PenX/pull/174) (local exact OSV advisory-version candidates) and [#175](https://github.com/spk-c/PenX/pull/175) (cross-format evidence traceability), through commit `8b613fac0483d5ccb414c995f1759dc0f1edbbc6`. Applicable PR checks passed; standalone Windows synthetic/offline suites passed, but some hosted Windows/CodeQL jobs were skipped. **No real target scan, live MariaDB restore, advisory authenticity proof, verified model accuracy, signed release or independent Windows/Kali field sign-off is implied.**
+This table describes the **4 November merged source snapshot**; the v0.6.1 security rebuild was subsequently published on 10 November. The implementation and acceptance matrix is still useful but does not imply human field sign-off. On 4 November 2026, `main` includes the earlier backup/scanner/report work through [#172](https://github.com/spk-c/PenX/pull/172), plus [#173](https://github.com/spk-c/PenX/pull/173) (independently pinned MariaDB SQL/manifest hashes), [#174](https://github.com/spk-c/PenX/pull/174) (local exact OSV advisory-version candidates) and [#175](https://github.com/spk-c/PenX/pull/175) (cross-format evidence traceability), through commit `8b613fac0483d5ccb414c995f1759dc0f1edbbc6`. Applicable PR checks passed; standalone Windows synthetic/offline suites passed, but some hosted Windows/CodeQL jobs were skipped. **No real target scan, live MariaDB restore, advisory authenticity proof, verified model accuracy, signed release or independent Windows/Kali field sign-off is implied.**
 
 | Roadmap ID | Implemented and merged | Remaining acceptance (not signed off) |
 | --- | --- | --- |
