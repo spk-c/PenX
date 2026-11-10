@@ -24,6 +24,8 @@ PYINSTALLER_ARGS = (
     "--hidden-import=whois",
     "--collect-data=whois",
     "--hidden-import=dns.resolver",
+    "--hidden-import=certifi",
+    "--hidden-import=PIL",
     "--collect-all", "reportlab",
     "--collect-all", "ddgs",
     "--collect-all", "dns",
