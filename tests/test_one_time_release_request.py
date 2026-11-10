@@ -34,6 +34,9 @@ class OneTimeReleaseContractTests(unittest.TestCase):
         self.assertNotIn("repos/$env:GITHUB_REPOSITORY/git/refs", workflow)
         self.assertNotIn("Verify one-time main release authorization", workflow)
         self.assertIn("Publishing requires a pre-existing version tag", workflow)
+        self.assertIn("Verify tagged commit is part of protected main history", workflow)
+        self.assertIn("compare/$GITHUB_SHA...main", workflow)
+        self.assertIn("ahead|identical", workflow)
         self.assertEqual(workflow.count("fetch-depth: 2"), 2)
 
     def test_publication_requires_complete_bundle_verification(self):
