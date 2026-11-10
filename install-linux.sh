@@ -15,8 +15,8 @@ fi
 if [[ "$(uname -s)" != "Linux" ]]; then echo "Linux only" >&2; exit 2; fi
 python3 - <<'PY'
 import sys
-if not ((3, 10) <= sys.version_info[:2] < (3, 14)):
-    raise SystemExit("PenX requires CPython 3.10–3.13")
+if not ((3, 11) <= sys.version_info[:2] < (3, 14)):
+    raise SystemExit("PenX requires CPython 3.11–3.13")
 print("Using Python", sys.version.split()[0])
 PY
 if [[ "${1:-}" == "--with-scanners" ]]; then

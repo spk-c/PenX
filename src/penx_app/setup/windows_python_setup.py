@@ -3,7 +3,7 @@
 Only standard-library imports: this script intentionally runs even if the currently
 selected Python is 3.15 and its third-party packages are broken.
 
-The installer prefers CPython 3.13, accepts 3.10-3.13, and does not alter the
+The installer prefers CPython 3.13, accepts 3.11-3.13, and does not alter the
 system default Python or delete an incompatible virtual environment.
 """
 from __future__ import annotations
@@ -18,7 +18,7 @@ from penx_app.app_paths import APP_ROOT
 ROOT = APP_ROOT
 VENV = ROOT / '.venv'
 PYTHON_VENV = VENV / 'Scripts' / 'python.exe'
-SUPPORTED = ((3, 13), (3, 12), (3, 11), (3, 10))
+SUPPORTED = ((3, 13), (3, 12), (3, 11))
 WINGET_PACKAGE = 'Python.Python.3.13'
 # The repository keeps internal application modules under src/. Bootstrap
 # subprocesses run with cwd=ROOT, so explicitly expose that source directory
@@ -97,7 +97,7 @@ def interpreter_candidates() -> list[list[str]]:
     candidates += [[p] for p in known_python_paths() if Path(p).is_file()]
     # sys.executable is merely a fallback; may be a broken Python 3.15.
     candidates.append([sys.executable])
-    for exe in ('python3.13', 'python3.12', 'python3.11', 'python3.10', 'python'):
+    for exe in ('python3.13', 'python3.12', 'python3.11', 'python'):
         if shutil.which(exe):
             candidates.append([exe])
     return candidates
@@ -119,7 +119,7 @@ def find_supported_python() -> list[str] | None:
 def install_python_with_winget() -> bool:
     winget = shutil.which('winget')
     if not winget or os.name != 'nt':
-        say('[ERROR] Compatible Python 3.10-3.13 not found and winget is unavailable.')
+        say('[ERROR] Compatible Python 3.11-3.13 not found and winget is unavailable.')
         say('        Install Python 3.13 from https://www.python.org/downloads/windows/')
         return False
     say('[*] Installing Python 3.13 via the official winget package...')
