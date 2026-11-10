@@ -8,7 +8,7 @@ Choose the package for your platform from the [latest official GitHub Release](h
 | --- | --- | --- |
 | **Windows 10/11 (x64)** | **Installer — recommended** | [PenX-Setup-x64.exe](https://github.com/spk-c/PenX/releases/latest/download/PenX-Setup-x64.exe) |
 | Windows (x64) | **Portable (no installation)** | [PenX-Windows-x64.zip](https://github.com/spk-c/PenX/releases/latest/download/PenX-Windows-x64.zip) |
-| **Kali / Debian / Ubuntu (amd64)** | Debian package | Find `penx_<version>_amd64.deb` under [release assets](https://github.com/spk-c/PenX/releases/latest) |
+| **Kali / Debian / Ubuntu (amd64)** | **Debian package** | [penx_{{PENX_VERSION}}_amd64.deb](https://github.com/spk-c/PenX/releases/download/v{{PENX_VERSION}}/penx_{{PENX_VERSION}}_amd64.deb) |
 | Linux (x86-64) | Portable archive | [PenX-Linux-x86_64.tar.gz](https://github.com/spk-c/PenX/releases/latest/download/PenX-Linux-x86_64.tar.gz) |
 
 **Verify your download:** use `SHA256SUMS.txt` for Windows, or `SHA256SUMS-Linux.txt` for Linux, from the **same release**.
