@@ -7,7 +7,7 @@ Scope: user
 Installers:
   - Architecture: x64
     InstallerUrl: https://github.com/spk-c/PenX/releases/download/v0.6.1/PenX-Windows-x64.zip
-    InstallerSha256: 0851E9FB77EE222EC48B229876893BD588472337B9064AD1868182AB039A14A0
+    InstallerSha256: 5D37FBC3D50E524D8335CB9B3B8CA5C8191D4E6216FB574BA009F2454D626E44
     NestedInstallerFiles:
       - RelativeFilePath: PenX/PenX.exe
         PortableCommandAlias: penx
