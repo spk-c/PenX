@@ -418,6 +418,10 @@ class ReleaseWorkflowTests(unittest.TestCase):
             "PenX-BUILD-MANIFEST.json --verify-tag",
         ):
             self.assertIn(phrase, workflow)
+        self.assertNotIn("penx_0.6.0_amd64.deb", workflow)
+        self.assertIn("PENX_DEB=penx_", workflow)
+        self.assertIn("scripts/verify_frozen_runtime.py --executable dist/PenX/PenX", workflow)
+        self.assertIn('scripts/verify_frozen_runtime.py --executable "$installedExe"', workflow)
 
     def test_release_cli_help_runs_offline(self):
         proc = subprocess.run(

@@ -34,6 +34,8 @@
 
 **Latest published release: [PenX v0.6.0](https://github.com/spk-c/PenX/releases/tag/v0.6.0)** — ready-to-run builds for Windows and Linux amd64.
 
+> **Security notice (10 November 2026):** The **published v0.6.0 binaries are historical/unpatched** and still include the older locked dnspython 2.8.0 dependency. Security patch [#177](https://github.com/spk-c/PenX/pull/177) is merged in source, but **does not change those downloads**. A separately built, verified v0.6.1 package is being prepared under [#178](https://github.com/spk-c/PenX/issues/178). The links below intentionally continue to identify the old release until replacement assets actually exist. Do not treat the v0.6.0 downloads as remediated.
+
 | Platform | Edition | Download |
 | --- | --- | --- |
 | **Windows 10/11 (x64)** | **Installer (recommended)** | [PenX-Setup-x64.exe](https://github.com/spk-c/PenX/releases/download/v0.6.0/PenX-Setup-x64.exe) |

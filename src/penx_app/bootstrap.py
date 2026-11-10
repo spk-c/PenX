@@ -37,6 +37,9 @@ def main() -> int:
     args = sys.argv[1:]
     if args:
         command = args[0]
+        if command == '--release-dependencies':
+            from penx_app.release_dependencies import main as release_dependencies_main
+            return release_dependencies_main()
         if command in ('--version', '-V'):
             print(f"PenX {'Windows' if os.name == 'nt' else 'Linux'} {VERSION}")
             return 0

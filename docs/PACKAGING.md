@@ -1,5 +1,13 @@
 # Distributing PenX: GitHub, WinGet, Scoop and PyPI
 
+**v0.6.1 is a source-only release candidate.** It is not yet a downloadable
+installer or Debian package. Its planned Windows/Linux packaged binaries
+will be checked against the pinned dnspython/certifi/Pillow versions inside
+the frozen executables (PR #179); no new tag or Release has been published.
+The v0.6.0 downloads below remain unpatched and historical. Do not update
+the Scoop/WinGet draft URLs until verified v0.6.1 assets exist.
+
+
 **Latest published release:** [PenX v0.6.0](https://github.com/spk-c/PenX/releases/tag/v0.6.0) (2 November 2026). The [tagged GitHub Actions workflow](https://github.com/spk-c/PenX/actions/runs/41518241245) completed successfully and published the Windows installer/ZIP and Linux amd64 Debian/portable archives, together with separate SHA-256 files.
 
 | Platform | File | Verified SHA-256 |

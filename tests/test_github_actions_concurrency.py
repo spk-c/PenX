@@ -25,19 +25,23 @@ def _concurrency_group(workflow: str) -> str:
 
 
 class WorkflowConcurrencyTests(unittest.TestCase):
-    def test_manual_runs_cannot_cancel_tag_releases(self):
+    def test_preview_runs_cannot_cancel_tag_releases(self):
         release = _workflow("release.yml")
         group = _concurrency_group(release)
         self.assertIn("${{ github.event_name }}", group)
         self.assertIn("${{ github.ref }}", group)
         self.assertRegex(
-            release, r"(?m)^  cancel-in-progress:\s*\$\{\{ github\.event_name == 'workflow_dispatch' \}\}$"
+            release, r"(?m)^  cancel-in-progress:\s*\$\{\{ github\.event_name != 'push' \}\}$"
         )
-        # With identical refs, workflow_dispatch and push still have different keys.
+        # Tag pushes are never cancelled. PR/manual previews use separate
+        # event-specific groups, so even identical refs cannot collide.
         for ref in ("refs/tags/v0.4.3", "refs/heads/main"):
             tagged = group.replace("${{ github.event_name }}", "push").replace("${{ github.ref }}", ref)
             manual = group.replace("${{ github.event_name }}", "workflow_dispatch").replace("${{ github.ref }}", ref)
+            preview = group.replace("${{ github.event_name }}", "pull_request").replace("${{ github.ref }}", ref)
             self.assertNotEqual(tagged, manual)
+            self.assertNotEqual(tagged, preview)
+            self.assertNotEqual(manual, preview)
 
     def test_same_repository_push_and_pull_request_dedupe(self):
         ci = _workflow("ci.yml")

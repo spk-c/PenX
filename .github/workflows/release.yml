@@ -15,11 +15,11 @@ on:
 permissions:
   contents: write
 
-# Manual builds may supersede older manual builds, but must NEVER cancel a
-# tagged release even when workflow_dispatch targets that same tag.
+# Supersede stale PR/manual previews, but never cancel a tagged push
+# release. Event-specific groups keep tag pushes separate from manual builds.
 concurrency:
   group: windows-release-${{ github.event_name }}-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'workflow_dispatch' }}
+  cancel-in-progress: ${{ github.event_name != 'push' }}
 
 env:
   PYTHONUTF8: "1"
@@ -43,10 +43,12 @@ jobs:
       - name: Assert matching tag, source and Python package version
         run: |
           PYTHONPATH=src python - <<'PY'
-          import os, tomllib
+          import os, re, tomllib
           from pathlib import Path
           from penx_app.version import VERSION
-          assert VERSION == "0.6.0", VERSION
+          assert re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+", VERSION), VERSION
+          with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as env:
+              env.write(f"PENX_DEB=penx_{VERSION}_amd64.deb\n")
           meta = tomllib.loads(Path("pyproject.toml").read_text(encoding="utf-8"))
           assert meta["project"]["version"] == VERSION
           if os.environ["GITHUB_REF_TYPE"] == "tag":
@@ -64,18 +66,20 @@ jobs:
           test -x dist/PenX/PenX
           test -s dist/PenX/_internal/whois/data/public_suffix_list.dat
           dist/PenX/PenX --version
+          python scripts/verify_frozen_runtime.py --executable dist/PenX/PenX
           dist/PenX/PenX --check
           test -f dist/PenX/.env.example
           cmp .env.example dist/PenX/.env.example
           python packaging/linux/build_packages.py
-          test -s artifacts/penx_0.6.0_amd64.deb
+          test -s "artifacts/$PENX_DEB"
           test -s artifacts/PenX-Linux-x86_64.tar.gz
           tar -tzf artifacts/PenX-Linux-x86_64.tar.gz | grep -q '^PenX/PenX$'
-          dpkg-deb --info artifacts/penx_0.6.0_amd64.deb
+          dpkg-deb --info "artifacts/$PENX_DEB"
       - name: Debian package install and first-run smoke
         run: |
-          sudo dpkg -i artifacts/penx_0.6.0_amd64.deb
+          sudo dpkg -i "artifacts/$PENX_DEB"
           penx --version
+          python scripts/verify_frozen_runtime.py --executable /opt/penx/PenX/PenX
           penx --check
           export XDG_DATA_HOME="$(mktemp -d)"
           penx --setup
@@ -90,11 +94,11 @@ jobs:
             -v "$PWD/tests/kali_local_scanner_acceptance.py:/kali_acceptance.py:ro" \
             -v "$PWD/scripts/ci_kali_apt_install.sh:/ci_kali_apt_install.sh:ro" \
             kalilinux/kali-rolling:latest \
-            bash -euo pipefail -c 'export DEBIAN_FRONTEND=noninteractive; bash /ci_kali_apt_install.sh /artifacts/penx_0.6.0_amd64.deb python3 openssl nmap whatweb nikto nuclei httpx-toolkit ffuf katana subfinder; python3 /kali_acceptance.py'
+            bash -euo pipefail -c 'export DEBIAN_FRONTEND=noninteractive; bash /ci_kali_apt_install.sh /artifacts/penx_*.deb python3 openssl nmap whatweb nikto nuclei httpx-toolkit ffuf katana subfinder; python3 /kali_acceptance.py'
       - name: Hash both Linux release assets
         run: |
           cd artifacts
-          sha256sum PenX-Linux-x86_64.tar.gz penx_0.6.0_amd64.deb > SHA256SUMS-Linux.txt
+          sha256sum PenX-Linux-x86_64.tar.gz "$PENX_DEB" > SHA256SUMS-Linux.txt
           sha256sum --check SHA256SUMS-Linux.txt
       - name: Upload Linux release artifacts to the run
         uses: actions/upload-artifact@v7
@@ -102,7 +106,7 @@ jobs:
           name: PenX-Linux-x86_64
           path: |
             artifacts/PenX-Linux-x86_64.tar.gz
-            artifacts/penx_0.6.0_amd64.deb
+            artifacts/penx_*_amd64.deb
             artifacts/SHA256SUMS-Linux.txt
           if-no-files-found: error
           retention-days: 7
@@ -130,6 +134,15 @@ jobs:
           $env:PYTHONPATH = 'src'
           python -c "import sys; from penx_app.version import VERSION; assert sys.argv[1] == 'v' + VERSION, f'Release tag {sys.argv[1]} != v{VERSION}'" "$env:GITHUB_REF_NAME"
           if ($LASTEXITCODE -ne 0) { throw "Release tag/version mismatch" }
+      - name: Resolve version-specific release asset
+        shell: pwsh
+        run: |
+          $env:PYTHONPATH = 'src'
+          $version = python -c "from penx_app.version import VERSION; print(VERSION)"
+          if ($LASTEXITCODE -ne 0 -or $version -notmatch '^\d+\.\d+\.\d+$') {
+            throw "Invalid application release version"
+          }
+          "PENX_DEB=penx_${version}_amd64.deb" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
       - name: Install build dependencies
         shell: pwsh
         run: |
@@ -160,6 +173,8 @@ jobs:
           New-Item -Type Directory -Force dist/PenX/data | Out-Null
           & .\dist\PenX\PenX.exe --version
           if ($LASTEXITCODE -ne 0) { throw "EXE version smoke test failed" }
+          python scripts/verify_frozen_runtime.py --executable dist/PenX/PenX.exe
+          if ($LASTEXITCODE -ne 0) { throw "Frozen dependencies mismatch" }
           # No downloads or consent prompts during CI.
           & .\dist\PenX\PenX.exe --setup-status
           if ($LASTEXITCODE -ne 0) { throw "EXE setup-status smoke test failed" }
@@ -183,8 +198,11 @@ jobs:
           $install = Start-Process -FilePath (Resolve-Path "dist/PenX-Setup-x64.exe") -ArgumentList @("/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/DIR=$smoke") -PassThru -Wait
           if ($install.ExitCode -ne 0) { throw "Installer smoke test failed: $($install.ExitCode)" }
           if (-not (Test-Path (Join-Path $smoke ".penx-installed"))) { throw "Installed-mode marker missing" }
-          & (Join-Path $smoke "PenX.exe") --version
+          $installedExe = Join-Path $smoke "PenX.exe"
+          & $installedExe --version
           if ($LASTEXITCODE -ne 0) { throw "Installed EXE version test failed" }
+          python scripts/verify_frozen_runtime.py --executable "$installedExe"
+          if ($LASTEXITCODE -ne 0) { throw "Installed dependency versions mismatch" }
           & (Join-Path $smoke "PenX.exe") --setup-status
           if ($LASTEXITCODE -ne 0) { throw "Installed EXE setup-status test failed" }
       - name: Package and checksum
@@ -211,7 +229,7 @@ jobs:
         shell: pwsh
         run: |
           $ErrorActionPreference = 'Stop'
-          $names = @("PenX-Linux-x86_64.tar.gz", "penx_0.6.0_amd64.deb")
+          $names = @("PenX-Linux-x86_64.tar.gz", $env:PENX_DEB)
           $lines = @(Get-Content "linux-assets/SHA256SUMS-Linux.txt" -Encoding ascii)
           if ($lines.Count -ne 2) { throw "Linux checksum file must have exactly two entries" }
           foreach ($name in $names) {
@@ -231,11 +249,11 @@ jobs:
           $ErrorActionPreference = 'Stop'
           New-Item -Type Directory -Force release-bundle/linux-assets | Out-Null
           Copy-Item PenX-Windows-x64.zip, PenX-Setup-x64.exe, SHA256SUMS.txt release-bundle/
-          Copy-Item linux-assets/PenX-Linux-x86_64.tar.gz, linux-assets/penx_0.6.0_amd64.deb, linux-assets/SHA256SUMS-Linux.txt release-bundle/linux-assets/
+          Copy-Item linux-assets/PenX-Linux-x86_64.tar.gz, linux-assets/$env:PENX_DEB, linux-assets/SHA256SUMS-Linux.txt release-bundle/linux-assets/
           $env:PYTHONPATH = 'src'
           python release_supply_chain.py sbom --output release-bundle/PenX-SBOM.json
           if ($LASTEXITCODE -ne 0) { throw "SBOM generation failed" }
-          python release_supply_chain.py manifest --output release-bundle/PenX-BUILD-MANIFEST.json --sbom release-bundle/PenX-SBOM.json --asset release-bundle/PenX-Windows-x64.zip --asset release-bundle/PenX-Setup-x64.exe --asset release-bundle/linux-assets/PenX-Linux-x86_64.tar.gz --asset release-bundle/linux-assets/penx_0.6.0_amd64.deb
+          python release_supply_chain.py manifest --output release-bundle/PenX-BUILD-MANIFEST.json --sbom release-bundle/PenX-SBOM.json --asset release-bundle/PenX-Windows-x64.zip --asset release-bundle/PenX-Setup-x64.exe --asset release-bundle/linux-assets/PenX-Linux-x86_64.tar.gz --asset release-bundle/linux-assets/$env:PENX_DEB
           if ($LASTEXITCODE -ne 0) { throw "Build manifest generation failed" }
           python release_supply_chain.py verify-release release-bundle
           if ($LASTEXITCODE -ne 0) { throw "Release bundle verification failed" }
@@ -285,5 +303,5 @@ jobs:
                     ($generated -join [Environment]::NewLine)
           }
           [System.IO.File]::WriteAllText((Join-Path (Get-Location) "RELEASE-NOTES.md"), $body, [System.Text.UTF8Encoding]::new($false))
-          gh release create "$env:TAG" PenX-Windows-x64.zip PenX-Setup-x64.exe SHA256SUMS.txt CVE-QUALITY.json linux-assets/PenX-Linux-x86_64.tar.gz linux-assets/penx_0.6.0_amd64.deb linux-assets/SHA256SUMS-Linux.txt release-bundle/PenX-SBOM.json release-bundle/PenX-BUILD-MANIFEST.json --verify-tag --title "PenX $env:TAG" --notes-file RELEASE-NOTES.md
+          gh release create "$env:TAG" PenX-Windows-x64.zip PenX-Setup-x64.exe SHA256SUMS.txt CVE-QUALITY.json linux-assets/PenX-Linux-x86_64.tar.gz linux-assets/$env:PENX_DEB linux-assets/SHA256SUMS-Linux.txt release-bundle/PenX-SBOM.json release-bundle/PenX-BUILD-MANIFEST.json --verify-tag --title "PenX $env:TAG" --notes-file RELEASE-NOTES.md
           if ($LASTEXITCODE -ne 0) { throw "GitHub release publication failed" }
