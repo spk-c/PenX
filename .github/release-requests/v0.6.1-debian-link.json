@@ -1,8 +1,0 @@
-{
-  "schema": "penx-release-note-edit-v1",
-  "tag": "v0.6.1",
-  "release_id": 440690501,
-  "asset": "penx_0.6.1_amd64.deb",
-  "asset_sha256": "e5549c9fcbe46d5bcfbf8e40c18312c973512bcfcb78278af2842ba8b7c4a801",
-  "purpose": "Correct direct Debian link in existing v0.6.1 release notes without changing tag or assets"
-}
