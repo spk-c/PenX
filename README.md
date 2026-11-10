@@ -97,7 +97,7 @@ Or extract the [portable Linux archive](https://github.com/spk-c/PenX/releases/d
 
 ### From source (Windows or Linux)
 
-PenX supports **Python 3.10–3.13** for source installation (3.13 recommended).
+PenX supports **Python 3.11–3.13** for source installation (3.13 recommended).
 
 ```bash
 git clone https://github.com/spk-c/PenX.git

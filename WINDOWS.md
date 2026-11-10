@@ -3,7 +3,7 @@
 ## Requirements
 
 - Windows 10 or Windows 11 (64-bit recommended)
-- Python **3.10 through 3.13** (3.13 recommended) for setup and source-based use
+- Python **3.11 through 3.13** (3.13 recommended) for setup and source-based use
 - Internet connection to download Python dependencies and the upstream scanners
 - Windows Package Manager (`winget`) for automated Ruby and Strawberry Perl setup
 - Administrator/UAC approval when the Nmap/Npcap driver installer requests it
@@ -112,7 +112,7 @@ If LLM settings are missing or contain the example model placeholder, the first 
 
 ## 2. Fix Python 3.15 / charset_normalizer import errors
 
-The installer prefers Python **3.13** and accepts **3.10–3.13**. If your `.venv` uses an incompatible Python version and the startup fails with an error such as:
+The installer prefers Python **3.13** and accepts **3.11–3.13**. If your `.venv` uses an incompatible Python version and the startup fails with an error such as:
 
 ```text
 SystemError: module charset_normalizer.cd uses unknown slot ID 84

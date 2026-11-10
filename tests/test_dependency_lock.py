@@ -78,6 +78,24 @@ class DependencyLockTests(unittest.TestCase):
                     f"{req.name}: locked {entry['version']} does not satisfy {req.specifier}",
                 )
 
+    def test_dnspython_security_floor(self):
+        """Reject CVE-2026-114605 affected package versions."""
+        direct = {canonicalize_name(r.name): r for r in _parse_requirements(REQUIREMENTS_PATH)}
+        self.assertIn("dnspython", direct)
+        self.assertFalse(direct["dnspython"].specifier.contains(Version("2.8.0")))
+        locked = _parse_lock(LOCK_PATH)["dnspython"]
+        self.assertGreaterEqual(Version(locked["version"]), Version("2.9.0"))
+        self.assertGreaterEqual(locked["hashes"], 2)
+
+    def test_patched_transitive_security_floors(self):
+        """Ship fixed certifi/Pillow versions, not the stale build lock."""
+        locked = _parse_lock(LOCK_PATH)
+        for name, minimum in (("certifi", "2026.10.18"), ("pillow", "13.0.0")):
+            with self.subTest(name=name):
+                self.assertIn(name, locked)
+                self.assertGreaterEqual(Version(locked[name]["version"]), Version(minimum))
+                self.assertGreaterEqual(locked[name]["hashes"], 2)
+
     def test_every_locked_package_carries_sha256_hashes(self):
         lock = _parse_lock(LOCK_PATH)
         self.assertTrue(lock, "requirements.lock.txt declares no packages")

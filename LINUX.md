@@ -9,7 +9,7 @@ Official assets are provided on the GitHub Releases page, not in source archives
 ## Requirements
 
 - x86-64 or ARM64 Linux (Debian/Ubuntu/Kali preferred)
-- CPython **3.10 to 3.13** for source installation
+- CPython **3.11 to 3.13** for source installation
 - Network access only to install dependencies and for intentionally selected
   scanners/CVE research, never for `--version` or `--setup-status`
 - Optional third-party scanners, installed separately; no scanners or LLM
@@ -31,7 +31,7 @@ bash ./install-linux.sh
 ```
 
 Use the tagged v0.6.0 source or the current main branch.
-If your distribution's default Python is outside 3.10–3.13, install a
+If your distribution's default Python is outside 3.11–3.13, install a
 supported interpreter in a separate venv (do not override system Python).
 For prebuilt amd64 artifacts and checksums, see
 [the official release](https://github.com/spk-c/PenX/releases/tag/v0.6.0).

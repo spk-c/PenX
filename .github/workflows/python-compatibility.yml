@@ -1,6 +1,6 @@
 name: Python compatibility contracts
 
-# Four-version compatibility matrix. Runs on demand and on a weekly schedule
+# Three-version compatibility matrix. Runs on demand and on a weekly schedule
 # to keep CI minute usage bounded while still catching version drift.
 on:
   workflow_dispatch:
@@ -22,7 +22,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        python-version: ['3.10', '3.11', '3.12', '3.13']
+        python-version: ['3.11', '3.12', '3.13']
     env:
       PYTHONUTF8: '1'
     steps:

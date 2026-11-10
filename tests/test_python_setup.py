@@ -16,6 +16,7 @@ def cp(code=0, out=''):
 class PythonSetupTests(unittest.TestCase):
     def test_support_matrix_explicitly_rejects_315(self):
         self.assertIn((3, 13), setup.SUPPORTED)
+        self.assertNotIn((3, 10), setup.SUPPORTED)
         self.assertNotIn((3, 15), setup.SUPPORTED)
 
     def test_detection_rejects_315_even_when_on_path(self):
