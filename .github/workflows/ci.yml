@@ -9,8 +9,8 @@ on:
     branches: [main]
   workflow_dispatch:
 
-# Windows checks run on manual dispatch and release/* PRs, plus tagged builds.
-# Ordinary PRs run only the complete Linux offline/test/lint gate.
+# Windows offline checks run on every PR and on every main push; packaged
+# installer builds remain restricted to release/* PRs and manual dispatch.
 concurrency:
   group: offline-tests-${{ github.workflow }}-${{ github.event.pull_request.head.repo.full_name || github.repository }}-${{ github.head_ref || github.ref_name }}
   cancel-in-progress: true
@@ -86,9 +86,9 @@ jobs:
 
   tests-windows:
     name: tests (windows-latest)
-    # Normal PRs skip Windows; release/* PRs run real Windows regression tests.
-    # Independent physical field acceptance is tracked separately.
-    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && (startsWith(github.head_ref, 'release/') || startsWith(github.head_ref, 'feature/linux-')))
+    # Windows source/CLI regressions run for every PR and merged main tip;
+    # this does NOT certify physical Npcap/UAC or independent field acceptance.
+    if: github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
     runs-on: windows-latest
     timeout-minutes: 25
     steps:
