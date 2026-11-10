@@ -43,6 +43,8 @@ equate separate present-day snapshots to historical parity. Preserve all
 operator data access or new automatic jobs without separately approved
 recovery and scope sign-off.
 
+**Active follow-ups:** [#187 Windows/Kali field verification](https://github.com/spk-c/PenX/issues/187), [#188 historical SQL provenance/recovery](https://github.com/spk-c/PenX/issues/188), [#189 scanner-scope review](https://github.com/spk-c/PenX/issues/189), [#190 distribution/signing](https://github.com/spk-c/PenX/issues/190).
+
 **Parallel operator acceptance remains separate:** PX-001/PX-003 Windows,
 Kali/Npcap, real old databases and report review; PX-101 blocked external
 adapters need per-adapter scope/rate/redirect audits. PX-102 persistent jobs
@@ -66,8 +68,8 @@ NInfer/Strata accuracy result, and PX-501's workflow is manual only.
 > `restore_available:false`; preserve old manifests and CLI contracts.
 > Run focused and full offline regression, Ruff/mypy, packaging and
 > gated MariaDB CI; record human Windows/Kali/recovery field work as
-> NOT RUN unless directly observed. Add a small PR linked to the relevant
-> open, narrowly scoped follow-up issue; #123 is an archived umbrella tracker.
+> NOT RUN unless directly observed. Add a small PR linked to [#188](https://github.com/spk-c/PenX/issues/188)
+> for PX-004 or another relevant, narrowly scoped open issue; #123 is archived.
 > Record measured results and remaining blockers. Do not check off
 > PX-004 or the roadmap merely because CI passes.
 >
