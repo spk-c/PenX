@@ -1,15 +1,11 @@
 name: Windows Release
 
 on:
+  # Only explicitly created version tags may publish releases.
+  # The 0.6.1 one-time main-push authorization was consumed and retired.
   push:
     tags:
       - 'v*'
-    branches:
-      - main
-    # Only the reviewed, one-time release request can trigger a main build.
-    # GitHub ignores path filters for tag pushes.
-    paths:
-      - '.github/release-requests/v0.6.1.json'
   pull_request:
     paths:
       - 'src/penx_app/version.py'
@@ -47,23 +43,19 @@ jobs:
           cache-dependency-path: |
             requirements.lock.txt
             requirements-build.txt
-      - name: Verify one-time main release authorization and immutable parent
-        if: github.event_name == 'push' && github.ref_type == 'branch'
+      - name: Verify tagged commit is part of protected main history
+        if: github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          PYTHONPATH=src python - <<'PY'
-          import json, os, subprocess
-          from pathlib import Path
-          from penx_app.version import VERSION
-          request = json.loads(Path(".github/release-requests/v0.6.1.json").read_text(encoding="utf-8"))
-          assert os.environ["GITHUB_REF"] == "refs/heads/main", "release request must be merged into main"
-          assert request["schema"] == "penx-one-time-release-v1"
-          assert VERSION == request["version"] == "0.6.1"
-          assert request["tag"] == "v0.6.1"
-          parent = subprocess.check_output(["git", "rev-parse", "HEAD^"], text=True).strip()
-          assert parent == request["source_parent_sha"], "base commit moved since approval"
-          assert subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip() == os.environ["GITHUB_SHA"]
-          print("[OK] One-time release request bound to protected main and expected parent")
-          PY
+          set -euo pipefail
+          # compare/<tag commit>...main is ahead or identical only when the
+          # tagged commit is an ancestor of the protected default branch.
+          status="$(gh api "repos/$GITHUB_REPOSITORY/compare/$GITHUB_SHA...main" --jq '.status')"
+          case "$status" in
+            ahead|identical) echo "[OK] Tag commit belongs to protected main history" ;;
+            *) echo "[ERROR] Tag commit is not on protected main: $status" >&2; exit 1 ;;
+          esac
       - name: Assert matching tag, source and Python package version
         run: |
           PYTHONPATH=src python - <<'PY'
@@ -304,34 +296,19 @@ jobs:
             release-bundle/PenX-BUILD-MANIFEST.json
           if-no-files-found: error
           retention-days: 3
-      - name: Publish the explicitly approved v0.6.1 release (or a tagged release)
-        if: github.ref_type == 'tag' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
+      - name: Publish a version-matched tagged release
+        if: github.ref_type == 'tag' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
         shell: pwsh
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ github.ref_name }}
         run: |
           $ErrorActionPreference = 'Stop'
-          # For the approved one-time main push, create the immutable tag only
-          # AFTER the Windows/Linux build and complete SHA-256/SBOM validation.
-          if ($env:GITHUB_REF_TYPE -eq 'branch') {
-            $request = Get-Content '.github/release-requests/v0.6.1.json' -Raw -Encoding UTF8 | ConvertFrom-Json
-            if ($env:GITHUB_EVENT_NAME -ne 'push' -or $env:GITHUB_REF_NAME -ne 'main' -or
-                $request.schema -ne 'penx-one-time-release-v1' -or $request.tag -ne 'v0.6.1') {
-              throw "Not the explicitly approved v0.6.1 main release"
-            }
-            $parent = (git rev-parse "$($env:GITHUB_SHA)^").Trim()
-            if ($LASTEXITCODE -ne 0 -or $parent -ne $request.source_parent_sha) {
-              throw "Main parent has changed since release approval"
-            }
-            $env:TAG = $request.tag
-            gh api --method POST "repos/$env:GITHUB_REPOSITORY/git/refs" -f "ref=refs/tags/$env:TAG" -f "sha=$env:GITHUB_SHA" --silent
-            if ($LASTEXITCODE -ne 0) { throw "Refusing to create or move release tag; inspect existing refs" }
-            $tagSha = (gh api "repos/$env:GITHUB_REPOSITORY/git/ref/tags/$env:TAG" --jq '.object.sha').Trim()
-            if ($LASTEXITCODE -ne 0 -or $tagSha -ne $env:GITHUB_SHA) { throw "Created tag has wrong SHA" }
-          }
-          else {
-            if ($env:GITHUB_REF_TYPE -ne 'tag') { throw "Not a release tag" }
+          # A maintainer creates the version tag after protected-main CI.
+          # This job does not create or move tags; gh release create rejects
+          # existing releases instead of overwriting their public assets.
+          if ($env:GITHUB_REF_TYPE -ne 'tag' -or $env:TAG -notmatch '^v\d+\.\d+\.\d+$') {
+            throw "Publishing requires a pre-existing version tag"
           }
           # Generate a changelog, then prepend clear download guidance to the release body.
           # GitHub's Assets retain their stable filenames for the in-app updater.
