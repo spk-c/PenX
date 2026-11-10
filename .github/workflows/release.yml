@@ -43,6 +43,19 @@ jobs:
           cache-dependency-path: |
             requirements.lock.txt
             requirements-build.txt
+      - name: Verify tagged commit is part of protected main history
+        if: github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          # compare/<tag commit>...main is ahead or identical only when the
+          # tagged commit is an ancestor of the protected default branch.
+          status="$(gh api "repos/$GITHUB_REPOSITORY/compare/$GITHUB_SHA...main" --jq '.status')"
+          case "$status" in
+            ahead|identical) echo "[OK] Tag commit belongs to protected main history" ;;
+            *) echo "[ERROR] Tag commit is not on protected main: $status" >&2; exit 1 ;;
+          esac
       - name: Assert matching tag, source and Python package version
         run: |
           PYTHONPATH=src python - <<'PY'
@@ -291,8 +304,9 @@ jobs:
           TAG: ${{ github.ref_name }}
         run: |
           $ErrorActionPreference = 'Stop'
-          # Tags are created only by the maintainer after protected-main CI.
-          # This publisher never creates, moves or overwrites a tag or release.
+          # A maintainer creates the version tag after protected-main CI.
+          # This job does not create or move tags; gh release create rejects
+          # existing releases instead of overwriting their public assets.
           if ($env:GITHUB_REF_TYPE -ne 'tag' -or $env:TAG -notmatch '^v\d+\.\d+\.\d+$') {
             throw "Publishing requires a pre-existing version tag"
           }
