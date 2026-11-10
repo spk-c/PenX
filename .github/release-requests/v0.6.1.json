@@ -2,7 +2,7 @@
   "schema": "penx-one-time-release-v1",
   "version": "0.6.1",
   "tag": "v0.6.1",
-  "source_parent_sha": "1e26f262b89f791e99e179ee76c53caef653ee22",
+  "source_parent_sha": "7bf83c1349fe555dfbf55130bed6dcc21c5e7a4a",
   "approved": "2026-11-10",
   "purpose": "One-time security release requested by maintainer. No production scans or DB restore."
 }

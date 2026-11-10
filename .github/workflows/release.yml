@@ -39,6 +39,7 @@ jobs:
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
+          fetch-depth: 2
       - uses: actions/setup-python@v7
         with:
           python-version: '3.13'
@@ -142,6 +143,7 @@ jobs:
       - uses: actions/checkout@v7
         with:
           persist-credentials: false
+          fetch-depth: 2
       - uses: actions/setup-python@v7
         with:
           python-version: '3.13'
