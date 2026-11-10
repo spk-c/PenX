@@ -21,7 +21,7 @@ class OneTimeReleaseContractTests(unittest.TestCase):
         self.assertEqual(request["tag"], "v0.6.1")
         self.assertEqual(
             request["source_parent_sha"],
-            "1e26f262b89f791e99e179ee76c53caef653ee22",
+            "7bf83c1349fe555dfbf55130bed6dcc21c5e7a4a",
         )
 
     def test_only_one_time_file_can_trigger_main_push_release(self):
