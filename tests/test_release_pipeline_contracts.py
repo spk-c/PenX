@@ -72,7 +72,10 @@ class ReleasePipelineContracts(unittest.TestCase):
         # stable asset names. Every release must render its direct link.
         self.assertIn("penx_{{PENX_VERSION}}_amd64.deb", guide)
         self.assertIn('https://github.com/spk-c/PenX/releases/download/v{{PENX_VERSION}}/', guide)
-        self.assertIn('$guide.Replace("{{PENX_VERSION}}", $guideVersion)', workflow)
+        self.assertIn(
+            '$guide.Replace("{{PENX_VERSION}}", $guideVersion)',
+            RELEASE.read_text(encoding="utf-8"),
+        )
         if published_version != version:
             self.assertIn("source-only release candidate", packaging)
             self.assertIn("publication is pending", status)
