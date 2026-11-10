@@ -46,6 +46,11 @@ class ReleasePipelineContracts(unittest.TestCase):
         self.assertIn("pull_request:", workflow)
         self.assertIn("windows-latest", workflow)
         self.assertIn("ubuntu-latest", workflow)
+        # Windows source regression checks must not be skipped on normal PRs
+        # or on the exact merged main tip. Full packaging stays release-gated.
+        windows_job = workflow.split("  tests-windows:", 1)[1].split("  windows-package-smoke:", 1)[0]
+        self.assertIn("github.event_name == 'pull_request'", windows_job)
+        self.assertIn("github.ref == 'refs/heads/main'", windows_job)
         self.assertIn("startsWith(github.head_ref, 'release/')", workflow)
         self.assertIn("Windows packaged app & installer", workflow)
         self.assertIn("python offline_tests.py", workflow)
