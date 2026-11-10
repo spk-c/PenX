@@ -15,11 +15,11 @@ on:
 permissions:
   contents: write
 
-# Manual builds may supersede older manual builds, but must NEVER cancel a
-# tagged release even when workflow_dispatch targets that same tag.
+# Supersede stale PR/manual previews, but never cancel a tagged push
+# release. Event-specific groups keep tag pushes separate from manual builds.
 concurrency:
   group: windows-release-${{ github.event_name }}-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'workflow_dispatch' }}
+  cancel-in-progress: ${{ github.event_name != 'push' }}
 
 env:
   PYTHONUTF8: "1"
