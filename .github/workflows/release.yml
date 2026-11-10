@@ -339,6 +339,11 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "Could not generate GitHub release notes" }
           $guide = Get-Content ".github/RELEASE_DOWNLOAD_GUIDE.md" -Raw -Encoding UTF8
           if (-not $guide.Contains("penx-download-options-v1")) { throw "Release download guide missing" }
+          # Debian assets have versioned filenames; render their direct link.
+          $guideVersion = python -c "from penx_app.version import VERSION; print(VERSION)"
+          if ($LASTEXITCODE -ne 0 -or $guideVersion -notmatch '^\d+\.\d+\.\d+$') { throw "Invalid guide version" }
+          $guide = $guide.Replace("{{PENX_VERSION}}", $guideVersion)
+          if ($guide.Contains("{{PENX_VERSION}}")) { throw "Unrendered download guide placeholder" }
           $notesFile = "docs/RELEASE_$($env:TAG.Substring(1))_NOTES.md"
           if (Test-Path -LiteralPath $notesFile) {
             $highlights = (Get-Content -LiteralPath $notesFile -Raw -Encoding UTF8).Trim()
