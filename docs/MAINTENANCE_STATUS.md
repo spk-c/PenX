@@ -23,10 +23,14 @@
 
 | Priority | Work item | Definition of done |
 | --- | --- | --- |
-| P1 | [Historical #81 Windows/Npcap/12 scanners (closed tracker)](https://github.com/spk-c/PenX/issues/81) | All scanner choices on an explicitly authorized disposable target; cancellation, timeouts, process tree, missing dependencies, UAC/Npcap, operator-reviewed logs |
-| P1 | [Historical #82 DB/installer/report acceptance (closed tracker)](https://github.com/spk-c/PenX/issues/82) | Restore sanitized SQLite WAL and MariaDB test copies; Windows upgrade/rollback/uninstall; long PDF/HTML/JSON/SARIF review and interrupted-publication recovery |
+| P0 | [#187 Windows/Kali/Npcap/installer field matrix](https://github.com/spk-c/PenX/issues/187) | On approved disposable machines, verify all scanner modes, cancellation/timeouts, Npcap/UAC, installation/upgrade/uninstall and human report layouts with reviewer evidence |
+| P0 | [#188 Safe database recovery and provenance](https://github.com/spk-c/PenX/issues/188) | Verify historical dump content provenance, independent read-only scratch proof and isolated SQLite/MariaDB restore/rollback; no live/in-place MariaDB restore |
+| P1 | [#189 Project-mode adapter scope audit](https://github.com/spk-c/PenX/issues/189) | Review blocked scanners individually for no-target-expansion, redirects, revocation and bounded subprocess behavior |
+| P1 | [#190 Signing and package-manager field acceptance](https://github.com/spk-c/PenX/issues/190) | Validate signed provenance, dependency review prerequisites and WinGet/Scoop upgrade/data preservation; draft manifests remain unsubmitted |
 | P1 | [FIELD_ACCEPTANCE.md](FIELD_ACCEPTANCE.md) | Operator evidence matrix, exact test build, results, rollback and reviewer sign-off; currently **NOT SIGNED OFF** |
 | P2 | Source/architecture cleanup | Compatibility facades inventoried via `scripts/import_inventory.py` and retired: the `llm`/`app_paths` shims were removed on 2026-10-31 and the `penx` module entrypoint is pinned public API until v1; Ruff W/B + mypy gates and the Python 3.13 compatibility matrix are in place |
+
+**Tracking:** Issues #187–#190 are new, focused follow-ups. The historical #81/#82/#123 tracking tickets are closed; their lack of operator sign-off has **not** been resolved by closing them.
 
 **Scope:** Automated CI green means only tested code contracts passed. Real scanning, model availability, security coverage, historical database backups, human PDF inspection and physical installer behavior are not proven by synthetic mocks.
 

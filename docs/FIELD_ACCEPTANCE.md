@@ -57,6 +57,8 @@ prove hardware, first-run UAC, actual backup recovery or visual PDF quality.
 - [ ] Release: immutable `main` commit, tagged build, SHA-256 verification,
       installer/portable smoke tests and independent maintainer sign-off.
 
+**Active operator follow-up:** [#187 Windows/Kali/Npcap/installer and report matrix](https://github.com/spk-c/PenX/issues/187) and [#188 isolated database provenance/recovery](https://github.com/spk-c/PenX/issues/188). Closing the earlier #81/#82 tracker issues was administrative, not independent validation.
+
 **Status: NOT SIGNED OFF.** A checklist item is not PASS until its evidence
 and reviewer are recorded. Only scan hosts that you own or are authorized
 to assess.
