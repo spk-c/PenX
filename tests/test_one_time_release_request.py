@@ -27,7 +27,7 @@ class OneTimeReleaseContractTests(unittest.TestCase):
     def test_main_push_can_no_longer_publish_one_time_release(self):
         workflow = WORKFLOW.read_text(encoding="utf-8")
         header = workflow.split("  pull_request:", maxsplit=1)[0]
-        self.assertIn("    tags:\\n       - 'v*'", header)
+        self.assertIn("    tags:\n      - 'v*'", header)
         self.assertNotIn("    branches:\n      - main", header)
         self.assertNotIn("    paths:", header)
         self.assertNotIn("refs/heads/main", workflow)
