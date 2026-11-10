@@ -1,12 +1,12 @@
 {
-  "version": "0.6.0",
+  "version": "0.6.1",
   "description": "Cross-platform security reconnaissance with local AI and evidence-based reports (authorized targets only)",
   "homepage": "https://github.com/spk-c/PenX",
   "license": "MIT",
   "architecture": {
     "64bit": {
-      "url": "https://github.com/spk-c/PenX/releases/download/v0.6.0/PenX-Windows-x64.zip",
-      "hash": "0851e9fb77ee222ec48b229876893bd588472337b9064ad1868182ab039a14a0"
+      "url": "https://github.com/spk-c/PenX/releases/download/v0.6.1/PenX-Windows-x64.zip",
+      "hash": "5d37fbc3d50e524d8335cb9b3b8ca5c8191d4e6216fb574ba009f2454d626e44"
     }
   },
   "pre_install": "if (!(Test-Path \"$dir\\PenX\\.env\")) { Copy-Item \"$dir\\PenX\\.env.example\" \"$dir\\PenX\\.env\" }",
