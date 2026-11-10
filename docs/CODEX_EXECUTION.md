@@ -2,13 +2,9 @@
 
 **Roadmap source:** [ROADMAP.md](ROADMAP.md). The repository [AGENTS.md](../AGENTS.md) contains short permanent constraints. This playbook is for **implementing one item at a time**, not for treating all roadmap entries as one unlimited change request.
 
-## Start here: current main and next verified gap (4 November 2026)
+## Start here: current main and next verified gap (10 November 2026)
 
-**Merged source is not a released binary or field sign-off.** The published
-release remains v0.6.0. The [roadmap tracker #123](https://github.com/spk-c/PenX/issues/123)
-and the [updated snapshot](ROADMAP.md) distinguish implementation,
-CI evidence, operator acceptance, and release status. Never assume all
-36 roadmap items are implemented because a few PRs passed.
+**Published binary versus merged source versus field sign-off:** [PenX v0.6.1](https://github.com/spk-c/PenX/releases/tag/v0.6.1) is the latest published Windows/Linux security rebuild (10 November; tag `897c1881`). Later `main` commits update distribution documentation and CI, not release binaries. The 36-item [roadmap tracker #123](https://github.com/spk-c/PenX/issues/123) was **closed administratively** to clear the issue queue; its unchecked items are **not completed**. Use [ROADMAP.md](ROADMAP.md) and [FIELD_ACCEPTANCE.md](FIELD_ACCEPTANCE.md) for implementation and operator acceptance; independent field sign-off remains **NOT SIGNED OFF**.
 
 **Do not recreate merged starter work.** In addition to earlier PX-002/003
 provenance and PX-101 scope slices, main includes [#162](https://github.com/spk-c/PenX/pull/162)
@@ -70,8 +66,9 @@ NInfer/Strata accuracy result, and PX-501's workflow is manual only.
 > `restore_available:false`; preserve old manifests and CLI contracts.
 > Run focused and full offline regression, Ruff/mypy, packaging and
 > gated MariaDB CI; record human Windows/Kali/recovery field work as
-> NOT RUN unless directly observed. Add a small PR linked to #123,
-> with measured results and remaining blockers. Do not check off
+> NOT RUN unless directly observed. Add a small PR linked to the relevant
+> open, narrowly scoped follow-up issue; #123 is an archived umbrella tracker.
+> Record measured results and remaining blockers. Do not check off
 > PX-004 or the roadmap merely because CI passes.
 >
 > If advancing another P1/P2 roadmap ID instead, first check source
