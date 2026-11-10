@@ -1,5 +1,13 @@
 # PenX — maintenance and release status
 
+**Next source candidate: v0.6.1 (10 November 2026), not published.**
+Security fixes and accumulated main-branch changes are being prepared in
+[PR #179](https://github.com/spk-c/PenX/pull/179); **publication is pending**.
+The v0.6.0 release binaries below remain historical/unpatched (dnspython
+2.8.0). No new tag, bundle signature, or independent field acceptance is
+claimed. See [release blocker #178](https://github.com/spk-c/PenX/issues/178).
+
+
 ## Current release: v0.6.0 (2 November 2026)
 
 **Published:** [PenX v0.6.0 for Windows and Kali/Linux](https://github.com/spk-c/PenX/releases/tag/v0.6.0). Release PR [#120](https://github.com/spk-c/PenX/pull/120) was merged into `main`. The new immutable `v0.6.0` tag resolves to reviewed commit `eb22080352a4137cd4324be7f48244ad649dc8ea`. The [tagged multi-platform release workflow](https://github.com/spk-c/PenX/actions/runs/41518241245) finished with **success**.
