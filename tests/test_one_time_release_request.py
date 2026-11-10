@@ -24,25 +24,23 @@ class OneTimeReleaseContractTests(unittest.TestCase):
             "7bf83c1349fe555dfbf55130bed6dcc21c5e7a4a",
         )
 
-    def test_only_one_time_file_can_trigger_main_push_release(self):
+    def test_main_push_can_no_longer_publish_one_time_release(self):
         workflow = WORKFLOW.read_text(encoding="utf-8")
         header = workflow.split("  pull_request:", maxsplit=1)[0]
-        self.assertIn("    tags:\n      - 'v*'", header)
-        self.assertIn("    branches:\n      - main", header)
-        self.assertIn(
-            "    paths:\n      - '.github/release-requests/v0.6.1.json'",
-            header,
-        )
-        self.assertIn("github.ref == 'refs/heads/main'", workflow)
-        self.assertIn("request[\"source_parent_sha\"]", workflow)
-        self.assertIn("gh api --method POST", workflow)
-        self.assertIn("refs/tags/$env:TAG", workflow)
+        self.assertIn("    tags:\\n       - 'v*'", header)
+        self.assertNotIn("    branches:\n      - main", header)
+        self.assertNotIn("    paths:", header)
+        self.assertNotIn("refs/heads/main", workflow)
+        self.assertNotIn("repos/$env:GITHUB_REPOSITORY/git/refs", workflow)
+        self.assertNotIn("Verify one-time main release authorization", workflow)
+        self.assertIn("Publishing requires a pre-existing version tag", workflow)
+        self.assertEqual(workflow.count("fetch-depth: 2"), 2)
 
     def test_publication_requires_complete_bundle_verification(self):
         workflow = WORKFLOW.read_text(encoding="utf-8")
         self.assertLess(
             workflow.index("python release_supply_chain.py verify-release release-bundle"),
-            workflow.index("- name: Publish the explicitly approved v0.6.1 release"),
+            workflow.index("- name: Publish a version-matched tagged release"),
         )
         self.assertIn('--expect-commit "$env:GITHUB_SHA"', workflow)
         self.assertIn("--verify-tag", workflow)
