@@ -87,6 +87,15 @@ class DependencyLockTests(unittest.TestCase):
         self.assertGreaterEqual(Version(locked["version"]), Version("2.9.0"))
         self.assertGreaterEqual(locked["hashes"], 2)
 
+    def test_patched_transitive_security_floors(self):
+        """Ship fixed certifi/Pillow versions, not the stale build lock."""
+        locked = _parse_lock(LOCK_PATH)
+        for name, minimum in (("certifi", "2026.10.18"), ("pillow", "13.0.0")):
+            with self.subTest(name=name):
+                self.assertIn(name, locked)
+                self.assertGreaterEqual(Version(locked[name]["version"]), Version(minimum))
+                self.assertGreaterEqual(locked[name]["hashes"], 2)
+
     def test_every_locked_package_carries_sha256_hashes(self):
         lock = _parse_lock(LOCK_PATH)
         self.assertTrue(lock, "requirements.lock.txt declares no packages")

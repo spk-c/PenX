@@ -31,14 +31,16 @@ class ActionsBudgetTests(unittest.TestCase):
         self.assertIn("  pull_request:", s)
         self.assertNotIn("  push:\n    branches: [main]", s)
         self.assertIn("Gitleaks history and change scan", s)
-        self.assertEqual(s.count("if: github.event_name != 'pull_request'"), 2)
+        self.assertEqual(s.count("if: github.event_name != 'pull_request'"), 1)
+        self.assertIn("name: Audit hash-locked Python dependencies", s)
+        self.assertIn("--require-hashes -r requirements.lock.txt", s)
 
     def test_compatibility_and_triage_budget(self):
         p = read("python-compatibility.yml")
         self.assertIn("  workflow_dispatch:", p)
         self.assertNotIn("  pull_request:", p)
         self.assertNotIn("  push:", p)
-        self.assertIn("['3.10', '3.11', '3.12', '3.13']", p)
+        self.assertIn("['3.11', '3.12', '3.13']", p)
         i = read("issue-triage.yml")
         self.assertNotIn("  schedule:", i)
         self.assertIn("types: [opened]", i)
