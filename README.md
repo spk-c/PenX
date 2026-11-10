@@ -32,18 +32,18 @@
 
 ## Download
 
-**Latest published release: [PenX v0.6.0](https://github.com/spk-c/PenX/releases/tag/v0.6.0)** — ready-to-run builds for Windows and Linux amd64.
+**Latest published release: [PenX v0.6.1](https://github.com/spk-c/PenX/releases/tag/v0.6.1)** — ready-to-run builds for Windows and Linux amd64.
 
-> **Security notice (10 November 2026):** The **published v0.6.0 binaries are historical/unpatched** and still include the older locked dnspython 2.8.0 dependency. Security patch [#177](https://github.com/spk-c/PenX/pull/177) is merged in source, but **does not change those downloads**. A separately built, verified v0.6.1 package is being prepared under [#178](https://github.com/spk-c/PenX/issues/178). The links below intentionally continue to identify the old release until replacement assets actually exist. Do not treat the v0.6.0 downloads as remediated.
+> **Security release (10 November 2026):** v0.6.1 ships rebuilt Windows/Linux binaries with dnspython 2.9.2, certifi 2026.10.23 and Pillow 13.0.0. The old [v0.6.0 release](https://github.com/spk-c/PenX/releases/tag/v0.6.0) remains historical and unpatched; use the v0.6.1 downloads below. Independent Windows/Npcap and real database recovery field acceptance remains **NOT SIGNED OFF**.
 
 | Platform | Edition | Download |
 | --- | --- | --- |
-| **Windows 10/11 (x64)** | **Installer (recommended)** | [PenX-Setup-x64.exe](https://github.com/spk-c/PenX/releases/download/v0.6.0/PenX-Setup-x64.exe) |
-| Windows (x64) | Portable ZIP | [PenX-Windows-x64.zip](https://github.com/spk-c/PenX/releases/download/v0.6.0/PenX-Windows-x64.zip) |
-| **Kali / Debian / Ubuntu (amd64)** | **Debian package** | [penx_0.6.0_amd64.deb](https://github.com/spk-c/PenX/releases/download/v0.6.0/penx_0.6.0_amd64.deb) |
-| Linux (x86-64) | Portable TAR.GZ | [PenX-Linux-x86_64.tar.gz](https://github.com/spk-c/PenX/releases/download/v0.6.0/PenX-Linux-x86_64.tar.gz) |
+| **Windows 10/11 (x64)** | **Installer (recommended)** | [PenX-Setup-x64.exe](https://github.com/spk-c/PenX/releases/download/v0.6.1/PenX-Setup-x64.exe) |
+| Windows (x64) | Portable ZIP | [PenX-Windows-x64.zip](https://github.com/spk-c/PenX/releases/download/v0.6.1/PenX-Windows-x64.zip) |
+| **Kali / Debian / Ubuntu (amd64)** | **Debian package** | [penx_0.6.1_amd64.deb](https://github.com/spk-c/PenX/releases/download/v0.6.1/penx_0.6.1_amd64.deb) |
+| Linux (x86-64) | Portable TAR.GZ | [PenX-Linux-x86_64.tar.gz](https://github.com/spk-c/PenX/releases/download/v0.6.1/PenX-Linux-x86_64.tar.gz) |
 
-**Verify downloads:** [Windows SHA-256 checksums](https://github.com/spk-c/PenX/releases/download/v0.6.0/SHA256SUMS.txt) · [Linux SHA-256 checksums](https://github.com/spk-c/PenX/releases/download/v0.6.0/SHA256SUMS-Linux.txt) · [Full release notes](https://github.com/spk-c/PenX/releases/tag/v0.6.0).
+**Verify downloads:** [Windows SHA-256 checksums](https://github.com/spk-c/PenX/releases/download/v0.6.1/SHA256SUMS.txt) · [Linux SHA-256 checksums](https://github.com/spk-c/PenX/releases/download/v0.6.1/SHA256SUMS-Linux.txt) · [Full release notes](https://github.com/spk-c/PenX/releases/tag/v0.6.1).
 
 > [!NOTE]
 > GitHub's automatically generated **Source code (zip/tar.gz)** files are not the packaged application. External scanner binaries, Npcap and AI models are **not bundled**. Prebuilt ARM64 binaries are not available. The Windows installer is **not Authenticode-signed** and may trigger SmartScreen.
@@ -84,10 +84,10 @@ Useful Windows commands (from the extracted `PenX` folder):
 
 ### Kali Linux / Debian / Ubuntu: Debian package
 
-Download `penx_0.6.0_amd64.deb` and verify its checksum first:
+Download `penx_0.6.1_amd64.deb` and verify its checksum first:
 
 ```bash
-sudo apt install ./penx_0.6.0_amd64.deb
+sudo apt install ./penx_0.6.1_amd64.deb
 penx --version
 penx --setup-status
 penx --check
@@ -95,7 +95,7 @@ penx --setup             # Create private per-user configuration
 penx                     # Open the terminal application
 ```
 
-Or extract the [portable Linux archive](https://github.com/spk-c/PenX/releases/download/v0.6.0/PenX-Linux-x86_64.tar.gz) and run `./PenX/PenX`. The system package does **not** install third-party scanners, start a service or download models. Follow [LINUX.md](LINUX.md) for optional scanner installation, supported distros, glibc compatibility, XDG paths and known limitations.
+Or extract the [portable Linux archive](https://github.com/spk-c/PenX/releases/download/v0.6.1/PenX-Linux-x86_64.tar.gz) and run `./PenX/PenX`. The system package does **not** install third-party scanners, start a service or download models. Follow [LINUX.md](LINUX.md) for optional scanner installation, supported distros, glibc compatibility, XDG paths and known limitations.
 
 ### From source (Windows or Linux)
 
@@ -197,7 +197,7 @@ PenX can compare **already observed PHP version evidence** against published ups
 > [!CAUTION]
 > PenX is intended for **authorized defensive research only**. Automation and AI suggestions are not substitutes for independent verification. **Independent field acceptance is NOT SIGNED OFF** for all Windows/Npcap hardware, real-world upgrades, external services, distributions and recovery scenarios.
 
-The v0.6.0 release passed Windows and Kali build/packaging tests, including controlled scanner-adapter checks on Kali. These do **not** establish accuracy or reliability for arbitrary live hosts. See the [Kali acceptance record](docs/LINUX_ACCEPTANCE_2026-11-02.md) and [maintenance status](docs/MAINTENANCE_STATUS.md). Scoop and WinGet manifests are **drafts**, not community registry listings.
+The v0.6.1 release passed Windows and Kali build/packaging tests, including controlled scanner-adapter checks on Kali. These do **not** establish accuracy or reliability for arbitrary live hosts. See the [Kali acceptance record](docs/LINUX_ACCEPTANCE_2026-11-02.md) and [maintenance status](docs/MAINTENANCE_STATUS.md). Scoop and WinGet manifests are **drafts**, not community registry listings.
 
 ## Documentation
 
