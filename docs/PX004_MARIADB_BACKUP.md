@@ -35,7 +35,7 @@ python penx.py backup mariadb-preview --file "C:\PenX\private-backups\penx-maria
 
 Verify and preview are offline. They never contact MariaDB or execute SQL.
 
-## What is and is not verified
+## Historical-to-scratch evidence comparison (offline)\n\nA bounded offline fingerprint comparison helper is described in\n[PX004_HISTORICAL_COMPARISON.md](PX004_HISTORICAL_COMPARISON.md).\nIt compares independently pinned historical-source metadata against separately\nmeasured disposable scratch metadata, without authenticating evidence origin,\nexecuting SQL or enabling any restore. Operator field sign-off remains pending.\n\n## What is and is not verified
 
 Preflight requires the expected PenX tables, **InnoDB** storage, and a
 read-only database snapshot before starting the native logical dump.
