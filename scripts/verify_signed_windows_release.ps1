@@ -17,6 +17,22 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+
+function Get-LocalSha256([string]$Path) {
+    # Avoid optional PowerShell module auto-loading differences on Windows.
+    $hash = [System.Security.Cryptography.SHA256]::Create()
+    try {
+        $stream = [System.IO.File]::Open(
+            $Path, [System.IO.FileMode]::Open, [System.IO.FileAccess]::Read,
+            [System.IO.FileShare]::Read)
+        try {
+            return [BitConverter]::ToString($hash.ComputeHash($stream)).Replace('-', '').ToLowerInvariant()
+        }
+        finally { $stream.Dispose() }
+    }
+    finally { $hash.Dispose() }
+}
+
 try {
     if (-not $IsWindows -and $PSVersionTable.PSEdition -eq 'Core') {
         throw 'Authenticode acceptance requires Windows.'
@@ -29,10 +45,11 @@ try {
         throw 'Only regular, non-reparse-point Windows .exe files are accepted.'
     }
 
-    $first = (Get-FileHash -LiteralPath $resolved -Algorithm SHA256 -ErrorAction Stop).Hash
+    $first = (Get-LocalSha256 -Path $resolved)
     if ($first -ine $ExpectedSha256) {
         throw 'SHA-256 differs from the independently trusted artifact digest.'
     }
+    Import-Module Microsoft.PowerShell.Security -ErrorAction Stop
     $signature = Get-AuthenticodeSignature -LiteralPath $resolved -ErrorAction Stop
     if ($signature.Status -ne [System.Management.Automation.SignatureStatus]::Valid) {
         throw 'Authenticode signature is missing, invalid or untrusted on this host.'
@@ -44,7 +61,7 @@ try {
     if ($RequireTimestamp -and $null -eq $signature.TimeStamperCertificate) {
         throw 'Required Authenticode timestamp certificate is missing.'
     }
-    $second = (Get-FileHash -LiteralPath $resolved -Algorithm SHA256 -ErrorAction Stop).Hash
+    $second = (Get-LocalSha256 -Path $resolved)
     if ($first -ine $second) {
         throw 'Artifact bytes changed during verification.'
     }
