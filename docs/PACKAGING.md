@@ -110,6 +110,70 @@ a PyPI publisher identity; this PR deliberately does not publish a package or st
 Python-only installations still require external scanners to be installed separately
 with user consent. Neither local AI models nor scanner binaries are bundled.
 
+## Optional Windows Authenticode signing and verification (P1 #190)
+
+**Current v0.6.1 is UNSIGNED.** Its published build manifest explicitly
+contains `"signing": {"scheme": "none"}`. No new signature, package release
+or community registry submission is created by this verification helper.
+A SHA-256 match alone is not signer authentication.
+
+The repository includes a **read-only, Windows-only verification gate**
+for a future *separately authorized, actually signed* Windows installer:
+
+```powershell
+# Both values MUST be taken from separately trusted sources, not copied
+# out of the downloaded installer or an unverified GitHub issue.
+$expectedSha256 = "64-lowercase-hex-from-independent-release-ledger"
+$approvedSignerThumbprint = "40-hex-from-approved-signing-certificate"
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\verify_signed_windows_release.ps1 `
+  -ArtifactPath ".\PenX-Setup-x64.exe" `
+  -ExpectedSha256 $expectedSha256 `
+  -ExpectedSignerThumbprint $approvedSignerThumbprint `
+  -RequireTimestamp
+```
+
+The placeholders are intentionally invalid until replaced with independently
+verified values. The gate hashes the EXE before and after verification,
+rejects Windows reparse-point files, requires a currently trusted
+Authenticode signature with the independently approved signer certificate,
+optionally requires timestamp certificate presence, and rejects unexpected
+byte changes. It does **not** create or trust a certificate, sign, run,
+install, download, upload, or publish the artifact. The cert thumbprint is
+an identifier for the operator-approved certificate, **not** a substitute
+for Windows trust-chain validation. This is not an atomic file lock; use
+immutable artifact storage for adversarial scenarios.
+
+**Future controlled signing procedure (not enabled in release CI):**
+
+1. Build the Windows installer in an isolated reviewed workflow and verify
+   the build output against its originating commit and clean dependency set.
+2. Obtain a code-signing certificate and timestamp service through an
+   approved provider; keep private signing material in a hardware-backed
+   token/HSM or equivalently protected ephemeral signing environment.
+   Do not commit certificates with private keys, PFX passwords or tokens
+   and never echo credentials into Actions logs or artifacts.
+3. Sign **before** computing/publishing the release SHA-256 files and build
+   manifest. A maintainer-approved SignTool invocation uses SHA-256 for the
+   file digest and a trusted RFC3161 timestamp (`/fd SHA256 /tr <approved-url>
+   /td SHA256`). Independently run `signtool verify /pa /all /v` and the
+   read-only verifier above on the exact final signed EXE.
+4. Only after reviewing and updating the release-manifest schema and its
+   verifier should a *future* release declare the Windows EXE signed.
+   ZIP/Linux assets require their own separate provenance checks; a signed
+   installer does **not** sign or authenticate the whole bundle.
+5. Validate signer rotation, timestamp/expiry/revocation behavior, artifact
+   hashes, reproducibility, installer upgrade/rollback, and independent
+   operator acceptance on disposable Windows VMs **before publishing**.
+
+The automated Windows regression suite uses *unsigned synthetic fixtures*
+to prove invalid signatures, invalid hashes and non-EXE files fail closed.
+It does **not** claim a production certificate-chain positive test.
+The currently gated PR dependency-review step additionally needs the GitHub
+Dependency Graph prerequisite and `PENX_DEP_GRAPH_READY=true`; until those
+settings are independently checked, its skipped check must remain visible
+and the independent pip-audit/Gitleaks checks remain active. WinGet/Scoop
+remain local drafts and require real lifecycle/data-preservation acceptance.
+
 ## Maintenance checks
 
 Run `python scripts/validate_distributions.py` after updating a manifest; it verifies
