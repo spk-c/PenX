@@ -64,7 +64,8 @@ def _read_record(path: str | Path) -> tuple[dict, str]:
             "schema", "role", "database", "observed_at", "dump_sha256",
             "structure_sha256", "tables"}:
         raise ValueError("Unexpected evidence record fields")
-    if record["schema"] != SCHEMA or record["role"] not in {"source", "scratch"}:
+    if (record["schema"] != SCHEMA or type(record["role"]) is not str
+            or record["role"] not in {"source", "scratch"}):
         raise ValueError("Invalid evidence schema/role")
     if type(record["database"]) is not str or not _NAME.fullmatch(record["database"]):
         raise ValueError("Invalid evidence database")
