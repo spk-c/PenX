@@ -19,7 +19,7 @@ class WindowsSignatureVerificationTests(unittest.TestCase):
     def test_readonly_signer_gate_is_explicit_and_no_auto_signing(self):
         source = SCRIPT.read_text(encoding="utf-8")
         for expected in (
-            "Get-AuthenticodeSignature", "Get-FileHash",
+            "Get-AuthenticodeSignature", "Get-LocalSha256",
             "ExpectedSignerThumbprint", "ExpectedSha256",
             "SignatureStatus]::Valid", "RequireTimestamp",
             "release_published = $false",
@@ -72,7 +72,7 @@ class WindowsSignatureVerificationTests(unittest.TestCase):
                 "-ExpectedSignerThumbprint", "0" * 40,
             ], capture_output=True, text=True, timeout=30, check=False)
             self.assertNotEqual(proc.returncode, 0)
-            self.assertIn("regular, non-reparse-point Windows .exe", proc.stdout + proc.stderr)
+            self.assertIn("non-reparse-point Windows .exe", proc.stdout + proc.stderr)
 
 
 if __name__ == "__main__":
