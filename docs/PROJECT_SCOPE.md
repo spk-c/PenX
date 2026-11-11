@@ -108,6 +108,10 @@ Adapters with unverified follow-on behavior remain unavailable in this mode.
 Human field acceptance (Windows/Npcap/Kali and real database restore) remains
 separate from CI.
 
+For a per-adapter acceptance inventory of **every** blocked project scanner,
+including WHOIS, see [PX101_BLOCKED_ADAPTER_REVIEW.md](PX101_BLOCKED_ADAPTER_REVIEW.md).
+No blocked scanner has been enabled or cleared for unattended use.
+
 ## Target kinds
 
 `project add --target` accepts exactly one of the following, normalized to the

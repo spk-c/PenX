@@ -21,6 +21,12 @@ from penx_app.scanners.project_rate import ProjectRateLimiter
 # external process/redirect behavior is proven. Existing standalone scans
 # are unaffected.
 PROJECT_SAFE_SCANNERS = frozenset({'4', '5', '8', 'd'})
+# Explicit inventory of currently disabled project-bound adapters. Adding a
+# scanner to the tools menu must require a deliberate review decision instead
+# of quietly making it accessible under persistent project authorization.
+# 2 (WHOIS) performs registry requests and is blocked too, even though it is
+# often omitted from lists of active external scanner processes.
+PROJECT_REVIEW_REQUIRED_SCANNERS = frozenset({'1', '2', '3', '6', '7', '9', 'e', 's', 'c'})
 # DNS works only on hostname, not a host-specific port. The direct
 # HTTPS/TLS and httpx adapters honor explicitly specified URL port values.
 PROJECT_PORT_SCANNERS = frozenset({'4', '8', 'd'})
