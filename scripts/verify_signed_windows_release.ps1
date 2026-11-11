@@ -49,7 +49,8 @@ try {
     if ($first -ine $ExpectedSha256) {
         throw 'SHA-256 differs from the independently trusted artifact digest.'
     }
-    Import-Module Microsoft.PowerShell.Security -ErrorAction Stop
+    # If this host cannot load its security module, validation must fail closed.
+    # Do not grant trust based on an SHA-256 match alone.
     $signature = Get-AuthenticodeSignature -LiteralPath $resolved -ErrorAction Stop
     if ($signature.Status -ne [System.Management.Automation.SignatureStatus]::Valid) {
         throw 'Authenticode signature is missing, invalid or untrusted on this host.'
