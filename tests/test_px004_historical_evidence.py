@@ -100,7 +100,7 @@ class HistoricalComparisonTests(unittest.TestCase):
         self.scratch.write_text(self.scratch.read_text(encoding="utf-8").replace(
             '"role": "scratch"', '"role": "scratch", "role": "source"'),
             encoding="utf-8")
-        with self.assertRaisesRegex(ValueError, "Duplicate evidence"):
+        with self.assertRaisesRegex(ValueError, "Malformed evidence record"):
             self.compare()
 
     def test_oversize_evidence_fails_before_parse(self):
