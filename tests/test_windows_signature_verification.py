@@ -42,7 +42,11 @@ class WindowsSignatureVerificationTests(unittest.TestCase):
                 "-ExpectedSignerThumbprint", "0" * 40,
             ], capture_output=True, text=True, timeout=30, check=False)
             self.assertNotEqual(proc.returncode, 0)
-            self.assertIn("Authenticode signature", proc.stdout + proc.stderr)
+            # Fail closed even if the runner's Microsoft.PowerShell.Security
+            # module is broken/unavailable; this is not a positive
+            # Authenticode verification or field-acceptance claim.
+            self.assertIn("Signature verification refused:", proc.stdout + proc.stderr)
+            self.assertNotIn('"signature_status":', proc.stdout)
             self.assertEqual(path.read_bytes(), original)
 
     @unittest.skipUnless(os.name == "nt", "Windows Authenticode only")
