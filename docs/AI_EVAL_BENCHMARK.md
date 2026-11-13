@@ -67,8 +67,8 @@ RCE/TLS assertions, refusal and timeout. Their aggregate sample metrics
 are diagnostic *fixture examples*, **not a measured AI quality baseline**.
 Operators may separately generate local predictions and score those offline,
 but a self-reported prediction file does not prove which model ran it.
-There is no live-model endpoint adapter, no cloud fallback and no
-model-accuracy leaderboard in this slice.
+The offline scorer above never calls a model or network endpoint. The opt-in
+local runner below is a separate command; it does not change that contract.
 
 ## Opt-in local model-output benchmark (PX-403 first live slice)
 
