@@ -10,6 +10,11 @@ from penx_app.analysis.llm_client import api_headers, extract_chat_text, normali
 from penx_app.domain.local_review import MAX_RESPONSE_BYTES, strict_json
 
 
+class ModelRefusal(ValueError):
+    """Local model explicitly refused; not a completed prediction."""
+
+
+
 def local_endpoint(value: str) -> str:
     base = normalize_base_url(value)
     parts = urlsplit(base)
@@ -68,9 +73,10 @@ def request_review(messages: list[dict], *, endpoint: str, model: str, schema: d
         raise ValueError('Review requires one completed assistant answer')
     choice = choices[0]
     message = choice.get('message')
+    if (isinstance(message, dict) and message.get('refusal')) or choice.get('finish_reason') == 'content_filter':
+        raise ModelRefusal('Local model refused assessment')
     if (choice.get('finish_reason') != 'stop' or not isinstance(message, dict)
             or message.get('role') != 'assistant'
-            or message.get('refusal')
             or message.get('tool_calls') or message.get('function_call')):
         raise ValueError('Incomplete or tool-bearing local review rejected')
     text = extract_chat_text(payload)
