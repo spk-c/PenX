@@ -61,6 +61,7 @@ by itself satisfy the new milestone's tests, safeguards and field criteria.
 | PX-306 | Not accepted | Third-party adapter SDK and isolation pending |
 | PX-307 | Not accepted | Template policy/capability and safe scope audit pending |
 | PX-308 | Partial source | Offline-only OpenAPI 3.0/3.1 JSON contract inventory; no API probes, auth state import, schema dereferencing, or independent live API field acceptance |
+| PX-309 | Source in review | Manually scoped loopback GET/status-only role-policy consistency; no verified IDOR/BOLA, external endpoints, object-ID fuzzing or production field acceptance |
 | PX-401 | Partial source | Local LLM diagnostics merged, actual-provider field proof pending |
 | PX-402 | Not accepted | Model-to-source contradiction checks not accepted |
 | PX-403 | Partial source | Synthetic offline scorer merged; live model accuracy unmeasured |
@@ -280,6 +281,12 @@ All additions must use explicit authorization, fixed bounded probes and conserva
 **Done:** Bounded source file and output (1 MiB, 300 input paths, 150 output paths), exclusive report publication, explicit incomplete coverage for unresolved references/truncation, no vulnerability or authorization assertions.
 **Tests:** Duplicate JSON keys, malicious paths and server URLs, unsupported versions, malformed security alternatives, reference-only paths, false-COMPLETE and secret-disclosure checks. Human review and any future live API integration remain separate.
 **Touches:** analysis/openapi_contract_map.py, application/openapi_contract_cli.py, bootstrap.py, tests/test_openapi_contract_map.py, docs/OPENAPI_CONTRACT_MAP.md.
+
+### PX-309 — Local-lab API role/status matrix (P2, M)
+**Scope:** Consent-gated, manually listed literal loopback GET routes; compare guest, user and admin HTTP status against an explicit operator-authored expected policy using disposable lab-only role tokens. No response body or session data retention.
+**Done:** Source-hashed bounded manifest, literal loopback origin, exact path and 6x3 request cap, fresh proxy-free sessions, no redirects/cookies, conservative result states and separate exclusive report. Suspected excess access is never a confirmed IDOR/BOLA finding.
+**Tests:** Fake client role/token isolation, off-host/path and unsafe-method rejection, failed network/redirect/inconclusive cases, leak prevention, budget and side-effect controls. Live synthetic loopback fixture field check remains distinct from any production authorization acceptance.
+**Touches:** application/api_role_matrix.py, application/api_role_matrix_cli.py, bootstrap.py, tests/test_api_role_matrix.py, docs/API_ROLE_MATRIX.md.
 
 ## 8. Milestone E — v0.8.x local intelligence and quality (P1/P2)
 
