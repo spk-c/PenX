@@ -15,6 +15,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--plan", required=True, help="Explicit local JSON case/policy manifest")
     parser.add_argument("--authorized", action="store_true")
     parser.add_argument("--consent", action="store_true")
+    parser.add_argument("--inspect-json", action="store_true",
+                        help="Explicitly inspect up to 3 protected JSON fields per local case")
     parser.add_argument("--timeout", type=int, default=5)
     parser.add_argument("--budget", type=int, default=60)
     parser.add_argument("--output-dir", default="./reports")
@@ -26,7 +28,8 @@ def main(argv: list[str] | None = None) -> int:
         document, digest = load_plan(args.plan)
         report = compare_roles(
             document, source_sha256=digest, authorized=args.authorized,
-            consent=args.consent, timeout=args.timeout, budget=args.budget)
+            consent=args.consent, timeout=args.timeout, budget=args.budget,
+            inspect_json=args.inspect_json)
         filename = publish_unique(
             args.output_dir, "penx_api_role_comparison", ".json",
             json.dumps(report, ensure_ascii=True, sort_keys=True, indent=2) + "\n")
@@ -36,6 +39,8 @@ def main(argv: list[str] | None = None) -> int:
               "; output: " + str(filename))
         return (1 if report["coverage"] == "PARTIAL"
                 or report["suspected_excess_access"] or report["unexpected_denials"]
+                or report.get("protected_json_presence_leads", 0)
+                or report.get("allow_role_expected_fields_missing", 0)
                 else 0)
     except Exception:
         # Avoid ever echoing local bearer tokens, URL bodies, response headers,
