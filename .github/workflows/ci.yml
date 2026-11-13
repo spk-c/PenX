@@ -106,6 +106,36 @@ jobs:
         run: python -m compileall -q penx.py src scripts tests
       - name: All offline regression tests (Windows)
         run: python offline_tests.py
+      - name: Windows field collector independent-hash pin smoke (synthetic)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $fixture = Join-Path $env:RUNNER_TEMP "PenX-Field-Pin-Fixture"
+          New-Item -ItemType Directory -Path $fixture -Force | Out-Null
+          $installer = Join-Path $fixture "PenX-Setup-x64.exe"
+          [IO.File]::WriteAllBytes($installer, [Text.Encoding]::UTF8.GetBytes("synthetic non-executable field fixture"))
+          $pin = (Get-FileHash -LiteralPath $installer -Algorithm SHA256).Hash
+          $valid = Join-Path $fixture "valid"
+          & powershell -NoProfile -ExecutionPolicy Bypass -File ".\scripts\collect_refactor_field_evidence.ps1" -InstallerPath $installer -ExpectedInstallerSha256 $pin -OutputDirectory $valid
+          if ($LASTEXITCODE -ne 0) { throw "Correct operator digest was rejected" }
+          $worksheet = Join-Path $valid "FIELD_ACCEPTANCE.md"
+          if (-not (Test-Path -LiteralPath $worksheet)) { throw "No synthetic worksheet" }
+          if (-not (Select-String -Path $worksheet -SimpleMatch "MATCHED OPERATOR PIN; ORIGIN NOT AUTHENTICATED")) { throw "Missing honest provenance label" }
+          if (-not (Select-String -Path $worksheet -SimpleMatch "Status: NOT SIGNED OFF")) { throw "Synthetic test claimed field sign-off" }
+          $rejected = Join-Path $fixture "rejected"
+          # Expected PowerShell 5.1 stderr must not trigger pwsh's global
+          # Stop preference before we can inspect the native exit code.
+          $previousErrorAction = $ErrorActionPreference
+          try {
+            $ErrorActionPreference = 'Continue'
+            & powershell -NoProfile -ExecutionPolicy Bypass -File ".\scripts\collect_refactor_field_evidence.ps1" -InstallerPath $installer -ExpectedInstallerSha256 ("0" * 64) -OutputDirectory $rejected 2>&1 | Out-Null
+            $rejectionExitCode = $LASTEXITCODE
+          }
+          finally { $ErrorActionPreference = $previousErrorAction }
+          if ($rejectionExitCode -eq 0) { throw "Mismatched installer digest was accepted" }
+          if (Test-Path -LiteralPath (Join-Path $rejected "FIELD_ACCEPTANCE.md")) { throw "Mismatched installer digest wrote worksheet" }
+          # GitHub pwsh appends `exit $LASTEXITCODE`; clear only after every negative assertion.
+          $global:LASTEXITCODE = 0
       - name: Windows scanner subprocess and descendant smoke (synthetic)
         # A real hosted Windows process-tree test, NOT Npcap/UAC field acceptance.
         env:

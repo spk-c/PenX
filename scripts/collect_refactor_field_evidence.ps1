@@ -11,10 +11,17 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory=$true)][string]$InstallerPath,
+    [ValidatePattern('^[a-fA-F0-9]{64}$')]
+    [string]$ExpectedInstallerSha256,
     [string]$OutputDirectory = ".\refactor-field-evidence"
 )
 $ErrorActionPreference = "Stop"
-$installer = (Resolve-Path -LiteralPath $InstallerPath -ErrorAction Stop).Path
+$installerItem = Get-Item -LiteralPath $InstallerPath -ErrorAction Stop
+if ($installerItem.PSIsContainer -or
+    (($installerItem.Attributes -band [IO.FileAttributes]::ReparsePoint) -ne 0)) {
+    throw "Installer must be a regular file, not a directory or reparse point."
+}
+$installer = $installerItem.FullName
 if ([IO.Path]::GetFileName($installer) -ne "PenX-Setup-x64.exe") {
     throw "Expected the official PenX-Setup-x64.exe filename. File not executed."
 }
@@ -27,6 +34,13 @@ if ($git) {
     if ($LASTEXITCODE -eq 0) { $commit = $head.Trim() }
 }
 $hash = (Get-FileHash -LiteralPath $installer -Algorithm SHA256).Hash
+$pinStatus = "NOT PROVIDED"
+if ($ExpectedInstallerSha256) {
+    if ($hash -ine $ExpectedInstallerSha256) {
+        throw "Installer SHA-256 differs from the independently supplied digest. No worksheet written."
+    }
+    $pinStatus = "MATCHED OPERATOR PIN; ORIGIN NOT AUTHENTICATED"
+}
 $osVersion = [Environment]::OSVersion.VersionString
 $pythonVersion = "NOT RUN"
 $python = Get-Command python -ErrorAction SilentlyContinue
@@ -57,6 +71,7 @@ $lines = @(
     "- Windows OS: $osVersion",
     "- Python: $pythonVersion",
     "- Installer SHA256: $hash",
+    "- Independent installer SHA256 pin: $pinStatus",
     "- Installer name: PenX-Setup-x64.exe",
     "- Status: NOT SIGNED OFF",
     "",
