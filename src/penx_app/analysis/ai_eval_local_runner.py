@@ -1,8 +1,9 @@
 """PX-403: opt-in measurement of one local model against synthetic evidence.
 
-This is a *model-output* evaluation, not a live vulnerability scan. Only the
+This is a *model-output* evaluation, not a live vulnerability scan. Only
 candidate claim IDs and synthetic observation text reach the local endpoint;
-the labelled rubric (support booleans and expected quotations) never does.
+the rubric support flags and expected-quote fields are withheld. Literal
+quoted substrings necessarily occur within the synthetic observations.
 """
 from __future__ import annotations
 
