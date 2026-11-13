@@ -60,6 +60,7 @@ by itself satisfy the new milestone's tests, safeguards and field criteria.
 | PX-305 | Not accepted | Local IaC/config scan limits and fixture safety pending |
 | PX-306 | Not accepted | Third-party adapter SDK and isolation pending |
 | PX-307 | Not accepted | Template policy/capability and safe scope audit pending |
+| PX-308 | Partial source | Offline-only OpenAPI 3.0/3.1 JSON contract inventory; no API probes, auth state import, schema dereferencing, or independent live API field acceptance |
 | PX-401 | Partial source | Local LLM diagnostics merged, actual-provider field proof pending |
 | PX-402 | Not accepted | Model-to-source contradiction checks not accepted |
 | PX-403 | Partial source | Synthetic offline scorer merged; live model accuracy unmeasured |
@@ -273,6 +274,12 @@ All additions must use explicit authorization, fixed bounded probes and conserva
 **Done:** Safe documented defaults, no automatic arbitrary Internet template downloads/execution; templates with intrusive actions require explicit separate consent or are rejected.
 **Tests:** Tampered templates/manifest, path traversal, malicious metadata, unpinned revision and runtime budget.
 **Touches:** scanners/tools.py, application/preflight.py, domain/scan_plan.py.
+
+### PX-308 — Offline OpenAPI contract inventory (P2, S/M; separate source slice)
+**Scope:** Strictly local OpenAPI 3.0.x/3.1.x JSON path/method declarations, parameter-name and declared-auth metadata. Preserve source SHA-256 and explicit declaration-not-observation state; no network, spec URL dereferencing, credentials or promotion to scanner inventory.
+**Done:** Bounded source file and output (1 MiB, 300 input paths, 150 output paths), exclusive report publication, explicit incomplete coverage for unresolved references/truncation, no vulnerability or authorization assertions.
+**Tests:** Duplicate JSON keys, malicious paths and server URLs, unsupported versions, malformed security alternatives, reference-only paths, false-COMPLETE and secret-disclosure checks. Human review and any future live API integration remain separate.
+**Touches:** analysis/openapi_contract_map.py, application/openapi_contract_cli.py, bootstrap.py, tests/test_openapi_contract_map.py, docs/OPENAPI_CONTRACT_MAP.md.
 
 ## 8. Milestone E — v0.8.x local intelligence and quality (P1/P2)
 
