@@ -69,7 +69,7 @@ class BrowserScope:
                 or parsed.query or parsed.fragment):
             raise ValueError("Browser target must be a URL without credentials or query")
         host = _loopback_host(parsed.hostname)
-        port = parsed.port or (443 if parsed.scheme == "https" else 80)
+        port = parsed.port if parsed.port is not None else (443 if parsed.scheme == "https" else 80)
         if not 1 <= port <= 65535:
             raise ValueError("Invalid browser port")
         path = _path(parsed.path)
