@@ -15,6 +15,7 @@ USAGE = ('Usage: PenX.exe [--version | --check | --setup-status | --setup | '
          'profiles --validate FILE | profiles --export ID | '
          'guided [--target HOST] [--output DIR] | review-scan FILE --model ID | '
          'browser-preview --url http://127.0.0.1:PORT/ --authorized --consent | '
+         'api-map --file LOCAL_OPENAPI.json [--output DIR] | '
          'evidence verify (--metadata FILE | --session ID --sqlite-db FILE | --session ID --mariadb-host LOOPBACK --mariadb-db DB --mariadb-user USER) --artifacts DIR | '
            'history list --sqlite-db FILE [--limit N] [--before-id ID] [--target EXACT] [--show-target] | '
            'sbom <inspect|compare-osv> --file PATH [--osv-file LOCAL.json] | '
@@ -100,6 +101,9 @@ def main() -> int:
         if command == 'browser-preview':
             from penx_app.application.browser_preview_cli import main as browser_main
             return browser_main(args[1:])
+        if command == 'api-map':
+            from penx_app.application.openapi_contract_cli import main as api_map_main
+            return api_map_main(args[1:])
         if command == 'evidence' and len(args) >= 2 and args[1] == 'verify':
             from penx_app.application.evidence_verification import main as evidence_main
             return evidence_main(args[2:])
