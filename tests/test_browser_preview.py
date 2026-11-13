@@ -183,7 +183,7 @@ class PreviewTests(unittest.TestCase):
         self.assertFalse(fake.browser.options["accept_downloads"])
         self.assertFalse(fake.browser.options["ignore_https_errors"])
         self.assertIn("WebSocket", fake.browser.context.init_script)
-        self.assertEqual(fake.browser.launch_options["channel"], None)
+        self.assertEqual(fake.launch_options["channel"], None)
         self.assertTrue(fake.browser.context.closed and fake.browser.closed)
 
     def test_bad_page_is_failed_not_a_clean_security_result(self):
