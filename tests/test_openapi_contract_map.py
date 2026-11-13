@@ -120,6 +120,24 @@ class OpenApiOfflineMapTests(unittest.TestCase):
             with self.subTest(version=version), self.assertRaises(ValueError):
                 mapped(fixture)
 
+    def test_ambiguous_template_names_are_not_a_complete_contract(self):
+        fixture = spec()
+        fixture["paths"]["/v1/users/{alternateId}"] = {"get": {}}
+        with self.assertRaisesRegex(ValueError, "Ambiguous"):
+            mapped(fixture)
+
+    def test_explicit_null_auth_and_parameter_metadata_fails_closed(self):
+        for mutation in (
+            lambda v: v.update(security=None),
+            lambda v: v["paths"]["/public"]["get"].update(security=None),
+            lambda v: v["paths"]["/public"]["get"].update(parameters=None),
+            lambda v: v["paths"]["/public"].update(parameters=None),
+        ):
+            fixture = spec()
+            mutation(fixture)
+            with self.subTest(mutation=str(mutation)), self.assertRaises(ValueError):
+                mapped(fixture)
+
     def test_auth_malformed_parameters_and_method_payload_fail_closed(self):
         mutations = [
             lambda v: v["paths"]["/public"]["get"].update(security=[{"BearerAuth": "secret"}]),
