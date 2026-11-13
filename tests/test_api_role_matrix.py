@@ -178,7 +178,7 @@ class RoleMatrixTests(unittest.TestCase):
             "http://127.0.0.1:18123/?secret=1",
             "http://127.0.0.1:18123/#fragment",
             "http://127.0.0.1:18123/%2e",
-            "http://127.0.0.1\outside.invalid/",
+            r"http://127.0.0.1\outside.invalid/",
         ):
             input_plan = plan()
             input_plan["origin"] = origin
@@ -190,7 +190,7 @@ class RoleMatrixTests(unittest.TestCase):
             "/api/../secret", "/api/%2fsecret", "/api//double",
             "/api/users/{userId}", "/api?admin=1", "/api#frag",
             "/api/logout", "/api/delete-user", "/api/payments/checkout",
-            "https://outside.invalid/api", "/api/\evil",
+            "https://outside.invalid/api", r"/api/\evil",
             "/api/items/" + "a" * 128, "/api/./child",
         )
         for path in cases:
