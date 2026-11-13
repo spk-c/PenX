@@ -156,6 +156,24 @@ class JsonRoleReviewTests(unittest.TestCase):
         self.assertEqual(result["cases"][0]["roles"][0]["json_inspection"]["state"], "not-json")
         self.assertEqual(responses[0].read_calls, 0)
 
+    def test_partial_content_206_is_not_inspected_as_full_json(self):
+        fixture = json_plan()
+        responses = [
+            Response(206, data=b'{"data":{"accountId":"not-a-full-document"}}'),
+            Response(data=b'{"data":{"accountId":"own"}}'),
+            Response(data=b'{"data":{"accountId":"own"}}'),
+            Response(403), Response(403), Response(data=b'{"data":{"accountId":"admin"}}'),
+        ]
+        report = compare_roles(
+            fixture, source_sha256="a"*64, authorized=True, consent=True,
+            role_tokens=TOKENS, inspect_json=True,
+            session_factory=factory(responses, []), clock=lambda: 0)
+        self.assertEqual(report["coverage"], "PARTIAL")
+        self.assertEqual(report["protected_json_presence_leads"], 0)
+        self.assertEqual(report["cases"][0]["roles"][0]["json_inspection"]["state"],
+                         "not-applicable")
+        self.assertEqual(responses[0].read_calls, 0)
+
     def test_missing_expected_field_not_silent_success(self):
         responses = [
             Response(403), Response(data=b'{"data":{"message":"missing"}}'),
