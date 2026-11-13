@@ -2,7 +2,8 @@
 
 Defensive first slice, not an IDOR exploit or vulnerability verifier. The
 operator supplies explicit literal GET paths and a declared role policy.
-No OpenAPI route expansion, fuzzing, object-ID replacement or response bodies.
+No OpenAPI route expansion, fuzzing or object-ID replacement. Only explicit
+opt-in JSON mode temporarily reads bounded body bytes, never storing values.
 """
 from __future__ import annotations
 
@@ -117,7 +118,7 @@ def _request_status(url: str, *, role: str, role_tokens: dict, timeout: float,
         status = response.status_code
         if type(status) is not int or not 100 <= status <= 599:
             raise ValueError("Invalid bounded HTTP status")
-        if protected_pointers and 200 <= status <= 299:
+        if protected_pointers and status == 200:
             try:
                 state, fields = inspect_json_fields(response, protected_pointers)
             except requests.RequestException:
