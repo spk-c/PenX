@@ -124,13 +124,15 @@ def _page_structure(page, scope: BrowserScope, url: str) -> tuple[dict, list[str
     # No DOM snapshots, input values, cookies, response bodies or query tokens.
     links = page.eval_on_selector_all(
         "a[href]", "(nodes, n) => nodes.slice(0, n).map(x => x.getAttribute('href'))",
-        MAX_LINKS)
+        MAX_LINKS + 1)
     forms = page.eval_on_selector_all(
         "form", "(nodes, n) => nodes.slice(0, n).map(x => ({"
         "method: x.getAttribute('method'), action: x.getAttribute('action')}))",
-        MAX_FORMS)
+        MAX_FORMS + 1)
     if not isinstance(links, list) or not isinstance(forms, list):
         raise ValueError("Browser returned invalid DOM structure")
+    links_truncated = len(links) > MAX_LINKS
+    forms_truncated = len(forms) > MAX_FORMS
     candidates = []
     for href in links[:MAX_LINKS]:
         candidate = scope.candidate(url, href)
@@ -146,7 +148,9 @@ def _page_structure(page, scope: BrowserScope, url: str) -> tuple[dict, list[str
             form_rows.append({"method": method, "action_path": _path(urlsplit(action).path)})
     observed_path = _path(urlsplit(url).path)
     return ({"path": observed_path, "link_paths": [_path(urlsplit(x).path) for x in candidates],
-             "forms": form_rows, "finding_count": 0}, candidates)
+             "forms": form_rows, "finding_count": 0,
+             "links_truncated": links_truncated,
+             "forms_truncated": forms_truncated}, candidates)
 
 
 def crawl_loopback(
@@ -224,7 +228,9 @@ def crawl_loopback(
         finally:
             browser.close()
 
-    incomplete = bool(stats["blocked_requests"] or stats["failed_pages"] or pending)
+    incomplete = bool(stats["blocked_requests"] or stats["failed_pages"] or pending
+                      or any(item["links_truncated"] or item["forms_truncated"]
+                             for item in collected))
     return {
         "schema": "penx-browser-preview-v1",
         "status": "PARTIAL" if incomplete else "COMPLETE",
