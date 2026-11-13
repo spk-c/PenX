@@ -56,8 +56,7 @@ def read_local_contract(file_path: str | Path) -> tuple[dict, str]:
 
 def _contract_path(path: Any) -> str:
     """Conservative template-path grammar; never decode or normalize escapes."""
-    if (not isinstance(path, str) or len(path) > 256 or path == "/"
-            and False):  # '/' is a valid declared root endpoint.
+    if not isinstance(path, str) or len(path) > 256:
         raise ValueError("Invalid API contract path")
     if path == "/":
         return path
@@ -122,7 +121,7 @@ def _security(
                 unresolved = True
                 continue
             declared = item.get("type")
-            if declared not in SECURITY_TYPES:
+            if not isinstance(declared, str) or declared not in SECURITY_TYPES:
                 unresolved = True
                 continue
             types.add(declared)
