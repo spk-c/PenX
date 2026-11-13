@@ -1,6 +1,6 @@
 """Offline OpenAPI 3.x contract inventory; declarations are NOT observed endpoints.
 
-PX-305: no network, model, scanner, dereferencing, credentials, examples,
+PX-308: no network, model, scanner, dereferencing, credentials, examples,
 request bodies, response payloads, or authorization grants. The output is
 bounded structural metadata for later human-approved API assessment planning.
 """
