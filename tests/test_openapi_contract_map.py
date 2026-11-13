@@ -1,4 +1,4 @@
-"""PX-305: offline OpenAPI maps are declarations, never observed or authorized URLs."""
+"""PX-308: offline OpenAPI maps are declarations, never observed or authorized URLs."""
 from __future__ import annotations
 
 from contextlib import redirect_stdout
