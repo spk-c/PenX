@@ -10,6 +10,10 @@ class FieldEvidenceScriptContracts(unittest.TestCase):
     def test_template_does_not_launch_scanners_or_installer(self):
         code = SCRIPT.read_text(encoding="utf-8")
         self.assertIn("Get-FileHash", code)
+        self.assertIn("ExpectedInstallerSha256", code)
+        self.assertIn("Installer SHA-256 differs", code)
+        self.assertIn("MATCHED OPERATOR PIN; ORIGIN NOT AUTHENTICATED", code)
+        self.assertIn("[IO.FileAttributes]::ReparsePoint", code)
         self.assertIn("NOT RUN", code)
         self.assertIn("NOT SIGNED OFF", code)
         self.assertIn("Test-Path -LiteralPath $file", code)
