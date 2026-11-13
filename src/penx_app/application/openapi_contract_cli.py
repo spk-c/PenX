@@ -1,4 +1,4 @@
-"""PX-305: local OpenAPI JSON contract inventory (never sends HTTP requests)."""
+"""PX-308: local OpenAPI JSON contract inventory (never sends HTTP requests)."""
 from __future__ import annotations
 
 import argparse
