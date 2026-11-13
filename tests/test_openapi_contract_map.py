@@ -170,6 +170,11 @@ class OpenApiOfflineMapTests(unittest.TestCase):
             doc, digest = read_local_contract(f)
             self.assertEqual(digest, sha256(raw).hexdigest())
             self.assertEqual(doc["openapi"], "3.1.0")
+            # Windows PowerShell 5.1 writes UTF-8 JSON with a BOM by default.
+            f.write_bytes(b"\xef\xbb\xbf" + raw)
+            windows_doc, windows_hash = read_local_contract(f)
+            self.assertEqual(windows_doc["openapi"], "3.1.0")
+            self.assertEqual(windows_hash, sha256(b"\xef\xbb\xbf" + raw).hexdigest())
             for body in (b'{"openapi":"3.0.0","openapi":"3.1.0"}',
                          b'{"x":NaN}', b'\xff', b'[' * 1000,
                          b'X' * (MAX_FILE_BYTES + 1)):
