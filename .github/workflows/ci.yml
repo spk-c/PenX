@@ -134,6 +134,8 @@ jobs:
           finally { $ErrorActionPreference = $previousErrorAction }
           if ($rejectionExitCode -eq 0) { throw "Mismatched installer digest was accepted" }
           if (Test-Path -LiteralPath (Join-Path $rejected "FIELD_ACCEPTANCE.md")) { throw "Mismatched installer digest wrote worksheet" }
+          # GitHub pwsh appends `exit $LASTEXITCODE`; clear only after every negative assertion.
+          $global:LASTEXITCODE = 0
       - name: Windows scanner subprocess and descendant smoke (synthetic)
         # A real hosted Windows process-tree test, NOT Npcap/UAC field acceptance.
         env:
