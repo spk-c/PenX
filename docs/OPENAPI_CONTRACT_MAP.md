@@ -7,7 +7,7 @@ The new command does not perform any network request:
     python penx.py api-map --file ./my-openapi.json --output ./reports
 
 The source must be an ordinary **local JSON** OpenAPI 3.0.x or 3.1.x
-document. The importer does not parse YAML, fetch URLs, dereference
+document (UTF-8, with or without a Windows-style UTF-8 BOM). The importer does not parse YAML, fetch URLs, dereference
 references, install dependencies, invoke a model, or execute any declared
 HTTP method. Only path templates, HTTP methods, query/path parameter
 **names**, declared authentication, and declared scheme **types** remain.
