@@ -135,6 +135,11 @@ class PreviewTests(unittest.TestCase):
         self.assertTrue(BrowserScope.parse("http://[::1]:8088/").allows(
             "http://[::1]:8088/path"))
         self.assertEqual(scope.candidate(scope.start_url, "/app/page?key=secret"), None)
+        nested = BrowserScope.parse("http://127.0.0.1:8088/app/")
+        self.assertEqual(nested.start_url, "http://127.0.0.1:8088/app/")
+        self.assertEqual(nested.candidate(nested.start_url, "child/"),
+                         "http://127.0.0.1:8088/app/child/")
+        self.assertTrue(nested.allows(nested.start_url))
         self.assertEqual(scope.candidate(scope.start_url, "javascript:alert(1)"), None)
 
     def test_method_and_origin_block_every_request(self):
