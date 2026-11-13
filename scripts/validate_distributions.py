@@ -64,9 +64,9 @@ def main() -> int:
                 fail(f"Missing WinGet manifest: {path}")
             content = path.read_text(encoding="utf-8")
             if manifest_scalar(content, "PackageIdentifier") != "SLP-DEV1.PenX":
-            fail(f"Unexpected package ID in {path.name}")
+                fail(f"Unexpected package ID in {path.name}")
             if manifest_scalar(content, "PackageVersion") != version:
-            fail(f"Package version mismatch in {path.name}")
+                fail(f"Package version mismatch in {path.name}")
         root, installer, locale = [p.read_text(encoding="utf-8") for p in files]
         if manifest_scalar(root, "ManifestType") != "version":
             fail("Invalid WinGet version manifest type")
@@ -87,7 +87,7 @@ def main() -> int:
         if manifest_scalar(installer, "PortableCommandAlias") != "penx":
             fail("WinGet portable command alias mismatch")
         print(f"[OK] WinGet/Scoop drafts pin v{version} to one official ZIP and SHA-256")
-    except (AssertionError, ValueError, KeyError, OSError, TypeError, json.JSONDecodeError) as exc:
+    except (ValueError, KeyError, OSError, TypeError, json.JSONDecodeError) as exc:
         print(f"[FAIL] Package manifests: {exc}", file=sys.stderr)
         return 1
     return 0
