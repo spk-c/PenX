@@ -16,6 +16,7 @@ USAGE = ('Usage: PenX.exe [--version | --check | --setup-status | --setup | '
          'guided [--target HOST] [--output DIR] | review-scan FILE --model ID | '
          'browser-preview --url http://127.0.0.1:PORT/ --authorized --consent | '
          'api-map --file LOCAL_OPENAPI.json [--output DIR] | '
+         'api-role-compare --plan LOCAL.json --authorized --consent | '
          'evidence verify (--metadata FILE | --session ID --sqlite-db FILE | --session ID --mariadb-host LOOPBACK --mariadb-db DB --mariadb-user USER) --artifacts DIR | '
            'history list --sqlite-db FILE [--limit N] [--before-id ID] [--target EXACT] [--show-target] | '
            'sbom <inspect|compare-osv> --file PATH [--osv-file LOCAL.json] | '
@@ -104,6 +105,9 @@ def main() -> int:
         if command == 'api-map':
             from penx_app.application.openapi_contract_cli import main as api_map_main
             return api_map_main(args[1:])
+        if command == 'api-role-compare':
+            from penx_app.application.api_role_matrix_cli import main as api_role_main
+            return api_role_main(args[1:])
         if command == 'evidence' and len(args) >= 2 and args[1] == 'verify':
             from penx_app.application.evidence_verification import main as evidence_main
             return evidence_main(args[2:])
