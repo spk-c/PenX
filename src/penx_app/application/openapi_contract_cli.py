@@ -17,7 +17,10 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--file", required=True, help="Local OpenAPI 3.x JSON file")
     parser.add_argument("--output", default="./reports",
                         help="Directory for an exclusive, separate JSON map")
-    args = parser.parse_args(argv)
+    try:
+        args = parser.parse_args(argv)
+    except SystemExit as exc:
+        return exc.code if isinstance(exc.code, int) else 2
     try:
         document, digest = read_local_contract(args.file)
         report = build_contract_map(document, source_sha256=digest)
