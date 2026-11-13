@@ -11,7 +11,9 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory=$true)][string]$InstallerPath,
-    [ValidatePattern('^[a-fA-F0-9]{64} ".\refactor-field-evidence"
+    [ValidatePattern('^[a-fA-F0-9]{64}$')]
+    [string]$ExpectedInstallerSha256,
+    [string]$OutputDirectory = ".\refactor-field-evidence"
 )
 $ErrorActionPreference = "Stop"
 $installerItem = Get-Item -LiteralPath $InstallerPath -ErrorAction Stop
