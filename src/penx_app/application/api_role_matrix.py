@@ -159,7 +159,7 @@ def compare_roles(
 
     deadline = clock() + budget
     outcomes = []
-    attempted = complete = suspected = 0
+    attempted = complete = suspected = unexpected_denials = 0
     partial = False
     for case in cases:
         # No variable substitutions or query parameters: exact literal path.
@@ -187,6 +187,8 @@ def compare_roles(
                     partial = True
             if outcome == "possible-excess-access":
                 suspected += 1
+            if outcome == "unexpected-denial":
+                unexpected_denials += 1
             observations.append({
                 "role": role, "expected": case["expect"][role],
                 "http_status": status, "comparison": outcome,
@@ -203,6 +205,7 @@ def compare_roles(
         "attempted_requests": attempted,
         "status_responses": complete,
         "suspected_excess_access": suspected,
+        "unexpected_denials": unexpected_denials,
         "vulnerability_verified": False,
         "bola_idor_verified": False,
         "response_bodies_collected": False,
