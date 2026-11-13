@@ -37,7 +37,7 @@ def main(argv: list[str]) -> int:
         print("Browser preview status: " + report["status"]
               + "; saved: " + str(result))
         return 0 if report["status"] == "COMPLETE" else 1
-    except (ValueError, OSError, ImportError, RuntimeError):
+    except Exception:
         # Do not leak web content, redirect targets, secrets or browser logs.
         print("Browser preview refused or unavailable; no verified findings.")
         return 2
