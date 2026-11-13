@@ -67,13 +67,57 @@ RCE/TLS assertions, refusal and timeout. Their aggregate sample metrics
 are diagnostic *fixture examples*, **not a measured AI quality baseline**.
 Operators may separately generate local predictions and score those offline,
 but a self-reported prediction file does not prove which model ran it.
-There is no live-model endpoint adapter, no cloud fallback and no
-model-accuracy leaderboard in this slice.
+The offline scorer above never calls a model or network endpoint. The opt-in
+local runner below is a separate command; it does not change that contract.
+
+## Opt-in local model-output benchmark (PX-403 first live slice)
+
+The **separate** `scripts/benchmark_local_ai.py` runner asks an explicitly
+configured **loopback-only** OpenAI-compatible endpoint to classify labelled
+synthetic observations. It reuses the offline scorer above, but sends the
+model **only** candidate IDs and synthetic evidence. The rubric's support
+flags and expected-quote *fields* are not sent; the original observed text
+necessarily contains the quoted substrings for positive cases. The original offline
+`benchmark_ai_assessment.py` remains completely network-free.
+
+```powershell
+python scripts/benchmark_local_ai.py --endpoint http://127.0.0.1:8080 --model qwen3.8-27b --output ./local-ai-metrics.json
+```
+
+Replace the model ID with the *actual* configured local server ID. This
+command is **opt-in**, requires an already running compatible server, does
+not start NInfer/Strata/Ollama, and does not scan any target or fetch CVEs.
+It does not use a proxy, follow redirects, accept a remote endpoint, or
+enable any scan permissions. The server must support strict JSON-Schema
+chat completions; unsupported formats yield explicit incomplete cases
+rather than silently using unconstrained prose.
+
+The runner limits each corpus to **20** synthetic cases, each request to
+**5–120 seconds**, and the aggregate batch to **at most 600 seconds**.
+The model cannot invoke PenX scanners, arbitrary tools or shell commands.
+Duplicate/invalid JSON, refusal and timeout are tracked as incomplete
+cases, not clean findings. Well-formed unsupported IDs and invented quotes
+remain **false positives** in the scoring denominator, not discarded.
+Transport failures fail the run without inventing a score.
+
+Printed output (or the new, exclusive `--output` file) contains only
+aggregate counts, hashed model ID and prompt/corpus digests. It omits
+the evidence, labels, quotes and model responses. The recorded fact is
+**local API completion observed**; the endpoint does not cryptographically
+prove which model is loaded. For that reason `model_identity_verified`
+and `real_model_executed` remain false until a separate provider-identity
+gate is implemented. Even perfect fixture precision is **not** proof of
+real-world vulnerability detection, or authorization to scan external hosts.
+
+The fixture set is currently small and synthetic, not an independent
+industry benchmark. Run this only with approved synthetic/sanitized inputs,
+and do not publish private results or model server credentials.
 
 ## Remaining PX-403 acceptance
 
-- Optional, explicitly configured *local* model runner with identity/endpoint
-  verification, budgets, cancellation and refusal/JSON-error capture.
+- A separately approved, authentic **loaded-model** identity/provenance check,
+  end-to-end cancellation and more provider compatibility tests. The initial
+  bounded loopback runner covers request budgets, refusal and malformed JSON.
 - Curated larger human-reviewed benchmark for claim accuracy and recall,
   independent dataset provenance and prompt/version governance.
 - Side-by-side NInfer/Strata/llama.cpp/Ollama operator validation, with
