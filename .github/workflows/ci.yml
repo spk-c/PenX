@@ -123,8 +123,16 @@ jobs:
           if (-not (Select-String -Path $worksheet -SimpleMatch "MATCHED OPERATOR PIN; ORIGIN NOT AUTHENTICATED")) { throw "Missing honest provenance label" }
           if (-not (Select-String -Path $worksheet -SimpleMatch "Status: NOT SIGNED OFF")) { throw "Synthetic test claimed field sign-off" }
           $rejected = Join-Path $fixture "rejected"
-          & powershell -NoProfile -ExecutionPolicy Bypass -File ".\scripts\collect_refactor_field_evidence.ps1" -InstallerPath $installer -ExpectedInstallerSha256 ("0" * 64) -OutputDirectory $rejected
-          if ($LASTEXITCODE -eq 0) { throw "Mismatched installer digest was accepted" }
+          # Expected PowerShell 5.1 stderr must not trigger pwsh's global
+          # Stop preference before we can inspect the native exit code.
+          $previousErrorAction = $ErrorActionPreference
+          try {
+            $ErrorActionPreference = 'Continue'
+            & powershell -NoProfile -ExecutionPolicy Bypass -File ".\scripts\collect_refactor_field_evidence.ps1" -InstallerPath $installer -ExpectedInstallerSha256 ("0" * 64) -OutputDirectory $rejected 2>&1 | Out-Null
+            $rejectionExitCode = $LASTEXITCODE
+          }
+          finally { $ErrorActionPreference = $previousErrorAction }
+          if ($rejectionExitCode -eq 0) { throw "Mismatched installer digest was accepted" }
           if (Test-Path -LiteralPath (Join-Path $rejected "FIELD_ACCEPTANCE.md")) { throw "Mismatched installer digest wrote worksheet" }
       - name: Windows scanner subprocess and descendant smoke (synthetic)
         # A real hosted Windows process-tree test, NOT Npcap/UAC field acceptance.
