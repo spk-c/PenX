@@ -187,6 +187,30 @@ class PreviewTests(unittest.TestCase):
         self.assertEqual(fake.launch_options["channel"], None)
         self.assertTrue(fake.browser.context.closed and fake.browser.closed)
 
+    def test_link_and_form_caps_mark_incomplete_even_when_no_new_pages(self):
+        from penx_app.application.browser_preview import MAX_LINKS, MAX_FORMS
+
+        class OversizedPage(FakePage):
+            def eval_on_selector_all(self, selector, expression, cap):
+                if selector == "a[href]":
+                    return ["#fragment"] * (MAX_LINKS + 1)
+                if selector == "form":
+                    return [{"method": "GET", "action": "/"}] * (MAX_FORMS + 1)
+                raise AssertionError("Unexpected selector")
+
+        fake = FakePlaywright()
+        fake.browser.context.inject_cross_origin = False
+        fake.browser.context.page = OversizedPage(fake.browser.context)
+        report = crawl_loopback(
+            "http://127.0.0.1:8088/", authorized=True, consent=True,
+            max_pages=1, playwright_factory=lambda: fake, clock=lambda: 0)
+        self.assertEqual(report["visited_pages"], 1)
+        self.assertEqual(report["blocked_requests"], 0)
+        self.assertEqual(report["queued_pages_unvisited"], 0)
+        self.assertTrue(report["pages"][0]["links_truncated"])
+        self.assertTrue(report["pages"][0]["forms_truncated"])
+        self.assertEqual(report["status"], "PARTIAL")
+
     def test_bad_page_is_failed_not_a_clean_security_result(self):
         fake = FakePlaywright()
         fake.browser.context.inject_cross_origin = False
