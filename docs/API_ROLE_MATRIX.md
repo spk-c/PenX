@@ -39,13 +39,16 @@ Supply the synthetic API's separate disposable bearer tokens through
 environment variables (not CLI args or JSON files). In PowerShell:
 
 ~~~powershell
-$env:PENX_LAB_USER_TOKEN = Read-Host "Disposable user token"
-$env:PENX_LAB_ADMIN_TOKEN = Read-Host "Disposable admin token"
+$env:PENX_LAB_USER_TOKEN = Read-Host -MaskInput "Disposable user token"
+$env:PENX_LAB_ADMIN_TOKEN = Read-Host -MaskInput "Disposable admin token"
 python penx.py api-role-compare --plan ./lab-role-plan.json --authorized --consent --output-dir ./reports
 Remove-Item Env:PENX_LAB_USER_TOKEN,Env:PENX_LAB_ADMIN_TOKEN
 ~~~
 
-In Bash, provide these variables via your local test harness rather than
+The masked prompts require PowerShell 7. Do not paste tokens into shell
+history; the process environment is still readable by sufficiently
+privileged local processes. In Bash, provide these variables via your
+local test harness rather than
 saving them in the plan. Do not use production session tokens. The two
 values must be different; missing tokens or malformed headers fail before
 the first request. An explicit 32-KiB JSON plan, confirmed authorization,
