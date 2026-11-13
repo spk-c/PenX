@@ -103,13 +103,16 @@ def _security(
     if (not isinstance(alternatives, list)
             or len(alternatives) > MAX_SECURITY_ALTERNATIVES):
         raise ValueError("Invalid security declaration")
-    if not alternatives or any(isinstance(row, dict) and not row for row in alternatives):
+    if not alternatives:
         return "none-declared", []
     types: set[str] = set()
     unresolved = False
+    has_anonymous_alternative = False
     for alternative in alternatives:
-        if not isinstance(alternative, dict) or not 1 <= len(alternative) <= 16:
+        if not isinstance(alternative, dict) or len(alternative) > 16:
             raise ValueError("Invalid security alternative")
+        if not alternative:
+            has_anonymous_alternative = True
         for scheme_name, scopes in alternative.items():
             if (not isinstance(scheme_name, str) or len(scheme_name) > 128
                     or not isinstance(scopes, list) or len(scopes) > 32
@@ -125,6 +128,8 @@ def _security(
                 unresolved = True
                 continue
             types.add(declared)
+    if has_anonymous_alternative:
+        return "none-declared", []
     return ("unresolved" if unresolved else "auth-declared"), sorted(types)
 
 
@@ -191,8 +196,6 @@ def build_contract_map(document: dict, *, source_sha256: str) -> dict:
             if unresolved:
                 unresolved_refs += 1
             operation_count += 1
-            if len(rows) >= MAX_OUTPUT_PATHS * len(METHODS):
-                continue
             rows.append({
                 "path_template": path,
                 "method": method.upper(),
