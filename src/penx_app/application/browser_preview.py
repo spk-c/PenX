@@ -73,9 +73,10 @@ class BrowserScope:
         if not 1 <= port <= 65535:
             raise ValueError("Invalid browser port")
         path = _path(parsed.path)
+        navigate_path = path + "/" if parsed.path.endswith("/") and path != "/" else path
         authority = f"[{host}]" if ":" in host else host
         authority += f":{port}"
-        return cls(urlunsplit((parsed.scheme, authority, path, "", "")),
+        return cls(urlunsplit((parsed.scheme, authority, navigate_path, "", "")),
                    parsed.scheme, host, port, path)
 
     def allows(self, url: str) -> bool:
@@ -105,7 +106,8 @@ class BrowserScope:
             if parsed.query or not self.allows(url):
                 return None
             path = _path(parsed.path)
-            return urlunsplit((parsed.scheme, parsed.netloc, path, "", ""))
+            navigate_path = path + "/" if parsed.path.endswith("/") and path != "/" else path
+            return urlunsplit((parsed.scheme, parsed.netloc, navigate_path, "", ""))
         except (ValueError, TypeError):
             return None
 
