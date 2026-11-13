@@ -4,6 +4,11 @@
 authorization-policy consistency comparison. Not a production API scanner,
 not verified BOLA/IDOR detection, not an authenticated general web crawler.
 
+The default mode remains status-only and does not read response bodies.
+An optional strictly local JSON-field presence mode is documented in
+[API_JSON_PRESENCE.md](API_JSON_PRESENCE.md), and requires the explicit
+--inspect-json flag plus selected protected_json_pointers in each case.
+
 This first slice takes only operator-authored paths, a declared role policy,
 and two **disposable** bearer tokens for the local synthetic API under test.
 It never imports real credentials, follows discovered URLs, tests external
