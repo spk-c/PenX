@@ -84,7 +84,8 @@ class BrowserScope:
             parsed = urlsplit(url)
             return (parsed.scheme == self.scheme
                     and _loopback_host(parsed.hostname) == self.host
-                    and (parsed.port or (443 if parsed.scheme == "https" else 80)) == self.port
+                    and (parsed.port if parsed.port is not None else
+                         (443 if parsed.scheme == "https" else 80)) == self.port
                     and parsed.username is None and parsed.password is None
                     and self.in_path(_path(parsed.path)))
         except (ValueError, TypeError):
