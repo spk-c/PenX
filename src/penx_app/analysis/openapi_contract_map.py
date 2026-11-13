@@ -46,7 +46,7 @@ def read_local_contract(file_path: str | Path) -> tuple[dict, str]:
     if len(raw) > MAX_FILE_BYTES:
         raise ValueError("OpenAPI input exceeds 1 MiB")
     try:
-        document = strict_json(raw.decode("utf-8"))
+        document = strict_json(raw.decode("utf-8-sig"))
     except (ValueError, UnicodeError, RecursionError) as exc:
         raise ValueError("Invalid or ambiguous OpenAPI JSON") from exc
     if not isinstance(document, dict):
