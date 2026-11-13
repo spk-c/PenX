@@ -61,7 +61,8 @@ by itself satisfy the new milestone's tests, safeguards and field criteria.
 | PX-306 | Not accepted | Third-party adapter SDK and isolation pending |
 | PX-307 | Not accepted | Template policy/capability and safe scope audit pending |
 | PX-308 | Partial source | Offline-only OpenAPI 3.0/3.1 JSON contract inventory; no API probes, auth state import, schema dereferencing, or independent live API field acceptance |
-| PX-309 | Source in review | Manually scoped loopback GET/status-only role-policy consistency; no verified IDOR/BOLA, external endpoints, object-ID fuzzing or production field acceptance |
+| PX-309 | Partial source | Manually scoped loopback GET/status-only role-policy consistency merged (#203); no verified IDOR/BOLA, external endpoints, object-ID fuzzing or production field acceptance |
+| PX-310 | Source in review | Opt-in private JSON-field presence within existing local role matrix; no raw values stored and no verified BOLA/IDOR or public targets |
 | PX-401 | Partial source | Local LLM diagnostics merged, actual-provider field proof pending |
 | PX-402 | Not accepted | Model-to-source contradiction checks not accepted |
 | PX-403 | Partial source | Synthetic offline scorer merged; live model accuracy unmeasured |
