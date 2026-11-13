@@ -2,8 +2,8 @@
 requests>=2.32,<3
 charset-normalizer>=3.4,<4
 beautifulsoup4>=4.12,<5
-# Keep beautifulsoup4's selector dependency compatible with supported Python.
-soupsieve>=2.10,<3
+# Soup Sieve 4 fixes CVE-2026-126190; requires CPython >=3.11.5.
+soupsieve>=4.0,<5
 python-dotenv>=1.0,<2
 jsonschema>=4.20,<5
 # Keep jsonschema's rpds-py dependency compatible with supported Python.
