@@ -268,7 +268,7 @@ def compare_roles(
             "response_bodies_inspected_transiently": True,
             "raw_json_values_persisted": False,
             "limitations": (
-                report["limitations"] +
+                str(report["limitations"]) +
                 " Selected JSON object fields are checked transiently under "
                 "a 16 KiB decompressed body limit; values/hashes/raw bodies "
                 "are never persisted. A present field may be generic or "
