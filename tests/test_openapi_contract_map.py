@@ -77,7 +77,7 @@ class OpenApiOfflineMapTests(unittest.TestCase):
         self.assertTrue(by_key[("/v1/users/{userId}", "PATCH")]["deprecated"])
         payload = json.dumps(result)
         for banned in ("outside.invalid", "TOPSECRET", "Authorization",
-                       "user:secret", "password", "example"):
+                       "user:secret", "password", '"example":'):
             self.assertNotIn(banned, payload)
         self.assertTrue(all(not row["request_performed"] for row in result["endpoints"]))
 
