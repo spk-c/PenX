@@ -14,7 +14,6 @@ class ModelRefusal(ValueError):
     """Local model explicitly refused; not a completed prediction."""
 
 
-
 def local_endpoint(value: str) -> str:
     base = normalize_base_url(value)
     parts = urlsplit(base)
