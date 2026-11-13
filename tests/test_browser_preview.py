@@ -129,6 +129,7 @@ class PreviewTests(unittest.TestCase):
         self.assertTrue(scope.allows("http://127.0.0.1:8088/app/item"))
         self.assertFalse(scope.allows("http://127.0.0.1:8088/other"))
         self.assertFalse(scope.allows("http://127.0.0.1:9999/app/item"))
+        self.assertFalse(BrowserScope.parse("http://127.0.0.1/").allows("http://127.0.0.1:0/"))
         self.assertFalse(scope.allows("https://127.0.0.1:8088/app/item"))
         self.assertFalse(scope.allows("http://[::1]:8088/app/item"))
         self.assertTrue(BrowserScope.parse("http://[::1]:8088/").allows(
@@ -223,6 +224,15 @@ class PreviewTests(unittest.TestCase):
             self.assertEqual(main(["--url", "http://127.0.0.1:8088/",
                                    "--output-dir", temp]), 2)
             self.assertEqual(list(Path(temp).iterdir()), [])
+
+    def test_browser_dependency_runtime_error_is_sanitized(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch("penx_app.application.browser_preview_cli.crawl_loopback",
+                       side_effect=Exception("sensitive browser extension body")):
+                args = ["--url", "http://127.0.0.1/", "--authorized", "--consent",
+                        "--output-dir", tmp]
+                self.assertEqual(main(args), 2)
+            self.assertEqual(list(Path(tmp).iterdir()), [])
 
     def test_cli_writes_one_new_report_without_overwrite(self):
         result = {
