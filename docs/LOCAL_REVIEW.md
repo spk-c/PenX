@@ -41,6 +41,42 @@ tool calls, malformed JSON, unknown
 fields and duplicate keys fail without publishing a draft. No model call was
 made during development verification; transport tests use synthetic sessions.
 
+## Opt-in second-pass AI Critic (PX-404)
+
+The initial local review already validates literal source quotes and keeps
+all output **unverified**. You can now request a second, sceptical model pass:
+
+```powershell
+python penx.py review-scan reports/penx_scan.json --model investigator-model --critic-model critic-model --endpoint http://127.0.0.1:8080
+```
+
+Both model IDs must exist on the **same explicitly configured localhost API**.
+You may select the same model twice, but that does not constitute an independent
+provider. Only **one bounded second request** is made per explicit report,
+automatically **after opt-in**. The second model sees only bounded prior drafts
+and original supplied evidence excerpts. It has no access to scanner actions,
+network discovery, command execution, or new permissions.
+
+The critic can return `agrees`, `disputes`, or `unresolved`.
+Agreement/disagreement must provide a literal quote of at least 12
+non-whitespace characters from the *same* original source excerpt.
+A disagreement additionally requires a quote distinct from the first-pass
+quote and cannot promote a first-pass insufficient-evidence result.
+An unresolved review must supply an empty quote. A quoted discrepancy is a
+**model opinion**, not independent proof of technical contradiction or a
+false positive. Missing/unknown/duplicate source identities, fabricated
+quotes, invalid schema and missing model responses fail without publishing
+a draft, keeping the original report unchanged.
+
+The separate `critic` block in the existing `penx-review-v1` document
+contains `penx-review-critic-v1` with model-reported disagreement counts
+and explicit `vulnerability_verified: false` / `contradiction_verified:
+false` markers. No original finding confidence, severity, SARIF policy,
+scan scope or historical schema changes. Both calls share a bounded
+batch allocation; timeouts limit read inactivity, not an absolute wall clock.
+Long inputs may fail the prompt cap rather than silently dropping context.
+Without `--critic-model`, existing single-pass behavior is unchanged.
+
 ## Bounds and evidence rules
 
 - Source `penx-scan-v1` file: at most 4 MiB and 1000 findings. Duplicate
