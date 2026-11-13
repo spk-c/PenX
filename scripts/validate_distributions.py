@@ -39,12 +39,18 @@ def main() -> int:
             f"https://github.com/spk-c/PenX/releases/download/v{version}/"
             f"{ARCHIVE_NAME}"
         )
-        assert archive["url"] == expected_url, "Scoop archive URL/version mismatch"
-        assert SHA_PATTERN.fullmatch(archive["hash"]), "Invalid Scoop archive SHA-256"
-        assert ["PenX\\PenX.exe", "penx"] in scoop["bin"], "Missing Scoop command shim"
-        assert "PenX\\.env" in scoop["persist"], "Scoop must persist configuration"
-        assert "PenX\\data" in scoop["persist"], "Scoop must persist scan database"
-        assert "PenX\\reports" in scoop["persist"], "Scoop must persist reports"
+        if archive["url"] != expected_url:
+            fail("Scoop archive URL/version mismatch")
+        if not SHA_PATTERN.fullmatch(archive["hash"]):
+            fail("Invalid Scoop archive SHA-256")
+        if ["PenX\\PenX.exe", "penx"] not in scoop["bin"]:
+            fail("Missing Scoop command shim")
+        if "PenX\\.env" not in scoop["persist"]:
+            fail("Scoop must persist configuration")
+        if "PenX\\data" not in scoop["persist"]:
+            fail("Scoop must persist scan database")
+        if "PenX\\reports" not in scoop["persist"]:
+            fail("Scoop must persist reports")
         folder = WINGET_BASE / version
         if not folder.is_dir():
             fail(f"Missing WinGet version folder {folder}")
@@ -57,20 +63,31 @@ def main() -> int:
             if not path.is_file():
                 fail(f"Missing WinGet manifest: {path}")
             content = path.read_text(encoding="utf-8")
-            assert manifest_scalar(content, "PackageIdentifier") == "SLP-DEV1.PenX"
-            assert manifest_scalar(content, "PackageVersion") == version
+            if manifest_scalar(content, "PackageIdentifier") != "SLP-DEV1.PenX":
+                fail(f"Unexpected package ID in {path.name}")
+            if manifest_scalar(content, "PackageVersion") != version:
+                fail(f"Package version mismatch in {path.name}")
         root, installer, locale = [p.read_text(encoding="utf-8") for p in files]
-        assert manifest_scalar(root, "ManifestType") == "version"
-        assert manifest_scalar(installer, "ManifestType") == "installer"
-        assert manifest_scalar(locale, "ManifestType") == "defaultLocale"
-        assert manifest_scalar(installer, "InstallerType") == "zip"
-        assert manifest_scalar(installer, "NestedInstallerType") == "portable"
-        assert manifest_scalar(installer, "InstallerUrl") == expected_url
-        assert manifest_scalar(installer, "InstallerSha256").casefold() == archive["hash"].casefold()
-        assert manifest_scalar(installer, "RelativeFilePath") == "PenX/PenX.exe"
-        assert manifest_scalar(installer, "PortableCommandAlias") == "penx"
+        if manifest_scalar(root, "ManifestType") != "version":
+            fail("Invalid WinGet version manifest type")
+        if manifest_scalar(installer, "ManifestType") != "installer":
+            fail("Invalid WinGet installer manifest type")
+        if manifest_scalar(locale, "ManifestType") != "defaultLocale":
+            fail("Invalid WinGet locale manifest type")
+        if manifest_scalar(installer, "InstallerType") != "zip":
+            fail("WinGet installer type must be zip")
+        if manifest_scalar(installer, "NestedInstallerType") != "portable":
+            fail("WinGet nested installer type must be portable")
+        if manifest_scalar(installer, "InstallerUrl") != expected_url:
+            fail("WinGet installer URL/version mismatch")
+        if manifest_scalar(installer, "InstallerSha256").casefold() != archive["hash"].casefold():
+            fail("WinGet/Scoop SHA-256 mismatch")
+        if manifest_scalar(installer, "RelativeFilePath") != "PenX/PenX.exe":
+            fail("WinGet portable executable path mismatch")
+        if manifest_scalar(installer, "PortableCommandAlias") != "penx":
+            fail("WinGet portable command alias mismatch")
         print(f"[OK] WinGet/Scoop drafts pin v{version} to one official ZIP and SHA-256")
-    except (AssertionError, ValueError, KeyError, OSError, TypeError, json.JSONDecodeError) as exc:
+    except (ValueError, KeyError, OSError, TypeError, json.JSONDecodeError) as exc:
         print(f"[FAIL] Package manifests: {exc}", file=sys.stderr)
         return 1
     return 0
