@@ -75,8 +75,9 @@ model-accuracy leaderboard in this slice.
 The **separate** `scripts/benchmark_local_ai.py` runner asks an explicitly
 configured **loopback-only** OpenAI-compatible endpoint to classify labelled
 synthetic observations. It reuses the offline scorer above, but sends the
-model **only** candidate IDs and synthetic evidence. Support labels and
-expected quotations are never included in requests. The original offline
+model **only** candidate IDs and synthetic evidence. The rubric's support
+flags and expected-quote *fields* are not sent; the original observed text
+necessarily contains the quoted substrings for positive cases. The original offline
 `benchmark_ai_assessment.py` remains completely network-free.
 
 ```powershell
