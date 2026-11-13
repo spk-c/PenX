@@ -19,6 +19,20 @@ the release from the project's official GitHub Release page. Verify its
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\collect_refactor_field_evidence.ps1 -InstallerPath "C:\Path\to\PenX-Setup-x64.exe"
 ```
 
+To compare the installer with a digest obtained from an **independently trusted**
+release source, supply the optional `-ExpectedInstallerSha256` argument. A
+mismatch fails **before creating the acceptance worksheet**. The collector
+rejects directories and reparse-point installer paths. An exact match is
+recorded as `MATCHED OPERATOR PIN; ORIGIN NOT AUTHENTICATED` and a missing pin as
+`NOT PROVIDED`. This is byte-identity checking, not Authenticode verification,
+proof of an independent release source, or human field sign-off.
+
+```powershell
+$trustedSha256 = "<independently-verified-64-hex-digest>"
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\collect_refactor_field_evidence.ps1 `
+  -InstallerPath "C:\Path\to\PenX-Setup-x64.exe" -ExpectedInstallerSha256 $trustedSha256
+```
+
 This **read-only collection step** records the installer SHA-256, project
 commit when Git is installed, local OS and Python version and writes a
 NOT-RUN worksheet to a new local `refactor-field-evidence` folder. It does
