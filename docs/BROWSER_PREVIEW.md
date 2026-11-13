@@ -34,7 +34,8 @@ failures, hashed target origin, and the following conservative status:
 - `COMPLETE`: bounded DOM collection finished for selected paths and pages;
   **not** vulnerability coverage.
 - `PARTIAL`: blocked outbound/unsafe requests, page failure, budget
-  exhaustion, or unvisited queued paths. This is not a clean result.
+  exhaustion, truncated link/form DOM inventories, or unvisited queued paths.
+  This is not a clean result.
 - `vulnerability_verified: false`, `vulnerability_scanning_performed: false`
   and `state: collected-not-assessed` are always retained.
 
