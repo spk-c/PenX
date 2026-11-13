@@ -124,6 +124,7 @@ class OpenApiOfflineMapTests(unittest.TestCase):
         mutations = [
             lambda v: v["paths"]["/public"]["get"].update(security=[{"BearerAuth": "secret"}]),
             lambda v: v["paths"]["/public"]["get"].update(security=["BearerAuth"]),
+            lambda v: v["paths"]["/public"]["get"].update(security=[{}, "not-object"]),
             lambda v: v["paths"]["/public"]["get"].update(parameters="bad"),
             lambda v: v["paths"]["/public"]["get"].update(deprecated="yes"),
             lambda v: v["paths"]["/public"].update(head=[]),
@@ -148,6 +149,18 @@ class OpenApiOfflineMapTests(unittest.TestCase):
         self.assertGreater(report["truncated_paths"], 0)
         self.assertTrue(all(row["source"] == "openapi-declaration-not-observed"
                             for row in report["endpoints"]))
+
+    def test_many_operations_still_mark_truncation(self):
+        fixture = spec()
+        fixture["paths"] = {
+            "/v1/item%03d" % n: {method: {} for method in (
+                "get", "head", "options", "post", "put", "patch", "delete", "trace")}
+            for n in range(220)}
+        report = mapped(fixture)
+        self.assertEqual(report["declared_operations"], 1760)
+        self.assertEqual(report["mapped_operations"], 150 * 8)
+        self.assertEqual(report["truncated_paths"], 70)
+        self.assertEqual(report["coverage"], "PARTIAL")
 
     def test_read_strict_json_limits_duplicates_nonfinite_and_link(self):
         with tempfile.TemporaryDirectory() as tmp:
