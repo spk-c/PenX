@@ -153,14 +153,21 @@ def build_contract_map(document: dict, *, source_sha256: str) -> dict:
     if not isinstance(server_declarations, list) or len(server_declarations) > 32:
         raise ValueError("Invalid servers list")
     root_security = document.get("security")
+    if "security" in document and root_security is None:
+        raise ValueError("Root security cannot be null")
     # Validate root auth even when every operation overrides it.
     _security(root_security, schemes)
 
     rows: list[dict] = []
+    canonical_templates: set[str] = set()
     unresolved_refs = invalid_extensions = 0
     operation_count = 0
     for path, value in sorted(paths.items()):
         path = _contract_path(path)
+        canonical = re.sub(r"\{[A-Za-z_][A-Za-z0-9_]{0,63}\}", "{}", path)
+        if canonical in canonical_templates:
+            raise ValueError("Ambiguous OpenAPI path templates")
+        canonical_templates.add(canonical)
         if not isinstance(value, dict):
             raise ValueError("Invalid OpenAPI path item")
         if "$ref" in value:
@@ -170,6 +177,8 @@ def build_contract_map(document: dict, *, source_sha256: str) -> dict:
                    and key not in METHOD_NAMES and not key.startswith("x-")]
         if unknown:
             invalid_extensions += len(unknown)
+        if "parameters" in value and value["parameters"] is None:
+            raise ValueError("Path-item parameters cannot be null")
         path_names, path_query, path_unresolved = _parameter_names(value.get("parameters"))
         for method in METHODS:
             operation = value.get(method)
@@ -183,6 +192,10 @@ def build_contract_map(document: dict, *, source_sha256: str) -> dict:
             deprecated = operation.get("deprecated", False)
             if type(deprecated) is not bool:
                 raise ValueError("Invalid deprecated flag")
+            if "parameters" in operation and operation["parameters"] is None:
+                raise ValueError("Operation parameters cannot be null")
+            if "security" in operation and operation["security"] is None:
+                raise ValueError("Operation security cannot be null")
             op_paths, op_query, op_unresolved = _parameter_names(operation.get("parameters"))
             all_query = sorted(path_query | op_query)
             all_path = sorted(path_names | op_paths)
