@@ -178,5 +178,9 @@ remain local drafts and require real lifecycle/data-preservation acceptance.
 
 Run `python scripts/validate_distributions.py` after updating a manifest; it verifies
 both manifests agree on version, official archive URL and pinned SHA-256.
-It performs no network downloads and uses explicit runtime validation (not Python `assert`),\nso the same consistency checks remain active under `python -O`. Synthetic\nnegative regression tests cover tampered archive URLs, missing persisted data\nand changed WinGet digests. These checks cannot prove Windows installation or\ndata retention. GitHub Actions checks offline regressions and dependency consistency,
+It performs no network downloads and uses explicit runtime validation (not Python `assert`),
+so the same consistency checks remain active under `python -O`. Synthetic
+negative regression tests cover tampered archive URLs, missing persisted data
+and changed WinGet digests. These checks cannot prove Windows installation or
+data retention. GitHub Actions checks offline regressions and dependency consistency,
 but **cannot replace native `winget validate` and install/upgrade testing on Windows**.
