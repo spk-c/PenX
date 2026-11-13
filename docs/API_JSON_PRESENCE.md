@@ -49,9 +49,9 @@ access. Deny + 2xx with HTML/login response contributes no protected
 JSON presence and makes coverage PARTIAL. Allow + 2xx without any selected
 field is counted separately as allow_role_expected_fields_missing.
 
-Only 2xx JSON responses are inspected transiently, max 16 KiB decoded
+Only full HTTP 200 JSON responses are inspected transiently, max 16 KiB decoded
 body per response, max 12 levels/200 nodes, 3 pointers/case.
-Denied 401/403 and redirects are never body-inspected. The existing cap
+Denied 401/403, partial content 206 and redirects are never body-inspected. The existing cap
 of 6 exact literal paths x 3 roles = 18 local GET requests, no redirects,
 no proxy and no DNS resolution is unchanged; no extra request is performed.
 JSON duplicate keys, invalid bytes, oversized or unreadable responses
