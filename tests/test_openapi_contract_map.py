@@ -6,6 +6,7 @@ from copy import deepcopy
 from hashlib import sha256
 from io import StringIO
 import json
+import os
 from pathlib import Path
 import tempfile
 import unittest
@@ -155,6 +156,54 @@ class OpenApiOfflineMapTests(unittest.TestCase):
             mutate(value)
             with self.subTest(mutate=str(mutate)), self.assertRaises(ValueError):
                 mapped(value)
+
+    def test_explicit_null_operation_is_not_an_absent_method(self):
+        for method in ("get", "head", "options", "post", "put", "patch", "delete", "trace"):
+            fixture = spec()
+            fixture["paths"]["/public"][method] = None
+            with self.subTest(method=method), self.assertRaises(ValueError):
+                mapped(fixture)
+        self.assertEqual(mapped()["coverage"], "COMPLETE")
+
+    def test_cli_null_operation_does_not_publish_complete_report(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            fixture = spec()
+            fixture["paths"]["/public"]["head"] = None
+            file = Path(tmp) / "contract.json"
+            file.write_text(json.dumps(fixture), encoding="utf-8")
+            output = Path(tmp) / "reports"
+            with redirect_stdout(StringIO()):
+                self.assertEqual(main(["--file", str(file), "--output", str(output)]), 2)
+            self.assertFalse(output.exists())
+
+    @unittest.skipUnless(hasattr(os, "mkfifo"), "POSIX FIFO support required")
+    def test_fifo_is_rejected_before_open(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            fifo = Path(tmp) / "contract.json"
+            os.mkfifo(fifo)
+            with patch("penx_app.analysis.openapi_contract_map.os.open") as opened:
+                with self.assertRaises(ValueError):
+                    read_local_contract(fifo)
+                opened.assert_not_called()
+
+    @unittest.skipUnless(hasattr(os, "mkfifo") and hasattr(os, "O_NONBLOCK"),
+                         "POSIX nonblocking FIFO support required")
+    def test_regular_file_replaced_by_fifo_during_open_is_rejected(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            file = Path(tmp) / "contract.json"
+            file.write_text(json.dumps(spec()), encoding="utf-8")
+            real_open = os.open
+
+            def swap_and_open(path, flags):
+                self.assertTrue(flags & os.O_NONBLOCK, "Opening a FIFO must not block")
+                file.unlink()
+                os.mkfifo(file)
+                return real_open(path, flags)
+
+            with patch("penx_app.analysis.openapi_contract_map.os.open",
+                       side_effect=swap_and_open):
+                with self.assertRaises(ValueError):
+                    read_local_contract(file)
 
     def test_large_contract_never_silently_claims_full_map(self):
         fixture = spec()
