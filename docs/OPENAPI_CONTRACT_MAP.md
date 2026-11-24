@@ -46,7 +46,10 @@ most 150 path templates and eight recognized method declarations per
 path. Parameter lists and path/name grammars are bounded; percent
 escapes, traversal segments, double slashes, query strings and URLs
 are rejected as path templates. Duplicate JSON keys, non-finite
-numbers, symlinks and unsupported OpenAPI versions are rejected.
+numbers, symlinks, non-regular files (including POSIX FIFOs), explicit null
+HTTP operations and unsupported OpenAPI versions are rejected. The file
+is checked before opening and revalidated by identity after opening;
+POSIX nonblocking open also prevents a FIFO replacement race from hanging.
 External or local references are never followed, and explicitly
 cause incomplete coverage.
 
