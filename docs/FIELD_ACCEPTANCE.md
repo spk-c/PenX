@@ -54,6 +54,26 @@ applicable field scenario **in this document or in a linked, reviewed evidence
 record** before claiming 100% completion. Automated checks alone cannot
 prove hardware, first-run UAC, actual backup recovery or visual PDF quality.
 
+### Windows 10 installer lifecycle, 2026-11-26
+
+The run used a Windows 10 x64 VMware guest (build 19045.6466) with an
+elevated SSH session and a cold snapshot. The published v0.6.1 installer
+matched SHA-256
+`a99922e88a3a3c83b12bf017b7bae3eba68c8313bd547d58087aa53c383e602a`.
+
+- A fresh per-user v0.6.1 install created the installed-mode marker and
+  the CLI reported 0.6.1.
+- Uninstall removed the CLI and retained a synthetic LocalAppData marker
+  byte for byte.
+- The published v0.6.0 installer was installed, then upgraded in the
+  same directory to v0.6.1. The CLI reported each expected version.
+- Renaming the installed v0.6.1 EXE and rerunning its installer restored
+  a working 0.6.1 EXE. The synthetic marker retained its original
+  SHA-256 through upgrade and repair.
+
+The historical v0.4.8 upgrade, standard-user UAC/Npcap behavior and
+independent reviewer sign-off are pending.
+
 ## Remaining field sign-off checklist
 
 - [ ] Approved Windows target: all 12 scanner choices, scope consent, missing
