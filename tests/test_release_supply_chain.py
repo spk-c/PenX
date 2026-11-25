@@ -138,6 +138,8 @@ class SbomGenerationTests(unittest.TestCase):
             self.assertNotIn("version", component)
             declared = {p["name"]: p["value"] for p in component["properties"]}
             self.assertIn("penx:declared", declared)
+            if component["name"].lower() == "pyinstaller":
+                self.assertRegex(declared["penx:declared"], r"^==\d+\.\d+\.\d+$")
 
     def test_sbom_has_no_nondeterministic_fields(self):
         document = self._document()

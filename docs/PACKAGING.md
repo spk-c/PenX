@@ -31,6 +31,13 @@ The manifest explicitly records `"signing": {"scheme": "none"}`: no
 Authenticode, sigstore, or other cryptographic signature is claimed.
 Verification is SHA-256 based against the manifest.
 
+`requirements-build.txt` pins the direct PyInstaller dependency. The SBOM
+records that pin as a declared build dependency. Build-time transitive
+dependencies and platform-specific wheels still require a separate hash lock
+for fully locked build inputs. Optional artifact attestations need separate
+verification against the actual release workflow and asset digests before
+being advertised alongside SHA-256 and the SBOM.
+
 To verify a downloaded release bundle offline, stage all published assets,
 both `SHA256SUMS*.txt` files, the manifest, and the SBOM in one directory
 (keeping the `linux-assets/` subfolder layout), then run:
