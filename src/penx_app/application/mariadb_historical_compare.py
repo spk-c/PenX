@@ -58,19 +58,23 @@ def _read_record(path: str | Path) -> tuple[dict, str]:
         if not stat.S_ISREG(info.st_mode) or not 0 < info.st_size <= MAX_RECORD_BYTES:
             raise ValueError("Evidence file size/type refused")
 
-        def identity(value: os.stat_result) -> tuple[int, int, int, int, int]:
-            return (value.st_dev, value.st_ino, value.st_size,
-                    value.st_mtime_ns, value.st_ctime_ns)
+        def identity(value: os.stat_result) -> tuple[int, int, int]:
+            return (value.st_dev, value.st_ino, value.st_size)
+
+        def version(value: os.stat_result) -> tuple[int, int, int, int, int]:
+            return (*identity(value), value.st_mtime_ns, value.st_ctime_ns)
 
         named = path.lstat()
-        if not stat.S_ISREG(named.st_mode) or identity(info) != identity(initial) or (
-                identity(info) != identity(named)):
+        # Windows fstat and lstat may report different timestamp semantics.
+        # Compare identity across APIs, timestamps only within the same API.
+        if (not stat.S_ISREG(named.st_mode) or identity(info) != identity(initial)
+                or version(initial) != version(named)):
             raise ValueError("Evidence changed while reading")
         with os.fdopen(fd, "rb", closefd=False) as handle:
             data = handle.read(MAX_RECORD_BYTES + 1)
         after, named = os.fstat(fd), path.lstat()
         if (len(data) != info.st_size or not stat.S_ISREG(named.st_mode)
-                or identity(info) != identity(after) or identity(info) != identity(named)):
+                or version(info) != version(after) or version(initial) != version(named)):
             raise ValueError("Evidence changed while reading")
     finally:
         os.close(fd)
