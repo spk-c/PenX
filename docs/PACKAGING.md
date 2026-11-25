@@ -84,9 +84,23 @@ retention on Windows before treating this package as production-ready. Do not us
 unless losing those files is intended. Avoid enabling automatic unattended WinGet upgrades
 until a separate user-data directory and migration strategy are tested.
 
+**Windows 10 VM result (2026-11-26):** WinGet v1.29.380 installed the
+0.6.0 draft and upgraded it to 0.6.1. Both payload hashes passed and
+the portable alias reported the expected versions. A synthetic file
+beside the EXE was absent after upgrade. A second file at that location
+was absent after `winget uninstall --manifest ... --preserve`, which
+reported successful removal. Both draft manifests validated with a
+warning about `Scope` on the portable installer type. Data retention
+failed for this configuration. Keep the WinGet manifest a draft.
+
 ## Scoop
 
 The checked-in `packaging/scoop/penx.json` is an installable **draft** manifest.
+On the same Windows 10 guest, Scoop v0.6.0 installed the 0.6.1 draft and
+verified its ZIP hash. A synthetic file under the portable `data`
+directory retained its SHA-256 after uninstall and reinstall. Scoop
+upgrade, downgrade and independent sign-off are pending.
+
 On Windows with Scoop installed, test it directly:
 ```powershell
 scoop install https://github.com/spk-c/PenX/raw/refs/heads/main/packaging/scoop/penx.json
