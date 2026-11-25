@@ -16,7 +16,13 @@ ROOT = Path(__file__).resolve().parents[1]
 WINGET_BASE = ROOT / "packaging" / "winget" / "manifests" / "s" / "SLP-DEV1" / "PenX"
 SCOOP_FILE = ROOT / "packaging" / "scoop" / "penx.json"
 ARCHIVE_NAME = "PenX-Windows-x64.zip"
-SHA_PATTERN = re.compile(r"[a-fA-F0-9]{64}\Z")
+INSTALLER_NAME = "PenX-Setup-x64.exe"
+INSTALLER_PINS = {
+    "0.6.1": "a99922e88a3a3c83b12bf017b7bae3eba68c8313bd547d58087aa53c383e602a",
+}
+ARCHIVE_PINS = {
+    "0.6.1": "5d37fbc3d50e524d8335cb9b3b8ca5c8191d4e6216fb574ba009f2454d626e44",
+}
 
 
 def fail(message: str) -> None:
@@ -41,8 +47,9 @@ def main() -> int:
         )
         if archive["url"] != expected_url:
             fail("Scoop archive URL/version mismatch")
-        if not SHA_PATTERN.fullmatch(archive["hash"]):
-            fail("Invalid Scoop archive SHA-256")
+        checksum = archive["hash"]
+        if not isinstance(checksum, str) or checksum.casefold() != ARCHIVE_PINS.get(version):
+            fail("Scoop archive SHA-256 mismatch")
         if ["PenX\\PenX.exe", "penx"] not in scoop["bin"]:
             fail("Missing Scoop command shim")
         if "PenX\\.env" not in scoop["persist"]:
@@ -74,19 +81,17 @@ def main() -> int:
             fail("Invalid WinGet installer manifest type")
         if manifest_scalar(locale, "ManifestType") != "defaultLocale":
             fail("Invalid WinGet locale manifest type")
-        if manifest_scalar(installer, "InstallerType") != "zip":
-            fail("WinGet installer type must be zip")
-        if manifest_scalar(installer, "NestedInstallerType") != "portable":
-            fail("WinGet nested installer type must be portable")
-        if manifest_scalar(installer, "InstallerUrl") != expected_url:
+        if manifest_scalar(installer, "InstallerType") != "inno":
+            fail("WinGet installer type must be inno")
+        if manifest_scalar(installer, "Scope") != "user":
+            fail("WinGet installer scope must be user")
+        if manifest_scalar(installer, "ProductCode") != "{FCF9D8F6-64E9-4783-8E7F-9106E194C841}_is1":
+            fail("WinGet installer product code mismatch")
+        if manifest_scalar(installer, "InstallerUrl") != expected_url.removesuffix(ARCHIVE_NAME) + INSTALLER_NAME:
             fail("WinGet installer URL/version mismatch")
-        if manifest_scalar(installer, "InstallerSha256").casefold() != archive["hash"].casefold():
-            fail("WinGet/Scoop SHA-256 mismatch")
-        if manifest_scalar(installer, "RelativeFilePath") != "PenX/PenX.exe":
-            fail("WinGet portable executable path mismatch")
-        if manifest_scalar(installer, "PortableCommandAlias") != "penx":
-            fail("WinGet portable command alias mismatch")
-        print(f"[OK] WinGet/Scoop drafts pin v{version} to one official ZIP and SHA-256")
+        if manifest_scalar(installer, "InstallerSha256").casefold() != INSTALLER_PINS.get(version):
+            fail("WinGet installer SHA-256 mismatch")
+        print(f"[OK] WinGet uses the pinned v{version} installer and Scoop uses the official ZIP")
     except (ValueError, KeyError, OSError, TypeError, json.JSONDecodeError) as exc:
         print(f"[FAIL] Package manifests: {exc}", file=sys.stderr)
         return 1

@@ -9,7 +9,7 @@
 | Linux Debian amd64 | `penx_0.6.1_amd64.deb` | `e5549c9fcbe46d5bcfbf8e40c18312c973512bcfcb78278af2842ba8b7c4a801` |
 | Linux portable x86-64 | `PenX-Linux-x86_64.tar.gz` | `1faab42155e1dc706d2723e5e9303e3664ac850680c07388ca6d21605c6453d0` |
 
-**Package-manager status:** Scoop and WinGet are **drafts** pinned to the released v0.6.1 ZIP and verified SHA-256; no community registry publication or unsupported upgrade promises. Independent Windows/Npcap/installer upgrades, real database recovery, visual reports and signed installer acceptance remain **NOT SIGNED OFF**.
+**Package-manager status:** Scoop and WinGet are **drafts** pinned to the released v0.6.1 ZIP and per-user installer respectively. Independent Windows/Npcap/installer upgrades, real database recovery, visual reports and signed installer acceptance remain **NOT SIGNED OFF**.
 
 The historical [v0.6.0 release](https://github.com/spk-c/PenX/releases/tag/v0.6.0) contains unpatched dependencies and is not the current security release. No package has been published to PyPI or npm.
 
@@ -55,23 +55,33 @@ the in-app updater is unaffected and still uses only the stable
 
 ## WinGet (community repository)
 
-1. Promote a **tested, stable** Windows release first; verify the ZIP includes `PenX/PenX.exe`.
+The WinGet draft uses the per-user Inno installer. Its binaries live under
+`%LOCALAPPDATA%\Programs\PenX` and its writable state lives under
+`%LOCALAPPDATA%\PenX`. WinGet upgrades and uninstalls operate on the
+installed application. Scoop continues to manage the portable ZIP.
+
+If you tested an earlier portable WinGet draft, close PenX and take a
+verified copy of its `.env`, `data`, `reports`, and `vendor` from beside
+`PenX.exe` into a directory outside WinGet's control before uninstalling.
+Confirm the backup includes any SQLite sidecars, and keep the backup until
+you have opened the installed application and verified your data. Restore
+only into a fresh data root with PenX closed. If that root already contains
+data, keep both copies and review them separately before restoring.
+For rollback, keep the backup and reinstall the previous Inno version
+after removing the current version. The previous portable draft should
+only be reproduced from an isolated snapshot for troubleshooting.
+
+1. Verify the Windows release installer digest before testing the manifest.
 2. Copy the three versioned manifest files under `packaging/winget/manifests/s/SLP-DEV1/PenX/<version>/`
    into a fork of [microsoft/winget-pkgs](https://github.com/microsoft/winget-pkgs), preserving the
    `manifests/s/SLP-DEV1/PenX/<version>/` directory structure.
 3. On **Windows**, run `winget validate --manifest <version-manifest-directory>`, and
    `winget install --manifest <version-manifest-directory>` after enabling local manifests.
-   Test `penx --version`, `penx --setup-status`, upgrades and uninstall.
+   Test `--version` and `--setup-status` on the installed `PenX.exe`, then
+   test upgrades and uninstall with synthetic user data.
 4. Submit **only** those three files for one version in a community-repository PR. The package will
    become searchable with `winget install SLP-DEV1.PenX` **only after Microsoft accepts it**.
    Security scanners may flag security tools; acceptance is not guaranteed.
-
-**Data caution:** PenX portable currently stores `.env`, `data/`, `reports/`, and downloaded
-`vendor/` files beside `PenX.exe`. WinGet has no Scoop-style `persist` declaration.
-**Back up those files before upgrading or uninstalling any WinGet installation.** Test upgrade
-retention on Windows before treating this package as production-ready. Do not use `--purge`
-unless losing those files is intended. Avoid enabling automatic unattended WinGet upgrades
-until a separate user-data directory and migration strategy are tested.
 
 ## Scoop
 
