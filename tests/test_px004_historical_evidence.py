@@ -168,14 +168,13 @@ class HistoricalComparisonTests(unittest.TestCase):
                 scratch_database="penx_restore_fixture",
             )
 
-
     @unittest.skipUnless(hasattr(os, "mkfifo"), "POSIX FIFO support required")
     def test_fifo_refused_before_open(self):
         self.scratch.unlink()
         os.mkfifo(self.scratch)
         with patch("penx_app.application.mariadb_historical_compare.os.open") as opened:
             with self.assertRaisesRegex(ValueError, "size/type refused"):
-                self.compare()
+                _read_record(self.scratch)
             opened.assert_not_called()
 
     @unittest.skipUnless(hasattr(os, "mkfifo") and hasattr(os, "O_NONBLOCK"),
