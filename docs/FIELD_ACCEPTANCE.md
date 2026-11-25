@@ -132,11 +132,24 @@ The run used a VMware guest with Kali 2026.3, x86_64 and kernel
   both reported 0.5.0.
 
 This run records Kali package lifecycle evidence for [PX-001 #187][issue187].
-Independent review, a clean-guest installation, the scanner matrix and
-report review are pending.
+Independent review, a clean-guest installation and the scanner matrix
+are pending.
 
 [v061]: https://github.com/spk-c/PenX/releases/tag/v0.6.1
 [issue187]: https://github.com/spk-c/PenX/issues/187
+
+### Long synthetic report rendering, 2026-11-25
+
+The source export at commit `82da919` on Windows used the existing
+1,000-row PX-003 fixture. All four outputs (PDF, HTML, JSON and SARIF)
+contained the same 990 retained finding identifiers. PDF text extraction
+found each identifier once and zero words beyond the page boxes across
+174 pages. The rendered cover, page 88 and final page had legible text
+and visible footers. Chrome rendered the HTML cover and summary at
+1280 × 900 with the same count and coverage indicators.
+
+The review used synthetic data and the source exporter. Published-binary
+rendering, full accessibility and independent human review are pending.
 
 ## Issue #81/#82 evidence worksheet validation
 
