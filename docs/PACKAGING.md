@@ -44,8 +44,10 @@ both `SHA256SUMS*.txt` files, the manifest, and the SBOM in one directory
 
 ```powershell
 python release_supply_chain.py verify-release <bundle-directory>
-# Optional pins:
-python release_supply_chain.py verify-release <bundle-directory> --expect-version 0.6.1 --expect-commit <40-hex-commit>
+# For the published v0.6.1 bundle from a newer checkout, use its own lockfile:
+$releaseCommit = '897c18811110dcef5d35eca08886c7d958afaa94'
+git show "${releaseCommit}:requirements.lock.txt" | Set-Content -Encoding utf8 -LiteralPath v0.6.1.requirements.lock.txt
+python release_supply_chain.py verify-release <bundle-directory> --expect-version 0.6.1 --expect-commit $releaseCommit --lockfile v0.6.1.requirements.lock.txt
 ```
 
 Exit code 0 means every check passed; 1 means at least one check failed;
@@ -53,7 +55,9 @@ Exit code 0 means every check passed; 1 means at least one check failed;
 asset, the manifest, the SBOM, and each SHA256SUMS file appear exactly once,
 that each SHA256SUMS file covers exactly its platform's assets, that the
 SBOM is valid CycloneDX 1.5, and that the SBOM's runtime inventory matches
-`requirements.lock.txt` (override with `--lockfile`). The same commands
+`requirements.lock.txt` from the release commit. By default the verifier
+reads the checkout's lockfile. Use `--lockfile` when it differs from the
+release version. The same commands
 `sbom` and `manifest` regenerate both documents locally.
 
 The release workflow generates and verifies the bundle before publishing;
