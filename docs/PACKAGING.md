@@ -71,6 +71,15 @@ For rollback, keep the backup and reinstall the previous Inno version
 after removing the current version. The previous portable draft should
 only be reproduced from an isolated snapshot for troubleshooting.
 
+On 26 November 2026, WinGet 1.29.380 on Windows 10 x64 build 19045.6466
+validated both local Inno drafts without warnings. It installed 0.6.0,
+upgraded to 0.6.1, removed 0.6.1, and reinstalled 0.6.0. The CLI
+reported each expected version and disappeared on uninstall. A synthetic
+file in `%LOCALAPPDATA%\PenX` retained the same SHA-256 at every step.
+The guest used an elevated SSH session with per-user install scope.
+The manual transition from the earlier portable draft and independent
+sign-off remain pending.
+
 1. Verify the Windows release installer digest before testing the manifest.
 2. Copy the three versioned manifest files under `packaging/winget/manifests/s/SLP-DEV1/PenX/<version>/`
    into a fork of [microsoft/winget-pkgs](https://github.com/microsoft/winget-pkgs), preserving the
