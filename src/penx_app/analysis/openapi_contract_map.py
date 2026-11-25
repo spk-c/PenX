@@ -33,16 +33,26 @@ SECURITY_TYPES = {"apiKey", "http", "oauth2", "openIdConnect", "mutualTLS"}
 def read_local_contract(file_path: str | Path) -> tuple[dict, str]:
     """Refuse symlink swaps and unbounded/duplicate/nonfinite JSON documents."""
     path = Path(file_path)
-    if path.is_symlink():
-        raise ValueError("OpenAPI input must be a regular file, not a link")
-    flags = os.O_RDONLY | getattr(os, "O_BINARY", 0) | getattr(os, "O_NOFOLLOW", 0)
-    with os.fdopen(os.open(path, flags), "rb") as stream:
-        opened, named = os.fstat(stream.fileno()), path.lstat()
+    initial = path.lstat()
+    if not stat.S_ISREG(initial.st_mode) or initial.st_size > MAX_FILE_BYTES:
+        raise ValueError("OpenAPI input must be an ordinary file at most 1 MiB")
+    # O_NONBLOCK prevents a regular-file-to-FIFO race from blocking open().
+    # O_NOFOLLOW and post-open identity checks reject link/replacement races.
+    flags = (os.O_RDONLY | getattr(os, "O_BINARY", 0)
+             | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_NONBLOCK", 0))
+    fd = os.open(path, flags)
+    try:
+        opened, named = os.fstat(fd), path.lstat()
+        identity = (opened.st_dev, opened.st_ino)
         if (not stat.S_ISREG(opened.st_mode) or not stat.S_ISREG(named.st_mode)
-                or (opened.st_dev, opened.st_ino) != (named.st_dev, named.st_ino)
+                or identity != (named.st_dev, named.st_ino)
+                or identity != (initial.st_dev, initial.st_ino)
                 or opened.st_size > MAX_FILE_BYTES):
-            raise ValueError("OpenAPI input must be an ordinary file at most 1 MiB")
-        raw = stream.read(MAX_FILE_BYTES + 1)
+            raise ValueError("OpenAPI input must be an unchanged ordinary file at most 1 MiB")
+        with os.fdopen(fd, "rb", closefd=False) as stream:
+            raw = stream.read(MAX_FILE_BYTES + 1)
+    finally:
+        os.close(fd)
     if len(raw) > MAX_FILE_BYTES:
         raise ValueError("OpenAPI input exceeds 1 MiB")
     try:
@@ -181,9 +191,9 @@ def build_contract_map(document: dict, *, source_sha256: str) -> dict:
             raise ValueError("Path-item parameters cannot be null")
         path_names, path_query, path_unresolved = _parameter_names(value.get("parameters"))
         for method in METHODS:
-            operation = value.get(method)
-            if operation is None:
+            if method not in value:
                 continue
+            operation = value[method]
             if not isinstance(operation, dict):
                 raise ValueError("Invalid OpenAPI operation")
             if "$ref" in operation:

@@ -13,7 +13,7 @@
 
 **Security:** v0.6.1 packages dnspython 2.9.2, certifi 2026.10.23 and Pillow 13.0.0 (source installs require Python 3.11–3.13). The historical [v0.6.0](https://github.com/spk-c/PenX/releases/tag/v0.6.0) downloads are **unpatched** and must not be presented as the security update.
 
-**Package-manager status:** versioned Scoop and WinGet manifests are **drafts**, not submissions to community registries. They pin the verified v0.6.1 Windows ZIP. No signed installer is claimed: the release manifest records `signing.scheme: none`.
+**Package-manager status:** versioned Scoop and WinGet manifests are **drafts**, not submissions to community registries. The current drafts pin the verified v0.6.1 Windows ZIP; the retained v0.6.0 WinGet draft is historical and must not be used as the security update. No signed installer is claimed: the release manifest records `signing.scheme: none`.
 
 **Field acceptance: NOT SIGNED OFF.** Real Windows/Npcap/UAC, production upgrades/rollback, database recovery and visual report audits are still independent gates. The 36-item roadmap [#123](https://github.com/spk-c/PenX/issues/123) was closed as an **administrative tracker**, not completed; see [ROADMAP.md](ROADMAP.md) for remaining milestones.
 
@@ -30,7 +30,7 @@
 | P1 | [FIELD_ACCEPTANCE.md](FIELD_ACCEPTANCE.md) | Operator evidence matrix, exact test build, results, rollback and reviewer sign-off; currently **NOT SIGNED OFF** |
 | P2 | Source/architecture cleanup | Compatibility facades inventoried via `scripts/import_inventory.py` and retired: the `llm`/`app_paths` shims were removed on 2026-10-31 and the `penx` module entrypoint is pinned public API until v1; Ruff W/B + mypy gates and the Python 3.13 compatibility matrix are in place |
 
-**Tracking:** Issues #187–#190 are new, focused follow-ups. The historical #81/#82/#123 tracking tickets are closed; their lack of operator sign-off has **not** been resolved by closing them.
+**Tracking:** Issues #187–#190 are open, focused follow-ups for outstanding acceptance. The historical #81/#82/#123 tracking tickets are closed; their lack of operator sign-off has **not** been resolved by closing them.
 
 **Scope:** Automated CI green means only tested code contracts passed. Real scanning, model availability, security coverage, historical database backups, human PDF inspection and physical installer behavior are not proven by synthetic mocks.
 
@@ -40,7 +40,11 @@
 - **CI:** Every pull request and `main` push runs Linux **and** Windows offline regression checks. `release/*` PRs additionally run the Windows packaged installer smoke tests; tagged releases run the dedicated Windows/Linux release pipeline. These automated checks are not independent hardware/field sign-off. Physical Windows/Npcap scanner and backup/recovery field acceptance remains manual and unsigned.
 - **Documentation:** `docs/REFACTOR_ACCEPTANCE.md` was intentionally deleted in [#79](https://github.com/spk-c/PenX/pull/79); [FIELD_ACCEPTANCE.md](FIELD_ACCEPTANCE.md) is now the single operator field acceptance checklist. Historical refactor, audit and release notes are available through Git history, merged pull requests and tagged [GitHub Releases](https://github.com/spk-c/PenX/releases), rather than duplicated in current public documentation.
 - **Branches:** The original 17 stale topic branches were removed on 22 October 2026. New temporary feature/release branches may appear while PRs are being reviewed. The [branch-prune helper](../scripts/prune_merged_github_branches.ps1) requires explicit `-Apply`, validates merged or ancestor status and live SHA, and leaves `main` untouched. GitHub's delete-ref API has no atomic SHA lease; avoid concurrent pushes during cleanup.
-- **Mirrors and packaging:** Optional `.gitlab-ci.yml` and GitLab release/triage scripts are retained for the mirror. Only the current WinGet draft is kept in the working tree; older manifest snapshots remain in Git history. Do not mistake manifests for public registry availability.
+- **Mirrors and packaging:** Optional `.gitlab-ci.yml` and GitLab release/triage scripts are retained for the mirror. The WinGet drafts for v0.6.0 and v0.6.1 are both retained in the working tree; v0.6.1 is the current supported security rebuild. Do not mistake manifests for public registry availability.
+
+## Dependency-review prerequisite
+
+The hash-locked Python vulnerability audit runs independently of PR dependency review. The latter remains conditional on GitHub Dependency Graph support and the repository variable `PENX_DEP_GRAPH_READY=true`. A maintainer must enable and verify those settings before marking the dependency-review gate operational. Do not set the variable merely to suppress the warning, and do not disable the existing audit. Track independent validation in [#190](https://github.com/spk-c/PenX/issues/190).
 
 ## Next release checklist
 
