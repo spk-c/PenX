@@ -103,7 +103,7 @@ without complete provenance). Running the Kali loopback suite
 it must pass on a disposable Kali VM against loopback fixtures before any row
 is marked `PASS`.
 
-### Published v0.6.1 Debian upgrade and rollback, 2026-11-25
+### Published v0.6.1 Debian package lifecycle, 2026-11-25
 
 The run used a VMware guest with Kali 2026.3, x86_64 and kernel
 `7.1.5+kali-amd64`. Both [published Linux assets][v061] matched
@@ -123,13 +123,17 @@ The run used a VMware guest with Kali 2026.3, x86_64 and kernel
 - A synthetic XDG `.env` and SQLite fixture retained both SHA-256 values.
   The `.env` retained mode `0600`. SQLite returned `ok` from
   `PRAGMA integrity_check` and the expected fixture row.
+- In a separate pass, `dpkg -r penx` removed 0.6.1 and its CLI entry
+  point. Both synthetic files still matched their hashes immediately
+  after removal. Reinstalling the same verified package restored the
+  CLI and preserved the hashes, file mode and SQLite integrity.
 - The rollback used a VMware snapshot taken with the guest shut down.
   After restoring and booting, `dpkg-query -W penx` and `penx --version`
   both reported 0.5.0.
 
-This run records the Kali upgrade and rollback evidence for [PX-001 #187][issue187].
-Independent review is pending. Fresh installation, uninstallation, the
-scanner matrix and report review were outside this run.
+This run records Kali package lifecycle evidence for [PX-001 #187][issue187].
+Independent review, a clean-guest installation, the scanner matrix and
+report review are pending.
 
 [v061]: https://github.com/spk-c/PenX/releases/tag/v0.6.1
 [issue187]: https://github.com/spk-c/PenX/issues/187
