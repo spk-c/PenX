@@ -44,7 +44,7 @@
 
 ## Dependency-review prerequisite
 
-The hash-locked Python vulnerability audit runs independently of PR dependency review. The latter remains conditional on GitHub Dependency Graph support and the repository variable `PENX_DEP_GRAPH_READY=true`. A maintainer must enable and verify those settings before marking the dependency-review gate operational. Do not set the variable merely to suppress the warning, and do not disable the existing audit. Track independent validation in [#190](https://github.com/spk-c/PenX/issues/190).
+The hash-locked Python vulnerability audit runs independently of PR dependency review. The latter remains conditional on GitHub Dependency Graph support and the repository variable `PENX_DEP_GRAPH_READY=true`. Verified on 25 November 2026: the [Dependency Graph update](https://github.com/spk-c/PenX/actions/runs/45349203253) succeeded and the [Dependency changes policy job](https://github.com/spk-c/PenX/actions/runs/45349009594/job/138418435049) executed the pinned dependency-review action with a high-severity threshold and passed. This confirms the gate operated for PR #205, not that every future run will execute it. Keep the independent audit active and monitor future runs. Signing and package lifecycle acceptance remain open in [#190](https://github.com/spk-c/PenX/issues/190).
 
 ## Next release checklist
 
