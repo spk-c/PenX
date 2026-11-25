@@ -6,12 +6,14 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
 
 from penx_app.application.mariadb_historical_compare import (
-    SCHEMA, MAX_RECORD_BYTES, compare_historical_evidence,
+    SCHEMA, MAX_RECORD_BYTES, compare_historical_evidence, _read_record,
 )
 
 H = lambda value: hashlib.sha256(value.encode("ascii")).hexdigest()
@@ -165,6 +167,52 @@ class HistoricalComparisonTests(unittest.TestCase):
                 source_database="penx_ci_test",
                 scratch_database="penx_restore_fixture",
             )
+
+
+    @unittest.skipUnless(hasattr(os, "mkfifo"), "POSIX FIFO support required")
+    def test_fifo_refused_before_open(self):
+        self.scratch.unlink()
+        os.mkfifo(self.scratch)
+        with patch("penx_app.application.mariadb_historical_compare.os.open") as opened:
+            with self.assertRaisesRegex(ValueError, "size/type refused"):
+                self.compare()
+            opened.assert_not_called()
+
+    @unittest.skipUnless(hasattr(os, "mkfifo") and hasattr(os, "O_NONBLOCK"),
+                         "POSIX nonblocking FIFO support required")
+    def test_fifo_replacement_race_refused_and_descriptor_closed(self):
+        real_open = os.open
+        descriptors = []
+
+        def swap(path, flags):
+            self.assertTrue(flags & os.O_NONBLOCK)
+            self.scratch.unlink()
+            os.mkfifo(self.scratch)
+            fd = real_open(path, flags)
+            descriptors.append(fd)
+            return fd
+
+        with patch("penx_app.application.mariadb_historical_compare.os.open",
+                   side_effect=swap):
+            with self.assertRaises(ValueError):
+                _read_record(self.scratch)
+        self.assertEqual(len(descriptors), 1)
+        with self.assertRaises(OSError):
+            os.fstat(descriptors[0])
+
+    def test_same_size_regular_replacement_refused(self):
+        real_open = os.open
+        replacement = self.folder / "replacement.json"
+        replacement.write_bytes(self.scratch.read_bytes())
+
+        def swap(path, flags):
+            os.replace(replacement, self.scratch)
+            return real_open(path, flags)
+
+        with patch("penx_app.application.mariadb_historical_compare.os.open",
+                   side_effect=swap):
+            with self.assertRaisesRegex(ValueError, "changed while reading"):
+                _read_record(self.scratch)
 
 
 if __name__ == "__main__":
