@@ -44,16 +44,36 @@ def _sha256(value: object) -> bool:
 def _read_record(path: str | Path) -> tuple[dict, str]:
     """Bound reads and refuse symlinks; never access database or dump bytes."""
     path = Path(path)
-    if path.is_symlink():
+    initial = path.lstat()
+    if stat.S_ISLNK(initial.st_mode):
         raise ValueError("Evidence symlink refused")
-    flags = os.O_RDONLY | getattr(os, "O_BINARY", 0) | getattr(os, "O_NOFOLLOW", 0)
-    with os.fdopen(os.open(path, flags), "rb") as handle:
-        info = os.fstat(handle.fileno())
+    if not stat.S_ISREG(initial.st_mode) or not 0 < initial.st_size <= MAX_RECORD_BYTES:
+        raise ValueError("Evidence file size/type refused")
+    # Reject a regular-file-to-FIFO replacement without blocking on POSIX.
+    flags = (os.O_RDONLY | getattr(os, "O_BINARY", 0)
+             | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_NONBLOCK", 0))
+    fd = os.open(path, flags)
+    try:
+        info = os.fstat(fd)
         if not stat.S_ISREG(info.st_mode) or not 0 < info.st_size <= MAX_RECORD_BYTES:
             raise ValueError("Evidence file size/type refused")
-        data = handle.read(MAX_RECORD_BYTES + 1)
-        if len(data) != info.st_size or path.is_symlink():
+
+        def identity(value: os.stat_result) -> tuple[int, int, int, int, int]:
+            return (value.st_dev, value.st_ino, value.st_size,
+                    value.st_mtime_ns, value.st_ctime_ns)
+
+        named = path.lstat()
+        if not stat.S_ISREG(named.st_mode) or identity(info) != identity(initial) or (
+                identity(info) != identity(named)):
             raise ValueError("Evidence changed while reading")
+        with os.fdopen(fd, "rb", closefd=False) as handle:
+            data = handle.read(MAX_RECORD_BYTES + 1)
+        after, named = os.fstat(fd), path.lstat()
+        if (len(data) != info.st_size or not stat.S_ISREG(named.st_mode)
+                or identity(info) != identity(after) or identity(info) != identity(named)):
+            raise ValueError("Evidence changed while reading")
+    finally:
+        os.close(fd)
     digest = hashlib.sha256(data).hexdigest()
     try:
         record = json.loads(data.decode("utf-8"), object_pairs_hook=_strict_object,
