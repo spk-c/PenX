@@ -168,10 +168,12 @@ immutable artifact storage for adversarial scenarios.
 The automated Windows regression suite uses *unsigned synthetic fixtures*
 to prove invalid signatures, invalid hashes and non-EXE files fail closed.
 It does **not** claim a production certificate-chain positive test.
-The currently gated PR dependency-review step additionally needs the GitHub
-Dependency Graph prerequisite and `PENX_DEP_GRAPH_READY=true`; until those
-settings are independently checked, its skipped check must remain visible
-and the independent pip-audit/Gitleaks checks remain active. WinGet/Scoop
+The PR dependency-review step requires GitHub Dependency Graph and
+`PENX_DEP_GRAPH_READY=true`. On 25 November 2026, the [Dependency Graph
+update](https://github.com/spk-c/PenX/actions/runs/45349203253) and the
+[Dependency changes policy job](https://github.com/spk-c/PenX/actions/runs/45349009594/job/138418435049)
+were verified successful; the pinned dependency-review action actually ran.
+Continue to monitor skipped checks and keep pip-audit/Gitleaks active. WinGet/Scoop
 remain local drafts and require real lifecycle/data-preservation acceptance.
 
 ## Maintenance checks
