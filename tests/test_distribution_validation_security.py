@@ -83,6 +83,31 @@ class DistributionValidationSecurityTests(unittest.TestCase):
         self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
         self.assertIn("WinGet installer SHA-256 mismatch", result.stderr)
 
+    def test_optimized_python_rejects_changed_historical_winget_hash(self):
+        historical = self.winget_path.parent.parent / "0.6.0" / self.winget_path.name
+        content = historical.read_text(encoding="utf-8")
+        tampered = content.replace(
+            "2560CDC2B0FF239F148DA1508F07243AF907C90FBC7516E3395C7F5BCAD03F5F",
+            "0" * 64,
+        )
+        self.assertNotEqual(tampered, content)
+        historical.write_text(tampered, encoding="utf-8")
+        result = self.check(optimized=True)
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        self.assertIn("WinGet installer SHA-256 mismatch", result.stderr)
+
+    def test_optimized_python_rejects_missing_historical_winget_folder(self):
+        shutil.rmtree(self.winget_path.parent.parent / "0.6.0")
+        result = self.check(optimized=True)
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        self.assertIn("WinGet version folders", result.stderr)
+
+    def test_optimized_python_rejects_unpinned_winget_folder(self):
+        shutil.copytree(self.winget_path.parent, self.winget_path.parent.parent / "9.9.9")
+        result = self.check(optimized=True)
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        self.assertIn("WinGet version folders", result.stderr)
+
     def test_optimized_python_rejects_portable_winget_installer(self):
         content = self.winget_path.read_text(encoding="utf-8")
         content = content.replace("InstallerType: inno", "InstallerType: portable")
