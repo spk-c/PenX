@@ -60,6 +60,9 @@ tool-menu keys, including previously omitted WHOIS. The offline
 `TOOLS_MENU` key to be either reviewed-safe or explicitly blocked,
 verify that all blocked/mixed scanner plans fail before any project scope
 lookup, network access or subprocess, and do not run scanner binaries.
+The headless CLI dry-run test also requires exit code 2 and the scope
+error for each blocked adapter before any database connection, preflight
+version probe or scanner dispatch.
 
 Existing `tests/test_project_dispatch.py` covers granted safe adapters,
 repeated approval checks, revocation, port restrictions, mocked HTTP

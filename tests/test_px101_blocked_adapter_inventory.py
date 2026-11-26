@@ -5,9 +5,12 @@ cover every tool-menu key when a new scanner is added.
 """
 from __future__ import annotations
 
+from contextlib import redirect_stdout
+from io import StringIO
 from unittest import TestCase, main
 from unittest.mock import Mock, patch
 
+from penx_app.application.headless_scan import main as scan_main
 from penx_app.application.project_dispatch import (
     PROJECT_REVIEW_REQUIRED_SCANNERS,
     PROJECT_SAFE_SCANNERS,
@@ -64,6 +67,28 @@ class ProjectAdapterReviewGates(TestCase):
                 ProjectDispatchPolicy("synthetic-project", project).prepare(plan)
         project.scope.assert_not_called()
         process.assert_not_called()
+
+    def test_cli_dry_run_refuses_every_blocked_adapter_before_preflight(self):
+        for key in sorted(PROJECT_REVIEW_REQUIRED_SCANNERS):
+            with self.subTest(scanner=key):
+                connection = Mock()
+                with (
+                    patch("penx_app.application.headless_scan.build_preflight") as preflight,
+                    patch("penx_app.application.headless_scan.run_plan") as run,
+                    redirect_stdout(StringIO()) as output,
+                ):
+                    result = scan_main([
+                        "--target", "127.0.0.1", "--project", "synthetic-project",
+                        "--scanners", key, "--dry-run", "--authorized", "--consent",
+                    ], connection_factory=connection)
+                self.assertEqual(result, 2)
+                self.assertIn(
+                    f"Project scan blocks scanners without verified scope containment: {key}",
+                    output.getvalue(),
+                )
+                connection.assert_not_called()
+                preflight.assert_not_called()
+                run.assert_not_called()
 
 
 if __name__ == "__main__":
