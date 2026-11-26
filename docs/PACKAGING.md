@@ -31,14 +31,23 @@ The manifest explicitly records `"signing": {"scheme": "none"}`: no
 Authenticode, sigstore, or other cryptographic signature is claimed.
 Verification is SHA-256 based against the manifest.
 
+`requirements-build.txt` pins the direct PyInstaller dependency. The SBOM
+records that pin as a declared build dependency. Build-time transitive
+dependencies and platform-specific wheels still require a separate hash lock
+for fully locked build inputs. Optional artifact attestations need separate
+verification against the actual release workflow and asset digests before
+being advertised alongside SHA-256 and the SBOM.
+
 To verify a downloaded release bundle offline, stage all published assets,
 both `SHA256SUMS*.txt` files, the manifest, and the SBOM in one directory
 (keeping the `linux-assets/` subfolder layout), then run:
 
 ```powershell
 python release_supply_chain.py verify-release <bundle-directory>
-# Optional pins:
-python release_supply_chain.py verify-release <bundle-directory> --expect-version 0.6.1 --expect-commit <40-hex-commit>
+# For the published v0.6.1 bundle from a newer checkout, use its own lockfile:
+$releaseCommit = '897c18811110dcef5d35eca08886c7d958afaa94'
+git show "${releaseCommit}:requirements.lock.txt" | Set-Content -Encoding utf8 -LiteralPath v0.6.1.requirements.lock.txt
+python release_supply_chain.py verify-release <bundle-directory> --expect-version 0.6.1 --expect-commit $releaseCommit --lockfile v0.6.1.requirements.lock.txt
 ```
 
 Exit code 0 means every check passed; 1 means at least one check failed;
@@ -46,7 +55,9 @@ Exit code 0 means every check passed; 1 means at least one check failed;
 asset, the manifest, the SBOM, and each SHA256SUMS file appear exactly once,
 that each SHA256SUMS file covers exactly its platform's assets, that the
 SBOM is valid CycloneDX 1.5, and that the SBOM's runtime inventory matches
-`requirements.lock.txt` (override with `--lockfile`). The same commands
+`requirements.lock.txt` from the release commit. By default the verifier
+reads the checkout's lockfile. Use `--lockfile` when it differs from the
+release version. The same commands
 `sbom` and `manifest` regenerate both documents locally.
 
 The release workflow generates and verifies the bundle before publishing;
@@ -73,9 +84,23 @@ retention on Windows before treating this package as production-ready. Do not us
 unless losing those files is intended. Avoid enabling automatic unattended WinGet upgrades
 until a separate user-data directory and migration strategy are tested.
 
+**Windows 10 VM result (2026-11-26):** WinGet v1.29.380 installed the
+0.6.0 draft and upgraded it to 0.6.1. Both payload hashes passed and
+the portable alias reported the expected versions. A synthetic file
+beside the EXE was absent after upgrade. A second file at that location
+was absent after `winget uninstall --manifest ... --preserve`, which
+reported successful removal. Both draft manifests validated with a
+warning about `Scope` on the portable installer type. Data retention
+failed for this configuration. Keep the WinGet manifest a draft.
+
 ## Scoop
 
 The checked-in `packaging/scoop/penx.json` is an installable **draft** manifest.
+On the same Windows 10 guest, Scoop v0.6.0 installed the 0.6.1 draft and
+verified its ZIP hash. A synthetic file under the portable `data`
+directory retained its SHA-256 after uninstall and reinstall. Scoop
+upgrade, downgrade and independent sign-off are pending.
+
 On Windows with Scoop installed, test it directly:
 ```powershell
 scoop install https://github.com/spk-c/PenX/raw/refs/heads/main/packaging/scoop/penx.json
