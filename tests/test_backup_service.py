@@ -265,6 +265,65 @@ class VerifyBackupTests(BackupFixture):
         self.assertTrue(report["valid"], report["reasons"])
         self.assertIn(report["db"], (str(first), str(second)))
 
+    def test_stat_failure_on_backup_path_is_invalid_not_raised(self):
+        source = self.source_dir / "penx.db"
+        self.make_current(source)
+        db, _ = self.create_and_verify(source)
+        real_stat = Path.stat
+
+        def selective_stat(self, *args, **kwargs):
+            if self == db:
+                raise OSError(13, "Permission denied")
+            return real_stat(self, *args, **kwargs)
+
+        with patch.object(Path, "stat", new=selective_stat):
+            report = backup_store.verify_backup(db)
+        self.assertFalse(report["valid"])
+        self.assertIn("backup unreadable", "; ".join(report["reasons"]))
+
+    def test_stat_failure_on_manifest_is_invalid_not_raised(self):
+        source = self.source_dir / "penx.db"
+        self.make_current(source)
+        db, _ = self.create_and_verify(source)
+        manifest = db.with_suffix(".json")
+        real_stat = Path.stat
+
+        def selective_stat(self, *args, **kwargs):
+            if self == manifest:
+                raise OSError(13, "Permission denied")
+            return real_stat(self, *args, **kwargs)
+
+        with patch.object(Path, "stat", new=selective_stat):
+            report = backup_store.verify_backup(db)
+        self.assertFalse(report["valid"])
+        self.assertIn("manifest unreadable", "; ".join(report["reasons"]))
+
+    def test_is_file_failure_on_database_is_invalid_not_raised(self):
+        source = self.source_dir / "penx.db"
+        self.make_current(source)
+        db, _ = self.create_and_verify(source)
+        real_is_file = Path.is_file
+
+        def selective_is_file(self, *args, **kwargs):
+            if self == db:
+                raise OSError(13, "Permission denied")
+            return real_is_file(self, *args, **kwargs)
+
+        with patch.object(Path, "is_file", new=selective_is_file):
+            report = backup_store.verify_backup(db)
+        self.assertFalse(report["valid"])
+        self.assertIn("database unreadable", "; ".join(report["reasons"]))
+
+    def test_sha256_failure_on_database_is_invalid_not_raised(self):
+        source = self.source_dir / "penx.db"
+        self.make_current(source)
+        db, _ = self.create_and_verify(source)
+        with patch.object(backup_store, "_sha256",
+                          side_effect=OSError(13, "Permission denied")):
+            report = backup_store.verify_backup(db)
+        self.assertFalse(report["valid"])
+        self.assertIn("database unreadable", "; ".join(report["reasons"]))
+
 
 class PreviewTests(BackupFixture):
     def test_current_backup_needs_no_migration(self):
