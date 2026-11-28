@@ -4,7 +4,7 @@ Synthetic, local filesystem fixtures only: no installs, network or publication.
 
 Each check branch in scripts/validate_distributions.py has a dedicated negative
 fixture: tampering with any archive URL, hash, package ID/version, manifest type,
-installer kind, or portable path/alias must be rejected with a specific message.
+installer kind, scope, or product code must be rejected with a specific message.
 """
 from __future__ import annotations
 
@@ -88,16 +88,57 @@ class DistributionValidationSecurityTests(unittest.TestCase):
         self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
         self.assertIn("persist scan database", result.stderr)
 
+    def test_optimized_python_rejects_changed_scoop_hash(self):
+        manifest = json.loads(self.scoop_path.read_text(encoding="utf-8"))
+        manifest["architecture"]["64bit"]["hash"] = "0" * 64
+        self.scoop_path.write_text(json.dumps(manifest), encoding="utf-8")
+        result = self.check(optimized=True)
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        self.assertIn("Scoop archive SHA-256 mismatch", result.stderr)
+
     def test_optimized_python_rejects_changed_winget_hash(self):
         content = self.winget_path.read_text(encoding="utf-8")
         content = content.replace(
-            "5D37FBC3D50E524D8335CB9B3B8CA5C8191D4E6216FB574BA009F2454D626E44",
+            "A99922E88A3A3C83B12BF017B7BAE3EBA68C8313BD547D58087AA53C383E602A",
             "0" * 64,
         )
         self.winget_path.write_text(content, encoding="utf-8")
         result = self.check(optimized=True)
         self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
-        self.assertIn("WinGet/Scoop SHA-256 mismatch", result.stderr)
+        self.assertIn("WinGet installer SHA-256 mismatch", result.stderr)
+
+    def test_optimized_python_rejects_changed_historical_winget_hash(self):
+        historical = self.winget_path.parent.parent / "0.6.0" / self.winget_path.name
+        content = historical.read_text(encoding="utf-8")
+        tampered = content.replace(
+            "2560CDC2B0FF239F148DA1508F07243AF907C90FBC7516E3395C7F5BCAD03F5F",
+            "0" * 64,
+        )
+        self.assertNotEqual(tampered, content)
+        historical.write_text(tampered, encoding="utf-8")
+        result = self.check(optimized=True)
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        self.assertIn("WinGet installer SHA-256 mismatch", result.stderr)
+
+    def test_optimized_python_rejects_missing_historical_winget_folder(self):
+        shutil.rmtree(self.winget_path.parent.parent / "0.6.0")
+        result = self.check(optimized=True)
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        self.assertIn("WinGet version folders", result.stderr)
+
+    def test_optimized_python_rejects_unpinned_winget_folder(self):
+        shutil.copytree(self.winget_path.parent, self.winget_path.parent.parent / "9.9.9")
+        result = self.check(optimized=True)
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        self.assertIn("WinGet version folders", result.stderr)
+
+    def test_optimized_python_rejects_portable_winget_installer(self):
+        content = self.winget_path.read_text(encoding="utf-8")
+        content = content.replace("InstallerType: inno", "InstallerType: portable")
+        self.winget_path.write_text(content, encoding="utf-8")
+        result = self.check(optimized=True)
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        self.assertIn("WinGet installer type must be inno", result.stderr)
 
     def test_optimized_python_rejects_invalid_scoop_sha256(self):
         manifest = self._scoop()
@@ -105,7 +146,7 @@ class DistributionValidationSecurityTests(unittest.TestCase):
         self._write_scoop(manifest)
         result = self.check(optimized=True)
         self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
-        self.assertIn("Invalid Scoop archive SHA-256", result.stderr)
+        self.assertIn("Scoop archive SHA-256 mismatch", result.stderr)
 
     def test_optimized_python_rejects_missing_scoop_command_shim(self):
         manifest = self._scoop()
@@ -135,7 +176,7 @@ class DistributionValidationSecurityTests(unittest.TestCase):
         shutil.rmtree(self.winget_version_dir)
         result = self.check(optimized=True)
         self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
-        self.assertIn("Missing WinGet version folder", result.stderr)
+        self.assertIn("WinGet version folders", result.stderr)
 
     def test_optimized_python_rejects_missing_winget_manifest_file(self):
         self.winget_root_path.unlink()
@@ -196,52 +237,42 @@ class DistributionValidationSecurityTests(unittest.TestCase):
     def test_optimized_python_rejects_wrong_installer_type(self):
         self._patch_winget(
             self.winget_path,
-            "InstallerType: zip",
+            "InstallerType: inno",
             "InstallerType: msi",
         )
         result = self.check(optimized=True)
         self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
-        self.assertIn("WinGet installer type must be zip", result.stderr)
+        self.assertIn("WinGet installer type must be inno", result.stderr)
 
-    def test_optimized_python_rejects_wrong_nested_installer_type(self):
+    def test_optimized_python_rejects_wrong_installer_scope(self):
         self._patch_winget(
             self.winget_path,
-            "NestedInstallerType: portable",
-            "NestedInstallerType: fixed",
+            "Scope: user",
+            "Scope: machine",
         )
         result = self.check(optimized=True)
         self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
-        self.assertIn("WinGet nested installer type must be portable", result.stderr)
+        self.assertIn("WinGet installer scope must be user", result.stderr)
 
     def test_optimized_python_rejects_wrong_installer_url(self):
         self._patch_winget(
             self.winget_path,
-            "InstallerUrl: https://github.com/spk-c/PenX/releases/download/v0.6.1/PenX-Windows-x64.zip",
+            "InstallerUrl: https://github.com/spk-c/PenX/releases/download/v0.6.1/PenX-Setup-x64.exe",
             "InstallerUrl: https://example.invalid/untrusted-penx.zip",
         )
         result = self.check(optimized=True)
         self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
         self.assertIn("WinGet installer URL/version mismatch", result.stderr)
 
-    def test_optimized_python_rejects_wrong_relative_file_path(self):
+    def test_optimized_python_rejects_wrong_product_code(self):
         self._patch_winget(
             self.winget_path,
-            "RelativeFilePath: PenX/PenX.exe",
-            "RelativeFilePath: PenX/other.exe",
+            "ProductCode: '{FCF9D8F6-64E9-4783-8E7F-9106E194C841}_is1'",
+            "ProductCode: wrong",
         )
         result = self.check(optimized=True)
         self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
-        self.assertIn("WinGet portable executable path mismatch", result.stderr)
-
-    def test_optimized_python_rejects_wrong_portable_command_alias(self):
-        self._patch_winget(
-            self.winget_path,
-            "PortableCommandAlias: penx",
-            "PortableCommandAlias: pen",
-        )
-        result = self.check(optimized=True)
-        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
-        self.assertIn("WinGet portable command alias mismatch", result.stderr)
+        self.assertIn("WinGet installer product code mismatch", result.stderr)
 
 
 if __name__ == "__main__":
