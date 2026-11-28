@@ -95,7 +95,8 @@ def _bound_posture_values(texts, max_records: int = _POSTURE_MAX_RECORDS,
 
     Returns (values, omitted, truncated).
     """
-    values, omitted, truncated = [], 0, 0
+    values: list[str] = []
+    omitted, truncated = 0, 0
     for text in texts:
         if len(values) >= max_records:
             omitted += 1
