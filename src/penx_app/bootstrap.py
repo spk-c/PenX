@@ -20,6 +20,7 @@ USAGE = ('[--help | --version | --check | --setup-status | --setup | '
          'evidence verify (--metadata FILE | --session ID --sqlite-db FILE | --session ID --mariadb-host LOOPBACK --mariadb-db DB --mariadb-user USER) --artifacts DIR | '
            'history list --sqlite-db FILE [--limit N] [--before-id ID] [--target EXACT] [--show-target] | '
            'sbom <inspect|compare-osv> --file PATH [--osv-file LOCAL.json] | '
+           'config lint --file PATH | '
            'project <create|add|list|check|preview> | '
            'backup <create|verify|preview|restore|mariadb-create|mariadb-verify|mariadb-verify-pinned|mariadb-preview|mariadb-dump-inspect|mariadb-restore-plan|mariadb-restore-preflight|mariadb-restore-audit> ...]')
 
@@ -117,6 +118,9 @@ def main() -> int:
         if command == 'sbom':
             from penx_app.application.sbom_inspection import main as sbom_main
             return sbom_main(args[1:])
+        if command == 'config':
+            from penx_app.application.local_config_cli import main as config_main
+            return config_main(args[1:])
         if command == 'project':
             from penx_app.application.project_service import main as project_main
             return project_main(args[1:])
