@@ -286,7 +286,7 @@ def dns_email_posture(host: str, *, resolver=None, dkim_selectors=()) -> dict:
         try:
             import dns.resolver
         except ImportError:
-            raise ValueError("dnspython is required for DNS posture analysis.")
+            raise ValueError("dnspython is required for DNS posture analysis.") from None
         resolver = dns.resolver.resolve
     diagnostics: list = []
     records = {
