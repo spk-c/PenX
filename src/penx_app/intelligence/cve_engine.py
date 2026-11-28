@@ -15,6 +15,7 @@ from email.utils import parsedate_to_datetime
 from datetime import datetime, timezone
 from functools import lru_cache
 from collections.abc import Callable
+from penx_app.intelligence import nvd_disk_cache
 from penx_app.intelligence.nvd_disk_cache import load as load_nvd_cache, store as store_nvd_cache
 
 import time
@@ -367,6 +368,12 @@ def nvd_candidates(product: Product, *, api_key: str = "",
                    else _fetch_nvd(product.cpe, api_key, http_get=http_get))
     except (requests.RequestException, ValueError, KeyError, TypeError):
         return [], "NVD unavailable for " + product.cpe
+    # Report whether the NVD data came from the bounded disk cache (fresh) or a
+    # live fetch; an expired cache entry is never used to assert current status.
+    freshness = nvd_disk_cache.freshness(product.cpe) if http_get is None else None
+    source_freshness = (f"NVD cache fresh ({freshness['age_seconds']}s old, "
+                        f"{freshness['ttl_seconds']}s TTL)" if freshness
+                        else "NVD live fetch (no fresh cached source)")
     candidates = []
     malformed = False
     for item in results:
@@ -402,6 +409,7 @@ def nvd_candidates(product: Product, *, api_key: str = "",
             "product": product.label, "version": product.version,
             "port": product.port, "evidence": product.evidence,
             "url": "https://nvd.nist.gov/vuln/detail/" + identifier,
+            "source_freshness": source_freshness,
             "vendor_advisories": refs,
             **metrics,
         })
@@ -534,6 +542,36 @@ def github_candidates(package: Package, *, token: str = "",
     except (requests.RequestException, ValueError, KeyError, TypeError):
         return [], "GitHub Advisories unavailable for " + package.purl
 
+def _provider_diagnostics(nvd_results, osv_results, gh_results, products, packages) -> dict:
+    """Per-provider availability diagnostics for the research report.
+
+    A provider is available when none of its lookups reported an unavailability
+    warning; "no match" is therefore distinct from a provider that could not be
+    reached. Stale cache data is never used to assert current status, so
+    stale_data_used is always False.
+    """
+    def available(results) -> bool:
+        return not any("unavailable" in warn for _, warn in results if warn)
+    diagnostics: dict[str, dict[str, object]] = {}
+    if products:
+        diagnostics["nvd"] = {
+            "available": available(nvd_results),
+            "ttl_seconds": nvd_disk_cache.TTL_SECONDS,
+            "stale_data_used": False,
+        }
+    if packages:
+        diagnostics["osv"] = {
+            "available": available(osv_results),
+            "ttl_seconds": None,
+            "stale_data_used": False,
+        }
+        diagnostics["github"] = {
+            "available": available(gh_results),
+            "ttl_seconds": None,
+            "stale_data_used": False,
+        }
+    return diagnostics
+
 def discover(raw_scan: str, *, enabled: bool = True,
              nvd_api_key: str = "", github_token: str = "",
              max_services: int = 3, max_packages: int = 4,
@@ -639,7 +677,13 @@ def discover(raw_scan: str, *, enabled: bool = True,
             candidate["vendor_status"] = vendor_client(
                 candidate, distro_hint=distro_hint, inventory=inventory,
                 debian_tracker_file=debian_tracker_file)
-    return {"observations": observations, "candidates": candidates, "warnings": warnings}
+    result: dict = {"observations": observations, "candidates": candidates, "warnings": warnings}
+    if products or packages:
+        result["source_diagnostics"] = _provider_diagnostics(
+            nvd_results, osv_results, gh_results, products, packages)
+    return result
+
+_PROVIDER_LABELS = {"nvd": "NVD", "osv": "OSV", "github": "GitHub"}
 
 def format_report(report: dict) -> str:
     """Bounded plain text for prompting and persisted report, not a model verdict."""
@@ -656,6 +700,8 @@ def format_report(report: dict) -> str:
     for item in report["candidates"]:
         lines.append(f"CANDIDATE: {item['id']} | {item['source']} | {item['status']} | "
                      f"{item['product']} {item['version']} | {item['url']}")
+        if item.get("source_freshness"):
+            lines.append("SOURCE FRESHNESS: " + item["source_freshness"])
         if item.get("cvss_score") is not None:
             lines.append(f"NVD CVSS {item['cvss_version']}: {item['cvss_score']} {item.get('cvss_vector','')}")
         if item.get("epss") is not None:
@@ -674,6 +720,18 @@ def format_report(report: dict) -> str:
             lines.append("VENDOR ADVISORY (review patch/backport applicability): " + link)
     for warning in report["warnings"]:
         lines.append("SOURCE WARNING: " + warning)
+    diagnostics = report.get("source_diagnostics") or {}
+    if diagnostics:
+        lines.append("SOURCE STATUS (provider availability, not a verdict):")
+        for provider, info in diagnostics.items():
+            label = _PROVIDER_LABELS.get(provider, provider)
+            status = "available" if info.get("available") else "unavailable"
+            ttl = info.get("ttl_seconds")
+            ttl_text = f" (cache TTL {ttl}s)" if ttl is not None else ""
+            lines.append(f"SOURCE STATUS: {label} {status}{ttl_text}")
+        lines.append("Stale cache data was never used to assert current status.")
+        if all(not info.get("available") for info in diagnostics.values()):
+            lines.append("Note: all queried sources were unavailable; no current catalog data was retrieved.")
     if not report["candidates"]:
         lines.append("No version-qualified CVE candidates returned; this is NOT evidence of safety.")
     return "\n".join(lines)
