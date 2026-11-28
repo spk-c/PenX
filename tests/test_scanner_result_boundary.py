@@ -82,7 +82,7 @@ class ScannerEvidenceContracts(unittest.TestCase):
     def test_legacy_negative_scan_text_is_not_evidence(self):
         """Historical plain-string scans carry no trusted marker; the parser must
         still reject the scanner's negative banners as usable evidence."""
-        for name, text, status, evidence, reason in _NEGATIVE_OUTCOMES:
+        for name, text, _status, _evidence, reason in _NEGATIVE_OUTCOMES:
             with self.subTest(reason=reason):
                 formatted = format_recon_for_llm({name: text})
                 self.assertFalse(recon_has_evidence(formatted))
