@@ -264,6 +264,52 @@ class DistributionValidationSecurityTests(unittest.TestCase):
         self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
         self.assertIn("WinGet installer URL/version mismatch", result.stderr)
 
+    def test_optimized_python_rejects_missing_scoop_persist_vendor(self):
+        manifest = self._scoop()
+        manifest["persist"].remove("PenX\\vendor")
+        self._write_scoop(manifest)
+        result = self.check(optimized=True)
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        self.assertIn("Scoop must persist downloaded tools", result.stderr)
+
+    def test_optimized_python_rejects_non_list_scoop_persist(self):
+        manifest = self._scoop()
+        manifest["persist"] = " ".join(manifest["persist"])
+        self._write_scoop(manifest)
+        result = self.check(optimized=True)
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        self.assertIn("Scoop persist must be a list", result.stderr)
+
+    def test_optimized_python_rejects_duplicate_scoop_keys(self):
+        content = self.scoop_path.read_text(encoding="utf-8")
+        self.scoop_path.write_text(content.replace('"version": "0.6.1",',
+            '"version": "0.0.0", "version": "0.6.1",'), encoding="utf-8")
+        result = self.check(optimized=True)
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        self.assertIn("Duplicate Scoop manifest key", result.stderr)
+
+    def test_optimized_python_rejects_unpinned_scoop_version(self):
+        manifest = self._scoop()
+        manifest["version"] = "0.0.0"
+        self._write_scoop(manifest)
+        result = self.check(optimized=True)
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        self.assertIn("Unpinned Scoop version", result.stderr)
+
+    def test_optimized_python_rejects_unpinned_scoop_architecture(self):
+        manifest = self._scoop()
+        manifest["architecture"]["32bit"] = manifest["architecture"]["64bit"]
+        self._write_scoop(manifest)
+        result = self.check(optimized=True)
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        self.assertIn("Scoop architecture must be 64bit only", result.stderr)
+
+    def test_optimized_python_rejects_wrong_winget_architecture(self):
+        self._patch_winget(self.winget_path, "Architecture: x64", "Architecture: x86")
+        result = self.check(optimized=True)
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        self.assertIn("WinGet installer architecture must be x64", result.stderr)
+
     def test_optimized_python_rejects_wrong_product_code(self):
         self._patch_winget(
             self.winget_path,

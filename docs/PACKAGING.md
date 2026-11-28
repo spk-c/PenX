@@ -216,7 +216,8 @@ remain local drafts and require real lifecycle/data-preservation acceptance.
 ## Maintenance checks
 
 Run `python scripts/validate_distributions.py` after updating a manifest; it verifies
-both manifests agree on version, official archive URL and pinned SHA-256.
+the independently pinned WinGet Inno installers and Scoop ZIP, x64 architecture,
+required Scoop persist paths and duplicate-free Scoop JSON.
 It performs no network downloads and uses explicit runtime validation (not Python `assert`),
 so the same consistency checks remain active under `python -O`. Synthetic
 negative regression tests cover tampered archive URLs, missing persisted data

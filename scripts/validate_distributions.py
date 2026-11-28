@@ -30,6 +30,15 @@ def fail(message: str) -> None:
     raise ValueError(message)
 
 
+def unique_object(pairs):
+    result = {}
+    for key, value in pairs:
+        if key in result:
+            fail(f"Duplicate Scoop manifest key: {key}")
+        result[key] = value
+    return result
+
+
 def manifest_scalar(text: str, key: str) -> str:
     matches = re.findall(rf"(?m)^\s*(?:-\s+)?{re.escape(key)}:\s*(\S.*?)\s*$", text)
     if len(matches) != 1:
@@ -67,6 +76,8 @@ def validate_winget(version: str) -> None:
         fail("Invalid WinGet locale manifest type")
     if manifest_scalar(installer, "InstallerType") != "inno":
         fail("WinGet installer type must be inno")
+    if manifest_scalar(installer, "Architecture") != "x64":
+        fail("WinGet installer architecture must be x64")
     if manifest_scalar(installer, "Scope") != "user":
         fail("WinGet installer scope must be user")
     if manifest_scalar(installer, "ProductCode") != "{FCF9D8F6-64E9-4783-8E7F-9106E194C841}_is1":
@@ -79,8 +90,12 @@ def validate_winget(version: str) -> None:
 
 def main() -> int:
     try:
-        scoop = json.loads(SCOOP_FILE.read_text(encoding="utf-8"))
+        scoop = json.loads(SCOOP_FILE.read_text(encoding="utf-8"), object_pairs_hook=unique_object)
         version = scoop["version"]
+        if not isinstance(version, str) or version not in ARCHIVE_PINS:
+            fail("Unpinned Scoop version")
+        if not isinstance(scoop["architecture"], dict) or set(scoop["architecture"]) != {"64bit"}:
+            fail("Scoop architecture must be 64bit only")
         archive = scoop["architecture"]["64bit"]
         expected_url = (
             f"https://github.com/spk-c/PenX/releases/download/v{version}/"
@@ -91,6 +106,8 @@ def main() -> int:
         checksum = archive["hash"]
         if not isinstance(checksum, str) or checksum.casefold() != ARCHIVE_PINS.get(version):
             fail("Scoop archive SHA-256 mismatch")
+        if not isinstance(scoop["persist"], list) or not all(isinstance(item, str) for item in scoop["persist"]):
+            fail("Scoop persist must be a list of paths")
         if ["PenX\\PenX.exe", "penx"] not in scoop["bin"]:
             fail("Missing Scoop command shim")
         if "PenX\\.env" not in scoop["persist"]:
@@ -99,6 +116,8 @@ def main() -> int:
             fail("Scoop must persist scan database")
         if "PenX\\reports" not in scoop["persist"]:
             fail("Scoop must persist reports")
+        if "PenX\\vendor" not in scoop["persist"]:
+            fail("Scoop must persist downloaded tools")
         if {p.name for p in WINGET_BASE.iterdir() if p.is_dir()} != set(INSTALLER_PINS):
             fail("WinGet version folders do not match pinned installer versions")
         for winget_version in sorted(INSTALLER_PINS):
