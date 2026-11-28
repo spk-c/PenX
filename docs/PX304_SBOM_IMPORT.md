@@ -67,6 +67,8 @@ local JSON collection of OSV vulnerability *detail* objects:
 python penx.py sbom compare-osv --file "C:\\PenX\\private\\inventory.cdx.json" --osv-file "C:\\PenX\\private\\osv-details.json"
 # Only when package identities / advisory identifiers may be disclosed:
 python penx.py sbom compare-osv --file "C:\\PenX\\private\\inventory.cdx.json" --osv-file "C:\\PenX\\private\\osv-details.json" --show-candidates
+# Only when explicitly opted in to interpreting OSV range semantics:
+python penx.py sbom compare-osv --file "C:\\PenX\\private\\inventory.cdx.json" --osv-file "C:\\PenX\\private\\osv-details.json" --evaluate-ranges --show-candidates
 ~~~
 
 Local OSV input is a single JSON object with an exact `vulns` array of full
@@ -80,11 +82,21 @@ OSV advisory detail objects, e.g. a manually prepared snapshot:
 completeness and update time are **not** verified. The parser compares only
 exactly enumerated `affected[].versions` values with explicit PyPI/npm purl
 package identities from the saved SBOM. Package names are normalized under
-the same conservative rules as `sbom inspect`. It does **not** interpret
-`affected[].ranges` semantics or infer fixed versions, vendor/distro
+the same conservative rules as `sbom inspect`. By default it does **not**
+interpret `affected[].ranges` semantics or infer fixed versions, vendor/distro
 backports, exploitability, risk severity or running-software exposure.
 Unsupported, missing or range-only affected records remain **unresolved**
 and can never produce a negative security conclusion.
+
+`--evaluate-ranges` explicitly opts in to interpreting `affected[].ranges`.
+Only `SEMVER`-typed ranges are evaluated: an event's `introduced` bound is
+inclusive, an `ended` bound is exclusive, and a version is affected when it
+falls into any of the event spans. Every installed version and every range
+bound must parse as a PEP 440 version; anything else fails closed with
+`sbom-offline-check-failed`. Range-derived candidates are merged with the
+exact-version candidates and the output reports
+`affected_ranges_evaluated=true`, `uninterpreted_range_entries=0` and
+`evaluated_range_entries`.
 
 The `penx-osv-exact-offline-candidates-v1` JSON output reports counts and
 redacts package names/advisory identifiers by default. `--show-candidates`
@@ -96,11 +108,12 @@ evidence that a package is patched or safe.
 Input limits: local regular non-symlink files up to 2 MiB each, at most
 2,000 SBOM components, 500 OSV detail records, 50 affected entries per
 advisory, 1,000 exact versions per affected record, 20,000 total version
-values and 2,000 candidates. Duplicate advisory IDs (case-insensitive),
-malformed versions, duplicate JSON object fields, non-JSON constants or
-invalid structures fail closed. There is no database, scan, external
-process, upload, network, LLM, write or user-data mutation.
+values, 50 range events per range record (opt-in evaluation only) and 2,000
+candidates. Duplicate advisory IDs (case-insensitive), malformed versions,
+duplicate JSON object fields, non-JSON constants or invalid structures fail
+closed. There is no database, scan, external process, upload, network, LLM,
+write or user-data mutation.
 
 **Still missing for full PX-304:** verified OSV/NVD/provider provenance,
-correct version range/semantic comparisons, vendor/distro security backport
+non-SEMVER range semantics (e.g. DEBIAN/AUR), vendor/distro security backport
 adjudication, complete snapshot provenance/freshness and human acceptance.

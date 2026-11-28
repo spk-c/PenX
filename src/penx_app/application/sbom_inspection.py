@@ -23,6 +23,8 @@ def main(argv: list[str] | None = None) -> int:
                          help="Existing bounded local collection of OSV detail JSON")
     compare.add_argument("--show-candidates", action="store_true",
                          help="Explicitly reveal candidate package names, versions and IDs")
+    compare.add_argument("--evaluate-ranges", action="store_true",
+                         help="Opt-in: also evaluate OSV SEMVER range entries against installed versions")
     try:
         args = parser.parse_args(argv)
     except SystemExit:
@@ -34,7 +36,8 @@ def main(argv: list[str] | None = None) -> int:
             )
             result = compare_local_osv_snapshot(
                 args.file, args.osv_file,
-                include_candidates=args.show_candidates)
+                include_candidates=args.show_candidates,
+                evaluate_ranges=args.evaluate_ranges)
         else:
             result = inspect_sbom(
                 args.file, include_identities=args.show_identities)
