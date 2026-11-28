@@ -96,8 +96,12 @@ def cache_path(cpe: str) -> Path:
     return CACHE_DIR / (digest + ".json")
 
 
-def load(cpe: str, *, now: float | None = None) -> tuple[dict, ...] | None:
-    """Return unexpired public NVD records; malformed/expired caches are ignored."""
+def _read_entry(cpe: str, *, now: float | None = None) -> dict | None:
+    """Return the validated cache entry, or None for missing/expired/malformed.
+
+    The same open-then-stat checks that load() uses are applied so a replaced
+    or grown file can never be read after its original size/symlink check.
+    """
     if not enabled() or not isinstance(cpe, str) or not cpe.startswith("cpe:"):
         return None
     path = cache_path(cpe)
@@ -129,14 +133,40 @@ def load(cpe: str, *, now: float | None = None) -> tuple[dict, ...] | None:
         if (not isinstance(fetched, (float, int)) or isinstance(fetched, bool)
                 or not 0 <= current - fetched <= TTL_SECONDS):
             return None
-        items = entry.get("records")
-        if not isinstance(items, list) or len(items) > MAX_RECORDS:
-            return None
-        if not all(isinstance(item, dict) for item in items):
-            return None
-        return tuple(items)
+        return entry
     except (OSError, UnicodeError, ValueError, TypeError):
         return None
+
+
+def load(cpe: str, *, now: float | None = None) -> tuple[dict, ...] | None:
+    """Return unexpired public NVD records; malformed/expired caches are ignored."""
+    entry = _read_entry(cpe, now=now)
+    if entry is None:
+        return None
+    items = entry.get("records")
+    if not isinstance(items, list) or len(items) > MAX_RECORDS:
+        return None
+    if not all(isinstance(item, dict) for item in items):
+        return None
+    return tuple(items)
+
+
+def freshness(cpe: str, *, now: float | None = None) -> dict | None:
+    """Return cache age and TTL for a valid entry, or None if absent or expired.
+
+    The same TTL gate as load() applies, so a stale entry is never reported as
+    a fresh source; callers can then state that the provider data is stale
+    instead of asserting it as current.
+    """
+    entry = _read_entry(cpe, now=now)
+    if entry is None:
+        return None
+    fetched = entry.get("fetched_at")
+    if not isinstance(fetched, (int, float)) or isinstance(fetched, bool):
+        return None
+    current = time.time() if now is None else now
+    return {"fetched_at": fetched, "age_seconds": round(current - fetched, 1),
+            "ttl_seconds": TTL_SECONDS}
 
 
 def store(cpe: str, records: tuple[dict, ...], *, now: float | None = None) -> bool:
