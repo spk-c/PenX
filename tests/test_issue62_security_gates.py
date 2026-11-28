@@ -73,6 +73,24 @@ class Issue62SecurityGatesTests(unittest.TestCase):
         for _, revision in actions:
             self.assertRegex(revision, r"^[a-f0-9]{40}$")
 
+    def test_security_checks_share_required_runner_without_weakening_policy(self):
+        workflow = (ROOT / ".github/workflows/security.yml").read_text(encoding="utf-8")
+        jobs = workflow.split("\njobs:\n", 1)[1]
+        self.assertEqual(re.findall(r"^  ([\w-]+):$", jobs, re.MULTILINE),
+                         ["secrets", "codeql"])
+        shared, codeql = jobs.split("\n  codeql:", 1)
+        self.assertIn("name: Gitleaks history and change scan", shared)
+        self.assertIn("name: Dependency changes policy", shared)
+        self.assertIn("vars.PENX_DEP_GRAPH_READY == 'true'", shared)
+        self.assertIn("fail-on-severity: high", shared)
+        self.assertIn("--require-hashes -r requirements.lock.txt", shared)
+        self.assertIn("python -m pip_audit --local", shared)
+        self.assertIn("github.event_name != 'pull_request'", codeql)
+        self.assertNotIn("continue-on-error", shared)
+        self.assertEqual(shared.count("uses: actions/checkout@"), 1)
+        self.assertLess(shared.index("uses: actions/dependency-review-action@"),
+                        shared.index("python -m pip install"))
+
     def test_batch_entrypoints_do_not_use_dynamic_shell_powershell(self):
         for path in ROOT.glob("*.bat"):
             source = path.read_text(encoding="utf-8").lower()

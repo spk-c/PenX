@@ -17,6 +17,11 @@ on:
 permissions:
   contents: read
 
+# Stop superseded builds for the same PR/branch without affecting other forks.
+concurrency:
+  group: distribution-package-${{ github.workflow }}-${{ github.event.pull_request.head.repo.full_name || github.repository }}-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
 jobs:
   package:
     runs-on: ubuntu-latest
