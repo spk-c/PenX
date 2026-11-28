@@ -55,7 +55,7 @@ by itself satisfy the new milestone's tests, safeguards and field criteria.
 | PX-206 | Blocked/dependent | Depends on stable human finding identity and review |
 | PX-301 | Not accepted | Expanded HTTP policy fixture/field acceptance pending |
 | PX-302 | Not accepted | Certificate hygiene fixture/trust acceptance pending |
-| PX-303 | Not accepted | DNS/mail posture parser and resolver fixture matrix pending |
+| PX-303 | Partial source | [#219](https://github.com/spk-c/PenX/pull/219) adds a read-only DNS/mail posture helper, bounded explicit DKIM selectors and offline resolver fixtures; authorized caller integration and independent field acceptance remain pending. DNSKEY presence is not validated DNSSEC; mail authentication is not verified end to end |
 | PX-304 | Partial source | Local SBOM (#171) and exact offline OSV candidate matches (#174); ranges, snapshot provenance and backport analysis unresolved |
 | PX-305 | Not accepted | Local IaC/config scan limits and fixture safety pending |
 | PX-306 | Not accepted | Third-party adapter SDK and isolation pending |
