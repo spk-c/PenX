@@ -4,7 +4,7 @@ import os
 import sys
 from penx_app.version import VERSION
 
-USAGE = ('Usage: PenX.exe [--version | --check | --setup-status | --setup | '
+USAGE = ('[--help | --version | --check | --setup-status | --setup | '
          '--setup-native | --llm-setup | llm-info [--probe] | --check-update | --update | '
          '--export-session SL --format json|sarif [--redact] | '
          '--php2shell-audit [--scan-file FILE] [--php-ini FILE] '
@@ -123,8 +123,9 @@ def main() -> int:
         if command == 'backup':
             from penx_app.application.backup_service import main as backup_main
             return backup_main(args[1:])
-        print(USAGE)
-        return 2
+        executable = 'PenX.exe' if os.name == 'nt' else 'penx'
+        print(f'Usage: {executable} {USAGE}')
+        return 0 if len(args) == 1 and command in ('-h', '--help') else 2
 
     from penx_app.setup.llm_setup import maybe_configure_llm
     maybe_configure_llm()

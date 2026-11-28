@@ -176,10 +176,28 @@ def create_backup(source: Path, dest_dir: Path) -> tuple[Path, dict[str, Any]]:
 def verify_backup(path: Path) -> dict[str, Any]:
     """Verify a backup pair; never raises for an invalid backup.
 
-    Returns a report with ``valid`` and the collected ``reasons``. Only I/O
-    or resolution failures raise ``BackupError``.
+    Returns a report with ``valid`` and the collected ``reasons``. Unreadable
+    or corrupt manifest/database files (including permission errors) are
+    reported as invalid; only resolution failures (no backup found, wrong
+    file type) raise ``BackupError``.
     """
-    db_path, manifest_path = _resolve_backup(path)
+    try:
+        db_path, manifest_path = _resolve_backup(path)
+    except BackupError:
+        raise
+    except OSError as exc:
+        # A path whose state cannot be determined (permission denied,
+        # deletion, I/O error) is an invalid-backup condition, not a
+        # resolution failure.
+        return {
+            "db": str(path),
+            "manifest": None,
+            "valid": False,
+            "reasons": [f"backup unreadable: {exc}"],
+            "size_bytes": None,
+            "sha256": None,
+            "schema_version": None,
+        }
     report: dict[str, Any] = {
         "db": str(db_path),
         "manifest": str(manifest_path),
@@ -190,10 +208,19 @@ def verify_backup(path: Path) -> dict[str, Any]:
         "schema_version": None,
     }
     reasons: list[str] = []
-    if manifest_path.is_symlink():
+    try:
+        manifest_is_symlink = manifest_path.is_symlink()
+        manifest_is_file = manifest_path.is_file()
+    except OSError as exc:
+        # An unreadable manifest (permission denied, deletion, I/O error)
+        # is an invalid-backup condition, not an exception: report it the
+        # same way the manifest-unreadable path does.
+        report.update(valid=False, reasons=[f"manifest unreadable: {exc}"])
+        return report
+    if manifest_is_symlink:
         report.update(reasons=["manifest is a symbolic link"])
         return report
-    if not manifest_path.is_file():
+    if not manifest_is_file:
         report.update(reasons=[f"manifest missing: {manifest_path.name}"])
         return report
     try:
@@ -213,18 +240,34 @@ def verify_backup(path: Path) -> dict[str, Any]:
         return report
     expected_size = manifest.get("size_bytes")
     expected_digest = manifest.get("sha256")
-    if db_path.is_symlink():
+    try:
+        db_is_symlink = db_path.is_symlink()
+        db_is_file = db_path.is_file()
+    except OSError as exc:
+        # An unreadable database file (permission denied, deletion, I/O
+        # error) is an invalid-backup condition, not an exception: report
+        # it the same way the manifest-unreadable path does.
+        report.update(valid=False, reasons=[f"database unreadable: {exc}"])
+        return report
+    if db_is_symlink:
         reasons.append("database file is a symbolic link")
-    elif not db_path.is_file():
+    elif not db_is_file:
         reasons.append(f"database file missing: {db_path.name}")
     else:
-        actual_size = db_path.stat().st_size
+        try:
+            actual_size = db_path.stat().st_size
+            actual_digest = _sha256(db_path)
+        except OSError as exc:
+            # An unreadable database file (permission denied, deletion, I/O
+            # error) is an invalid-backup condition, not an exception: report
+            # it the same way the manifest-unreadable path does.
+            report.update(valid=False, reasons=[f"database unreadable: {exc}"])
+            return report
         report["size_bytes"] = actual_size
         if actual_size != expected_size:
             reasons.append(
                 f"size mismatch (manifest {expected_size}, actual {actual_size})"
             )
-        actual_digest = _sha256(db_path)
         report["sha256"] = actual_digest
         if not isinstance(expected_digest, str) or actual_digest != expected_digest:
             reasons.append("sha256 mismatch")

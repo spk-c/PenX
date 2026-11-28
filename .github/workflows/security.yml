@@ -1,7 +1,7 @@
 name: Security audit
 
 on:
-  # PRs: Gitleaks and dependency review. Full scans: weekly/on demand.
+  # PRs: Gitleaks, dependency review and pip-audit. CodeQL: weekly/on demand.
   pull_request:
   workflow_dispatch:
   schedule:
@@ -11,18 +11,20 @@ permissions:
   contents: read
 
 concurrency:
-  group: security-${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
+  group: security-${{ github.workflow }}-${{ github.event.pull_request.head.repo.full_name || github.repository }}-${{ github.head_ref || github.ref_name }}
   cancel-in-progress: true
 
 jobs:
-  # Scans the git history, not just the working tree. No secrets are uploaded
-  # as build artifacts or posted in automatic pull request comments.
+  # Keep the existing required status context. All three checks now share
+  # one runner; a failure in any executed check fails this required job.
+  # Scan history and review PR dependencies before installing PR packages.
   secrets:
     name: Gitleaks history and change scan
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@v7
+        id: checkout
         with:
           fetch-depth: 0
           persist-credentials: false
@@ -33,38 +35,23 @@ jobs:
           GITLEAKS_ENABLE_COMMENTS: "false"
           GITLEAKS_ENABLE_UPLOAD_ARTIFACT: "false"
       - name: Explain dependency-review prerequisite
-        if: github.event_name == 'pull_request' && vars.PENX_DEP_GRAPH_READY != 'true'
+        if: ${{ !cancelled() && steps.checkout.outcome == 'success' && github.event_name == 'pull_request' && vars.PENX_DEP_GRAPH_READY != 'true' }}
         run: echo "::warning::Enable Dependency Graph and set PENX_DEP_GRAPH_READY=true to enforce PR dependency review. Weekly pip-audit remains enabled."
-
-  dependency-review:
-    name: Dependency changes policy
-    # Dependency Review hard-errors when the repository's Dependency Graph is
-    # disabled, which an ordinary GitHub App cannot change. The prerequisite
-    # warning above ensures this intentional skip is visible to maintainers.
-    if: github.event_name == 'pull_request' && vars.PENX_DEP_GRAPH_READY == 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          persist-credentials: false
-      - name: Reject vulnerable dependency introductions
+      - name: Dependency changes policy
+        if: ${{ !cancelled() && steps.checkout.outcome == 'success' && github.event_name == 'pull_request' && vars.PENX_DEP_GRAPH_READY == 'true' }}
         uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
         with:
           fail-on-severity: high
-
-  installed-dependencies:
-    name: Audit hash-locked Python dependencies
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          persist-credentials: false
-      - uses: actions/setup-python@v7
+      - name: Set up Python for the dependency audit
+        id: python
+        if: ${{ !cancelled() && steps.checkout.outcome == 'success' }}
+        uses: actions/setup-python@v7
         with:
           python-version: '3.13'
-      - name: Check resolved packages for public vulnerability advisories
+          cache: pip
+          cache-dependency-path: requirements.lock.txt
+      - name: Audit hash-locked Python dependencies
+        if: ${{ !cancelled() && steps.python.outcome == 'success' }}
         run: |
           python -m pip install --disable-pip-version-check --prefer-binary --require-hashes -r requirements.lock.txt
           python -m pip install --disable-pip-version-check "pip-audit==2.10.1"

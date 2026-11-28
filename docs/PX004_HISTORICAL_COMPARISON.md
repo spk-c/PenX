@@ -110,7 +110,8 @@ The synthetic regression suite is
 `python -m unittest discover -s tests -p test_px004_historical_evidence.py -v`
 with `PYTHONPATH=src`. It covers matching fingerprints, same-row-count changed
 values, schema/count drift, external pin tampering, truncated/duplicate JSON,
-overlong files, row budget, stage/binding mismatches, invalid dates and symlinks.
+missing fields, malformed digests, overlong files, row budget, stage/binding
+mismatches, invalid dates and symlinks.
 The existing disposable MariaDB CI tests cover aborted scratch import, not
 independent production recovery. WAL/journal races require separate SQLite
 operator verification; missing privileges and interrupted real restore need

@@ -1,6 +1,10 @@
-"""PX-190: package manifest integrity gates must work with Python -O.
+"""PX-005/PX-190: package manifest integrity gates must work with Python -O.
 
 Synthetic, local filesystem fixtures only: no installs, network or publication.
+
+Each check branch in scripts/validate_distributions.py has a dedicated negative
+fixture: tampering with any archive URL, hash, package ID/version, manifest type,
+installer kind, scope, or product code must be rejected with a specific message.
 """
 from __future__ import annotations
 
@@ -31,6 +35,11 @@ class DistributionValidationSecurityTests(unittest.TestCase):
             / "SLP-DEV1" / "PenX" / "0.6.1"
             / "SLP-DEV1.PenX.installer.yaml"
         )
+        self.winget_version_dir = self.winget_path.parent
+        self.winget_root_path = self.winget_version_dir / "SLP-DEV1.PenX.yaml"
+        self.winget_locale_path = (
+            self.winget_version_dir / "SLP-DEV1.PenX.locale.en-US.yaml"
+        )
 
     def check(self, optimized=False):
         command = [sys.executable]
@@ -41,6 +50,21 @@ class DistributionValidationSecurityTests(unittest.TestCase):
             command, capture_output=True, text=True,
             cwd=self.root, timeout=15, check=False,
         )
+
+    def _scoop(self):
+        return json.loads(self.scoop_path.read_text(encoding="utf-8"))
+
+    def _write_scoop(self, manifest):
+        self.scoop_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+    def _winget_text(self, path):
+        return path.read_text(encoding="utf-8")
+
+    def _patch_winget(self, path, old, new):
+        text = self._winget_text(path)
+        self.assertEqual(text.count(old), 1,
+                         "expected exactly one %r in %s" % (old, path.name))
+        path.write_text(text.replace(old, new), encoding="utf-8")
 
     def test_valid_official_drafts_pass_even_when_optimized(self):
         self.assertEqual(self.check().returncode, 0)
@@ -115,6 +139,140 @@ class DistributionValidationSecurityTests(unittest.TestCase):
         result = self.check(optimized=True)
         self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
         self.assertIn("WinGet installer type must be inno", result.stderr)
+
+    def test_optimized_python_rejects_invalid_scoop_sha256(self):
+        manifest = self._scoop()
+        manifest["architecture"]["64bit"]["hash"] = "not-a-sha256"
+        self._write_scoop(manifest)
+        result = self.check(optimized=True)
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        self.assertIn("Scoop archive SHA-256 mismatch", result.stderr)
+
+    def test_optimized_python_rejects_missing_scoop_command_shim(self):
+        manifest = self._scoop()
+        manifest["bin"] = []
+        self._write_scoop(manifest)
+        result = self.check(optimized=True)
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        self.assertIn("Missing Scoop command shim", result.stderr)
+
+    def test_optimized_python_rejects_missing_scoop_persist_configuration(self):
+        manifest = self._scoop()
+        manifest["persist"].remove("PenX\\.env")
+        self._write_scoop(manifest)
+        result = self.check(optimized=True)
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        self.assertIn("Scoop must persist configuration", result.stderr)
+
+    def test_optimized_python_rejects_missing_scoop_persist_reports(self):
+        manifest = self._scoop()
+        manifest["persist"].remove("PenX\\reports")
+        self._write_scoop(manifest)
+        result = self.check(optimized=True)
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        self.assertIn("Scoop must persist reports", result.stderr)
+
+    def test_optimized_python_rejects_missing_winget_version_folder(self):
+        shutil.rmtree(self.winget_version_dir)
+        result = self.check(optimized=True)
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        self.assertIn("WinGet version folders", result.stderr)
+
+    def test_optimized_python_rejects_missing_winget_manifest_file(self):
+        self.winget_root_path.unlink()
+        result = self.check(optimized=True)
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        self.assertIn("Missing WinGet manifest", result.stderr)
+
+    def test_optimized_python_rejects_wrong_package_identifier(self):
+        self._patch_winget(
+            self.winget_root_path,
+            "PackageIdentifier: SLP-DEV1.PenX",
+            "PackageIdentifier: SLP-DEV1.Other",
+        )
+        result = self.check(optimized=True)
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        self.assertIn("Unexpected package ID", result.stderr)
+
+    def test_optimized_python_rejects_wrong_package_version(self):
+        self._patch_winget(
+            self.winget_root_path,
+            "PackageVersion: 0.6.1",
+            "PackageVersion: 0.9.9",
+        )
+        result = self.check(optimized=True)
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        self.assertIn("Package version mismatch", result.stderr)
+
+    def test_optimized_python_rejects_wrong_version_manifest_type(self):
+        self._patch_winget(
+            self.winget_root_path,
+            "ManifestType: version",
+            "ManifestType: installer",
+        )
+        result = self.check(optimized=True)
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        self.assertIn("Invalid WinGet version manifest type", result.stderr)
+
+    def test_optimized_python_rejects_wrong_installer_manifest_type(self):
+        self._patch_winget(
+            self.winget_path,
+            "ManifestType: installer",
+            "ManifestType: version",
+        )
+        result = self.check(optimized=True)
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        self.assertIn("Invalid WinGet installer manifest type", result.stderr)
+
+    def test_optimized_python_rejects_wrong_locale_manifest_type(self):
+        self._patch_winget(
+            self.winget_locale_path,
+            "ManifestType: defaultLocale",
+            "ManifestType: version",
+        )
+        result = self.check(optimized=True)
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        self.assertIn("Invalid WinGet locale manifest type", result.stderr)
+
+    def test_optimized_python_rejects_wrong_installer_type(self):
+        self._patch_winget(
+            self.winget_path,
+            "InstallerType: inno",
+            "InstallerType: msi",
+        )
+        result = self.check(optimized=True)
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        self.assertIn("WinGet installer type must be inno", result.stderr)
+
+    def test_optimized_python_rejects_wrong_installer_scope(self):
+        self._patch_winget(
+            self.winget_path,
+            "Scope: user",
+            "Scope: machine",
+        )
+        result = self.check(optimized=True)
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        self.assertIn("WinGet installer scope must be user", result.stderr)
+
+    def test_optimized_python_rejects_wrong_installer_url(self):
+        self._patch_winget(
+            self.winget_path,
+            "InstallerUrl: https://github.com/spk-c/PenX/releases/download/v0.6.1/PenX-Setup-x64.exe",
+            "InstallerUrl: https://example.invalid/untrusted-penx.zip",
+        )
+        result = self.check(optimized=True)
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        self.assertIn("WinGet installer URL/version mismatch", result.stderr)
+
+    def test_optimized_python_rejects_wrong_product_code(self):
+        self._patch_winget(
+            self.winget_path,
+            "ProductCode: '{FCF9D8F6-64E9-4783-8E7F-9106E194C841}_is1'",
+            "ProductCode: wrong",
+        )
+        result = self.check(optimized=True)
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        self.assertIn("WinGet installer product code mismatch", result.stderr)
 
 
 if __name__ == "__main__":

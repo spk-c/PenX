@@ -54,6 +54,26 @@ applicable field scenario **in this document or in a linked, reviewed evidence
 record** before claiming 100% completion. Automated checks alone cannot
 prove hardware, first-run UAC, actual backup recovery or visual PDF quality.
 
+### Windows 10 installer lifecycle, 2026-11-26
+
+The run used a Windows 10 x64 VMware guest (build 19045.6466) with an
+elevated SSH session and a cold snapshot. The published v0.6.1 installer
+matched SHA-256
+`a99922e88a3a3c83b12bf017b7bae3eba68c8313bd547d58087aa53c383e602a`.
+
+- A fresh per-user v0.6.1 install created the installed-mode marker and
+  the CLI reported 0.6.1.
+- Uninstall removed the CLI and retained a synthetic LocalAppData marker
+  byte for byte.
+- The published v0.6.0 installer was installed, then upgraded in the
+  same directory to v0.6.1. The CLI reported each expected version.
+- Renaming the installed v0.6.1 EXE and rerunning its installer restored
+  a working 0.6.1 EXE. The synthetic marker retained its original
+  SHA-256 through upgrade and repair.
+
+The historical v0.4.8 upgrade, standard-user UAC/Npcap behavior and
+independent reviewer sign-off are pending.
+
 ## Remaining field sign-off checklist
 
 - [ ] Approved Windows target: all 12 scanner choices, scope consent, missing
@@ -102,6 +122,54 @@ without complete provenance). Running the Kali loopback suite
 (`tests/kali_local_scanner_acceptance.py`) is a practical smoke, not a sign-off;
 it must pass on a disposable Kali VM against loopback fixtures before any row
 is marked `PASS`.
+
+### Published v0.6.1 Debian package lifecycle, 2026-11-25
+
+The run used a VMware guest with Kali 2026.3, x86_64 and kernel
+`7.1.5+kali-amd64`. Both [published Linux assets][v061] matched
+`SHA256SUMS-Linux.txt`.
+
+| Asset | SHA-256 |
+| --- | --- |
+| `penx_0.6.1_amd64.deb` | `e5549c9fcbe46d5bcfbf8e40c18312c973512bcfcb78278af2842ba8b7c4a801` |
+| `PenX-Linux-x86_64.tar.gz` | `1faab42155e1dc706d2723e5e9303e3664ac850680c07388ca6d21605c6453d0` |
+
+- The portable binary reported `PenX Linux 0.6.1` and
+  `--setup-status` exited 0. `--help` displayed usage headed by
+  `PenX.exe` and returned exit code 2.
+- APT simulation proposed upgrading only PenX. `dpkg -i` upgraded
+  0.5.0 to 0.6.1. The installed `penx --version` reported 0.6.1 and
+  `penx --setup-status` exited 0.
+- A synthetic XDG `.env` and SQLite fixture retained both SHA-256 values.
+  The `.env` retained mode `0600`. SQLite returned `ok` from
+  `PRAGMA integrity_check` and the expected fixture row.
+- In a separate pass, `dpkg -r penx` removed 0.6.1 and its CLI entry
+  point. Both synthetic files still matched their hashes immediately
+  after removal. Reinstalling the same verified package restored the
+  CLI and preserved the hashes, file mode and SQLite integrity.
+- The rollback used a VMware snapshot taken with the guest shut down.
+  After restoring and booting, `dpkg-query -W penx` and `penx --version`
+  both reported 0.5.0.
+
+This run records Kali package lifecycle evidence for [PX-001 #187][issue187].
+Independent review, a clean-guest installation and the scanner matrix
+are pending.
+
+[v061]: https://github.com/spk-c/PenX/releases/tag/v0.6.1
+[issue187]: https://github.com/spk-c/PenX/issues/187
+
+### Long synthetic report rendering, 2026-11-25
+
+The source export at commit `82da919` on Windows used the existing
+1,000-row PX-003 fixture. All four outputs (PDF, HTML, JSON and SARIF)
+contained the same 990 retained finding identifiers. PDF text extraction
+found each identifier once and zero words beyond the page boxes across
+174 pages. The rendered cover, page 88 and final page had legible text
+and visible footers. Chrome rendered the HTML cover and summary at
+1280 × 900 with the same count and coverage indicators.
+
+The review used synthetic data and the source exporter. Published-binary
+rendering, full accessibility and independent human review are pending.
 
 ## Issue #81/#82 evidence worksheet validation
 
