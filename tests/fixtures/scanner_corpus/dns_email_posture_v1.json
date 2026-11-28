@@ -21,7 +21,7 @@
         "TXT@_dmarc.example.test": [
           {
             "txt": [
-              "v=DMARC1 p=quarantine"
+              "v=DMARC1; p=quarantine;"
             ]
           }
         ],
@@ -63,7 +63,8 @@
           "missing": 0,
           "configured-but-unverified": 7,
           "observed-misconfiguration": 0,
-          "evidence": true
+          "evidence": true,
+          "unknown": 0
         },
         "values": {
           "spf": [
@@ -73,10 +74,12 @@
             "10 mail.example.test."
           ]
         },
-        "reasons": {},
+        "reasons": {
+          "spf": "softfail policy (~all)"
+        },
         "diagnostics": ""
       },
-      "sha256": "f6a26f22f66f4fd87c1a13d12460709a49d61344ecd58a07b44c462f6261069c"
+      "sha256": "b67299f7824bb00efc9e24157ca15810bcde8d5b96c745dba63ba915dff3f8b2"
     },
     {
       "id": "posture-misconfig",
@@ -94,7 +97,7 @@
         "TXT@_dmarc.example.test": [
           {
             "txt": [
-              "v=DMARC1 p=none"
+              "v=DMARC1; p=none;"
             ]
           }
         ]
@@ -107,21 +110,22 @@
           "dmarc": "observed-misconfiguration",
           "mta_sts": "missing",
           "caa": "missing",
-          "dkim": "missing",
+          "dkim": "unknown",
           "dnssec": "missing"
         },
         "summary": {
-          "missing": 4,
+          "missing": 3,
           "configured-but-unverified": 1,
           "observed-misconfiguration": 2,
-          "evidence": true
+          "evidence": true,
+          "unknown": 1
         },
         "values": {
           "spf": [
             "v=spf1 include:_spf.example.test"
           ],
           "dmarc": [
-            "v=DMARC1 p=none"
+            "v=DMARC1; p=none;"
           ]
         },
         "reasons": {
@@ -134,7 +138,7 @@
         },
         "diagnostics": ""
       },
-      "sha256": "2e838edfc0dbbf06a26768f36b0ae8995d8566997db5b86589ecee36b1c2bcc9"
+      "sha256": "00836e23a7b9f86a97997b226795807e883c03a0c656589efadffa7e87f97b74"
     },
     {
       "id": "posture-all-missing",
@@ -147,14 +151,15 @@
           "dmarc": "missing",
           "mta_sts": "missing",
           "caa": "missing",
-          "dkim": "missing",
+          "dkim": "unknown",
           "dnssec": "missing"
         },
         "summary": {
-          "missing": 7,
+          "missing": 6,
           "configured-but-unverified": 0,
           "observed-misconfiguration": 0,
-          "evidence": false
+          "evidence": false,
+          "unknown": 1
         },
         "values": {},
         "reasons": {
@@ -190,14 +195,15 @@
           "dmarc": "missing",
           "mta_sts": "missing",
           "caa": "missing",
-          "dkim": "missing",
+          "dkim": "unknown",
           "dnssec": "missing"
         },
         "summary": {
-          "missing": 6,
+          "missing": 5,
           "configured-but-unverified": 1,
           "observed-misconfiguration": 0,
-          "evidence": true
+          "evidence": true,
+          "unknown": 1
         },
         "values": {
           "spf": [
@@ -210,7 +216,8 @@
           "mta_sts": "no MTA-STS record",
           "caa": "no record",
           "dkim": "no DKIM selectors provided",
-          "dnssec": "no DNSKEY record"
+          "dnssec": "no DNSKEY record",
+          "spf": "softfail policy (~all)"
         },
         "diagnostics": ""
       },
@@ -236,7 +243,8 @@
           "missing": 7,
           "configured-but-unverified": 0,
           "observed-misconfiguration": 0,
-          "evidence": false
+          "evidence": false,
+          "unknown": 0
         },
         "values": {},
         "reasons": {
@@ -272,14 +280,15 @@
           "dmarc": "missing",
           "mta_sts": "missing",
           "caa": "missing",
-          "dkim": "missing",
+          "dkim": "unknown",
           "dnssec": "missing"
         },
         "summary": {
-          "missing": 6,
+          "missing": 5,
           "configured-but-unverified": 1,
           "observed-misconfiguration": 0,
-          "evidence": true
+          "evidence": true,
+          "unknown": 1
         },
         "values": {
           "spf": [
@@ -292,7 +301,8 @@
           "mta_sts": "no MTA-STS record",
           "caa": "no record",
           "dkim": "no DKIM selectors provided",
-          "dnssec": "no DNSKEY record"
+          "dnssec": "no DNSKEY record",
+          "spf": "softfail policy (~all)"
         },
         "diagnostics": "1 SPF value(s) truncated to 350 chars"
       },

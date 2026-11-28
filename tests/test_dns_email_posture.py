@@ -124,19 +124,51 @@ class DnsEmailPostureTests(unittest.TestCase):
         with patch.object(dns.resolver, "resolve", side_effect=lookup):
             report = dns_email_posture("example.test")
         for rtype in RECORD_TYPES:
-            self.assertEqual(report["records"][rtype]["state"], "missing")
-        self.assertEqual(report["summary"]["missing"], 7)
+            self.assertEqual(report["records"][rtype]["state"], "unknown" if rtype == "dkim" else "missing")
+        self.assertEqual(report["summary"]["missing"], 6)
+        self.assertEqual(report["summary"]["unknown"], 1)
         self.assertFalse(report["summary"]["evidence"])
         self.assertEqual(report["records"]["spf"]["reason"], "no record")
 
-    def test_resolver_error_is_missing_not_unverified(self):
+    def test_resolver_error_is_unknown_not_missing(self):
         def lookup(host, rrtype, *, lifetime):
             raise dns.exception.Timeout()
         with patch.object(dns.resolver, "resolve", side_effect=lookup):
             report = dns_email_posture("example.test")
         for rtype in RECORD_TYPES:
-            self.assertEqual(report["records"][rtype]["state"], "missing")
+            self.assertEqual(report["records"][rtype]["state"], "unknown")
         self.assertEqual(report["records"]["mx"]["reason"], "resolver error (Timeout)")
+
+    def test_policy_edge_cases(self):
+        cases = [
+            ("spf", "TXT@example.test", ["v=spf1 redirect=_spf.example.test"], "configured-but-unverified"),
+            ("spf", "TXT@example.test", ["v=spf1 -all", "v=spf1 ~all"], "observed-misconfiguration"),
+            ("spf", "TXT@example.test", ["v=spf1 +all -all"], "observed-misconfiguration"),
+            ("dmarc", "TXT@_dmarc.example.test", ["v=DMARC1;p=none;"], "observed-misconfiguration"),
+            ("dmarc", "TXT@_dmarc.example.test", ["v=DMARC1;p=reject;"], "configured-but-unverified"),
+            ("dmarc", "TXT@_dmarc.example.test", ["v=DMARC1;p=reject;p=none"], "observed-misconfiguration"),
+            ("dmarc", "TXT@_dmarc.example.test", ["v=DMARC1; rua=mailto:a@example.test"], "observed-misconfiguration"),
+        ]
+        for kind, key, values, expected in cases:
+            with self.subTest(values=values):
+                report, _ = self._run({"answers": {key: [{"txt": [v]} for v in values]},
+                                       "dkim_selectors": []})
+                self.assertEqual(report["records"][kind]["state"], expected)
+
+    def test_no_nameservers_is_unknown(self):
+        def lookup(host, rrtype, *, lifetime):
+            raise dns.resolver.NoNameservers()
+        report = dns_email_posture("example.test", resolver=lookup, dkim_selectors=["default"])
+        self.assertEqual(report["summary"]["unknown"], 7)
+        self.assertFalse(report["summary"]["evidence"])
+
+    def test_invalid_selectors_fail_before_lookup(self):
+        for selectors in ("default", ["bad name"], ["a.b"], ["-bad"], ["s"] * 9):
+            with self.subTest(selectors=selectors):
+                with patch.object(dns.resolver, "resolve") as resolver:
+                    with self.assertRaises(ValueError):
+                        dns_email_posture("example.test", dkim_selectors=selectors)
+                    resolver.assert_not_called()
 
     def test_idn_host_is_idna_encoded(self):
         normalized = normalize_host("bücher.example.test")
