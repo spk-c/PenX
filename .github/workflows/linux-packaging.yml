@@ -19,6 +19,11 @@ on:
 permissions:
   contents: read
 
+# Stop superseded builds for the same PR/branch without affecting other forks.
+concurrency:
+  group: linux-package-${{ github.workflow }}-${{ github.event.pull_request.head.repo.full_name || github.repository }}-${{ github.head_ref || github.ref_name }}
+  cancel-in-progress: true
+
 jobs:
   linux-package:
     name: Linux onedir and Debian package (amd64)
