@@ -71,6 +71,250 @@ def _dns_lookup(name: str) -> str:
     return "\n".join(lines)
 
 
+# --- PX-303: read-only DNS/email-domain posture (no mail, no selector guessing) ---
+
+_STATE_MISSING = "missing"
+_STATE_CONFIGURED = "configured-but-unverified"
+_STATE_MISCONFIGURED = "observed-misconfiguration"
+_POSTURE_VALUE_LIMIT = 350
+_POSTURE_MAX_RECORDS = 5
+
+
+def _record_text(rdata) -> str:
+    """Render an rdata value. TXT uses the logical text (strings concatenated
+    without a separator); all other types use the standard text form."""
+    strings = getattr(rdata, "strings", None)
+    if isinstance(strings, (tuple, list)) and strings:
+        return b"".join(strings).decode("ascii", "replace")
+    return rdata.to_text()
+
+
+def _bound_posture_values(texts, max_records: int = _POSTURE_MAX_RECORDS,
+                          max_chars: int = _POSTURE_VALUE_LIMIT):
+    """Render record texts under an explicit count and size budget.
+
+    Returns (values, omitted, truncated).
+    """
+    values, omitted, truncated = [], 0, 0
+    for text in texts:
+        if len(values) >= max_records:
+            omitted += 1
+            continue
+        if len(text) > max_chars:
+            text = text[:max_chars]
+            truncated += 1
+        values.append(text)
+    return values, omitted, truncated
+
+
+def _posture_loss_notes(label: str, omitted: int, truncated: int) -> list:
+    parts = []
+    if omitted:
+        parts.append(f"{omitted} more {label} record(s) omitted for display")
+    if truncated:
+        parts.append(f"{truncated} {label} value(s) truncated to {_POSTURE_VALUE_LIMIT} chars")
+    return parts
+
+
+def _posture_record(state, *, evidence, count, values, reason=""):
+    return {"state": state, "evidence": evidence, "count": count,
+            "values": values, "reason": reason}
+
+
+def _posture_resolve(resolver, host: str, rrtype: str):
+    """Return (texts, error_name). error_name is None on success."""
+    try:
+        answer = resolver(host, rrtype, lifetime=5)
+    except Exception as exc:
+        return [], type(exc).__name__
+    return [_record_text(r) for r in answer], None
+
+
+def _missing_reason(error_name: str) -> str:
+    if error_name in ("NXDOMAIN", "NoAnswer", "NoNameservers"):
+        return "no record"
+    return f"resolver error ({error_name})"
+
+
+def _extract_dmarc_policy(text: str):
+    """Explicit p= policy; None when absent (RFC 7672 default is none, but we
+    only flag an explicit p=none as misconfiguration)."""
+    for token in text.split():
+        if token.lower().startswith("p="):
+            return token.split("=", 1)[1].lower()
+    return None
+
+
+def _posture_mx(resolver, host: str, diagnostics: list):
+    texts, err = _posture_resolve(resolver, host, "MX")
+    if err is not None:
+        return _posture_record(_STATE_MISSING, evidence=False, count=0, values=[],
+                               reason=_missing_reason(err))
+    values, omitted, truncated = _bound_posture_values(texts)
+    if notes := _posture_loss_notes("MX", omitted, truncated):
+        diagnostics.extend(notes)
+    if not texts:
+        return _posture_record(_STATE_MISSING, evidence=False, count=0, values=[],
+                               reason="no record")
+    return _posture_record(_STATE_CONFIGURED, evidence=True, count=len(texts),
+                           values=values)
+
+
+def _posture_spf(resolver, host: str, diagnostics: list):
+    texts, err = _posture_resolve(resolver, host, "TXT")
+    if err is not None:
+        return _posture_record(_STATE_MISSING, evidence=False, count=0, values=[],
+                               reason=_missing_reason(err))
+    spf = [t for t in texts if t.lower().startswith("v=spf1")]
+    if not spf:
+        return _posture_record(_STATE_MISSING, evidence=False, count=0, values=[],
+                               reason="no SPF record")
+    values, omitted, truncated = _bound_posture_values(spf)
+    if notes := _posture_loss_notes("SPF", omitted, truncated):
+        diagnostics.extend(notes)
+    # A catch-all mechanism must be -all or ~all (RFC 7208). Its absence means
+    # the domain does not default-refuse unauthorized senders.
+    if not any(tok in ("-all", "~all") for tok in spf[0].split()):
+        return _posture_record(_STATE_MISCONFIGURED, evidence=True, count=len(spf),
+                               values=values, reason="no default-refuse mechanism")
+    return _posture_record(_STATE_CONFIGURED, evidence=True, count=len(spf),
+                           values=values)
+
+
+def _posture_dmarc(resolver, host: str, diagnostics: list):
+    texts, err = _posture_resolve(resolver, "_dmarc." + host, "TXT")
+    if err is not None:
+        return _posture_record(_STATE_MISSING, evidence=False, count=0, values=[],
+                               reason=_missing_reason(err))
+    dmarc = [t for t in texts if t.lower().startswith("v=dmarc1")]
+    if not dmarc:
+        return _posture_record(_STATE_MISSING, evidence=False, count=0, values=[],
+                               reason="no DMARC record")
+    values, omitted, truncated = _bound_posture_values(dmarc)
+    if notes := _posture_loss_notes("DMARC", omitted, truncated):
+        diagnostics.extend(notes)
+    if _extract_dmarc_policy(dmarc[0]) == "none":
+        return _posture_record(_STATE_MISCONFIGURED, evidence=True, count=len(dmarc),
+                               values=values, reason="no policy enforcement (p=none)")
+    return _posture_record(_STATE_CONFIGURED, evidence=True, count=len(dmarc),
+                           values=values)
+
+
+def _posture_mta_sts(resolver, host: str, diagnostics: list):
+    texts, err = _posture_resolve(resolver, "_mta-sts." + host, "TXT")
+    if err is not None:
+        return _posture_record(_STATE_MISSING, evidence=False, count=0, values=[],
+                               reason=_missing_reason(err))
+    mta = [t for t in texts if t.lower().startswith("v=mta-sts")]
+    if not mta:
+        return _posture_record(_STATE_MISSING, evidence=False, count=0, values=[],
+                               reason="no MTA-STS record")
+    values, omitted, truncated = _bound_posture_values(mta)
+    if notes := _posture_loss_notes("MTA-STS", omitted, truncated):
+        diagnostics.extend(notes)
+    return _posture_record(_STATE_CONFIGURED, evidence=True, count=len(mta),
+                           values=values)
+
+
+def _posture_caa(resolver, host: str, diagnostics: list):
+    texts, err = _posture_resolve(resolver, host, "CAA")
+    if err is not None:
+        return _posture_record(_STATE_MISSING, evidence=False, count=0, values=[],
+                               reason=_missing_reason(err))
+    values, omitted, truncated = _bound_posture_values(texts)
+    if notes := _posture_loss_notes("CAA", omitted, truncated):
+        diagnostics.extend(notes)
+    if not texts:
+        return _posture_record(_STATE_MISSING, evidence=False, count=0, values=[],
+                               reason="no record")
+    return _posture_record(_STATE_CONFIGURED, evidence=True, count=len(texts),
+                           values=values)
+
+
+def _posture_dkim(resolver, host: str, selectors, diagnostics: list):
+    selectors = list(selectors)
+    if not selectors:
+        return _posture_record(_STATE_MISSING, evidence=False, count=0, values=[],
+                               reason="no DKIM selectors provided")
+    texts, error_names = [], []
+    for selector in selectors:
+        # Only explicitly provided selectors are queried; nothing is guessed.
+        record, err = _posture_resolve(resolver, f"{selector}._domainkey.{host}", "TXT")
+        if err is not None:
+            error_names.append(err)
+        else:
+            texts.extend(record)
+    if texts:
+        values, omitted, truncated = _bound_posture_values(texts)
+        if notes := _posture_loss_notes("DKIM", omitted, truncated):
+            diagnostics.extend(notes)
+        return _posture_record(_STATE_CONFIGURED, evidence=True, count=len(texts),
+                               values=values)
+    reason = ("resolver error"
+              if any(e not in ("NXDOMAIN", "NoAnswer", "NoNameservers") for e in error_names)
+              else "no DKIM record")
+    return _posture_record(_STATE_MISSING, evidence=False, count=0, values=[],
+                           reason=reason)
+
+
+def _posture_dnssec(resolver, host: str, diagnostics: list):
+    texts, err = _posture_resolve(resolver, host, "DNSKEY")
+    if err is not None:
+        return _posture_record(_STATE_MISSING, evidence=False, count=0, values=[],
+                               reason=_missing_reason(err))
+    values, omitted, truncated = _bound_posture_values(texts)
+    if notes := _posture_loss_notes("DNSKEY", omitted, truncated):
+        diagnostics.extend(notes)
+    if not texts:
+        return _posture_record(_STATE_MISSING, evidence=False, count=0, values=[],
+                               reason="no DNSKEY record")
+    return _posture_record(_STATE_CONFIGURED, evidence=True, count=len(texts),
+                           values=values)
+
+
+def dns_email_posture(host: str, *, resolver=None, dkim_selectors=()) -> dict:
+    """Read-only DNS/email-domain posture report for an authorized domain.
+
+    Parses MX, SPF, DMARC, CAA, DKIM (explicit selectors only), MTA-STS and the
+    DNSSEC signal. Each record type is classified as missing (no data),
+    configured-but-unverified (record present, not verified) or
+    observed-misconfiguration (a clear posture gap is visible). Never sends mail,
+    never guesses DKIM selectors and never connects to the assessed host.
+    """
+    host = _host(host)
+    if resolver is None:
+        try:
+            import dns.resolver
+        except ImportError:
+            raise ValueError("dnspython is required for DNS posture analysis.")
+        resolver = dns.resolver.resolve
+    diagnostics: list = []
+    records = {
+        "mx": _posture_mx(resolver, host, diagnostics),
+        "spf": _posture_spf(resolver, host, diagnostics),
+        "dmarc": _posture_dmarc(resolver, host, diagnostics),
+        "mta_sts": _posture_mta_sts(resolver, host, diagnostics),
+        "caa": _posture_caa(resolver, host, diagnostics),
+        "dkim": _posture_dkim(resolver, host, dkim_selectors, diagnostics),
+        "dnssec": _posture_dnssec(resolver, host, diagnostics),
+    }
+    summary = {
+        "missing": sum(1 for r in records.values() if r["state"] == _STATE_MISSING),
+        "configured-but-unverified": sum(1 for r in records.values()
+                                         if r["state"] == _STATE_CONFIGURED),
+        "observed-misconfiguration": sum(1 for r in records.values()
+                                         if r["state"] == _STATE_MISCONFIGURED),
+        "evidence": any(r["evidence"] for r in records.values()),
+    }
+    return {
+        "schema": "penx-dns-email-posture-v1",
+        "host": host,
+        "records": records,
+        "summary": summary,
+        "diagnostics": "; ".join(diagnostics),
+    }
+
+
 def passive_recon(target: str, *, include_paid: bool = True) -> str:
     """Fetch external metadata only. Caller must not enable active LLM tools."""
     host = _host(target)
