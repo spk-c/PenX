@@ -1,0 +1,51 @@
+{
+  "schema": "penx-refactor-benchmark-v2",
+  "commit": "266beb9",
+  "platform": "Windows-10-10.0.19045-SP0",
+  "python": "3.15.2",
+  "runs": 5,
+  "warmups": 2,
+  "worker_count": 32,
+  "launcher_version": {
+    "median_ms": 23.37,
+    "min_ms": 22.99,
+    "max_ms": 24.53,
+    "p95_ms": 24.35
+  },
+  "synthetic_projection": {
+    "median_ms": 3.05,
+    "min_ms": 3.0,
+    "max_ms": 3.26,
+    "p95_ms": 3.22
+  },
+  "projection_peak_bytes": 195388,
+  "history_paging": {
+    "median_ms": 0.55,
+    "min_ms": 0.53,
+    "max_ms": 0.55,
+    "p95_ms": 0.55
+  },
+  "html_export": {
+    "median_ms": 2.46,
+    "min_ms": 2.4,
+    "max_ms": 2.66,
+    "p95_ms": 2.62
+  },
+  "pdf_export": {
+    "median_ms": 44.37,
+    "min_ms": 43.99,
+    "max_ms": 45.77,
+    "p95_ms": 45.57
+  },
+  "export_bytes": {
+    "html_bytes": 58177,
+    "pdf_bytes": 16954
+  },
+  "fixture": {
+    "scanners": 12,
+    "findings": 40,
+    "history_rows": 10000,
+    "real_targets": false
+  },
+  "limitations": "Synthetic local measurements only; no scan/network/LLM workload. HTML/PDF export renders the synthetic session through the application export path. History paging uses a temporary 10000-row SQLite history. Compare equal machines, Python versions and fixture sizes. Peak memory is the traced Python allocation peak (tracemalloc), not OS-level process RSS. Offline test runtime is only recorded with --offline-tests and is not part of the fast microbenchmark."
+}
