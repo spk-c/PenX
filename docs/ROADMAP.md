@@ -20,7 +20,7 @@ This table describes the **4 November merged source snapshot**; the v0.6.1 secur
 | **PX-103** | [#137](https://github.com/spk-c/PenX/pull/137): TTY detection, no-color/plain mode, width-aware rendering helpers | Scanner live-progress integration, full wrapping and Windows/Linux keyboard/TTY field matrix |
 | **PX-104** | [#170](https://github.com/spk-c/PenX/pull/170): explicit read-only SQLite history keyset pages (1–100 headers), date/target/status filters and default target redaction | **Partial:** no combined project/scanner/evidence views, MariaDB history parity, durable batch jobs or owner field acceptance |
 | **PX-203** | [#175](https://github.com/spk-c/PenX/pull/175): conservative traceability tiers 0/1/2 and independent dimensions for saved-source quote, unique scanner section, typed COMPLETE+usable evidence, recorded date, and unverified raw-artifact references; consistent JSON/SARIF/HTML/PDF labels | **Partial:** independent source-byte verification, freshness, multi-source corroboration and actual operator PDF/assistive-tech acceptance still missing. Tiers never verify CVE applicability or exploitability |
-| **PX-304** | [#171](https://github.com/spk-c/PenX/pull/171): local CycloneDX 1.5/1.6 and SPDX 2.3 JSON inventory; [#174](https://github.com/spk-c/PenX/pull/174): explicitly local OSV detail snapshot with **exact listed** PyPI/npm version candidate comparison and redacted results | **Partial:** no OSV version-range semantics, snapshot origin/freshness assurance, vendor/distro backport adjudication, online applicability verdict or field acceptance; **no confirmed vulnerability claim** |
+| **PX-304** | [#171](https://github.com/spk-c/PenX/pull/171): local CycloneDX 1.5/1.6 and SPDX 2.3 JSON inventory; [#174](https://github.com/spk-c/PenX/pull/174): explicitly local OSV detail snapshot with **exact listed** PyPI/npm version candidate comparison and redacted results; opt-in SEMVER range evaluation | **Partial:** no non-SEMVER range semantics, snapshot origin/freshness assurance, vendor/distro backport adjudication, online applicability verdict or field acceptance; **no confirmed vulnerability claim** |
 | **PX-401** | [#146](https://github.com/spk-c/PenX/pull/146): noninteractive local `llm-info` model capability diagnostics, opt-in probe, redacted JSON | Provider identity, context retention and cancellation still need local NInfer/Strata/llama.cpp/Ollama field testing |
 | **PX-403** | [#165](https://github.com/spk-c/PenX/pull/165): versioned deterministic offline fixture benchmark, exact source-anchor scoring, bounded/redacted metrics, refusal/timeout/invalid-JSON cases | **Partial:** no actual model inference, loaded-model proof, independently reviewed dataset, live precision/recall or operator sign-off |
 | **PX-501** | [#166](https://github.com/spk-c/PenX/pull/166): hardened manual-only authorized scan/SARIF Actions example, pinned actions, no persisted checkout token and hash-locked dependencies with offline contract tests | **Partial:** no target-licensed end-to-end workflow field proof or independently verified SARIF upload in a configured repository |
@@ -56,7 +56,7 @@ by itself satisfy the new milestone's tests, safeguards and field criteria.
 | PX-301 | Not accepted | Expanded HTTP policy fixture/field acceptance pending |
 | PX-302 | Not accepted | Certificate hygiene fixture/trust acceptance pending |
 | PX-303 | Not accepted | DNS/mail posture parser and resolver fixture matrix pending |
-| PX-304 | Partial source | Local SBOM (#171) and exact offline OSV candidate matches (#174); ranges, snapshot provenance and backport analysis unresolved |
+| PX-304 | Partial source | Local SBOM (#171), exact offline OSV candidate matches (#174) and opt-in SEMVER range evaluation; non-SEMVER ranges, snapshot provenance and backport analysis unresolved |
 | PX-305 | Not accepted | Local IaC/config scan limits and fixture safety pending |
 | PX-306 | Not accepted | Third-party adapter SDK and isolation pending |
 | PX-307 | Not accepted | Template policy/capability and safe scope audit pending |
@@ -255,8 +255,8 @@ All additions must use explicit authorization, fixed bounded probes and conserva
 
 ### PX-304 — Offline SBOM import and package exposure analysis (P2, M)
 **Scope:** Read locally provided CycloneDX/SPDX inventory and reconcile OSV/advisories with exact package/version/ecosystem and distro backports. Never upload an SBOM silently.
-**Done:** Detect file size/schema limits and duplicate records; ambiguous versions remain candidates; local processing works without AI.
-**Tests:** Golden SBOMs with false matches, malformed input, vendor backports and no-network fixtures.
+**Done:** Detect file size/schema limits and duplicate records; ambiguous versions remain candidates; opt-in offline SEMVER range evaluation (fail-closed on unparseable versions); local processing works without AI.
+**Tests:** Golden SBOMs with false matches, malformed input, vendor backports, unparseable versions, no-network and range-boundary fixtures.
 **Touches:** intelligence/package_inventory.py, intelligence/vendor_status.py, intelligence/cve_engine.py.
 
 ### PX-305 — Local configuration/IaC checks (P2, L)
