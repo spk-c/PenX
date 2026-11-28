@@ -37,11 +37,11 @@ by itself satisfy the new milestone's tests, safeguards and field criteria.
 | ID | Status | Next unmet gate |
 | --- | --- | --- |
 | PX-001 | Partial source | Field matrix: human Windows/Npcap/Kali and backup acceptance |
-| PX-002 | Partial source | Remaining real-adapter taxonomy, legacy TUI/DB parity |
-| PX-003 | Partial source | External provenance and multi-adapter/PDF field sign-off |
-| PX-004 | Partial source | Dual external pins added (#173); no authenticated SQL provenance, historical row proof, maintenance/rollback or user DB restore |
-| PX-005 | Partial source | SBOM/manifests merged; tagged release verification/signing pending |
-| PX-101 | Partial source | Blocked scanner adapter audits, grants, owner field validation |
+| PX-002 | Partial source | [#214](https://github.com/spk-c/PenX/pull/214) adds negative outcome fixtures; remaining real-adapter taxonomy, legacy TUI/DB parity |
+| PX-003 | Partial source | [#214](https://github.com/spk-c/PenX/pull/214) adds negative report-coverage fixtures; external provenance and multi-adapter/PDF field sign-off |
+| PX-004 | Partial source | [#213](https://github.com/spk-c/PenX/pull/213) handles unreadable backup files; [#215](https://github.com/spk-c/PenX/pull/215) adds historical evidence negative fixtures. No authenticated SQL provenance, historical row proof, maintenance/rollback or user DB restore |
+| PX-005 | Partial source | SBOM/manifests merged; [#220](https://github.com/spk-c/PenX/pull/220) and [#212](https://github.com/spk-c/PenX/pull/212) expand distribution validation; tagged release verification/signing pending |
+| PX-101 | Partial source | [#217](https://github.com/spk-c/PenX/pull/217) adds passive-plan and dispatch authorization regressions; blocked scanner adapter audits, grants, owner field validation remain |
 | PX-102 | Blocked/dependent | Do not auto-resume work until recovery + scope gates |
 | PX-103 | Partial source | TTY progress, wrapping and human keyboard testing |
 | PX-104 | Partial source | SQLite redacted paging merged; project/MariaDB/evidence filters remain |
@@ -69,12 +69,12 @@ by itself satisfy the new milestone's tests, safeguards and field criteria.
 | PX-404 | Blocked/dependent | Second-pass disagreement dependent on source grounding |
 | PX-405 | Not accepted | Provider freshness/applicability proof pending |
 | PX-501 | Partial source | Manual-only SARIF workflow source merged, end-to-end field proof absent |
-| PX-502 | Not accepted | Safe bundle import/export acceptance pending |
+| PX-502 | Not accepted | [#216](https://github.com/spk-c/PenX/pull/216) adds existing profile-import safety fixtures; full safe bundle import/export remains unimplemented |
 | PX-503 | Blocked/dependent | Depends on accepted PX-104/201 and localhost controls |
 | PX-504 | Not accepted | Native ARM64 runtime and artifact field matrix pending |
 | PX-505 | Blocked/dependent | Blocked on opted-in recurring and delta notifications |
-| PX-506 | Not accepted | Comparable performance budget and sanitized baselines pending |
-| PX-507 | Not accepted | Package manager installation/signing/owner sign-off pending |
+| PX-506 | Partial source | [#221](https://github.com/spk-c/PenX/pull/221) adds synthetic history paging and warmups, five CI samples and optional offline runtime measurement; comparable budget/dashboard and broader acceptance pending |
+| PX-507 | Partial source | [#212](https://github.com/spk-c/PenX/pull/212) changes WinGet drafts to per-user Inno and documents synthetic VM retention; publication, signing, migration and owner sign-off pending |
 
 The [#138 CI repair](https://github.com/spk-c/PenX/pull/138) switched transiently failing Kali mirror installs to a bounded signed-repository CDN fallback. This is infrastructure work, not a roadmap item or a new release.
 
