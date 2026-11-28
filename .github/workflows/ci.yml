@@ -62,7 +62,7 @@ jobs:
         run: python offline_tests.py
       - name: Measure synthetic refactor baseline
         run: >
-          python scripts/refactor_benchmarks.py --runs 3
+          python scripts/refactor_benchmarks.py --runs 5
           --check-thresholds scripts/benchmark_thresholds.json
           --output refactor-benchmark.json
       - name: Upload synthetic baseline
@@ -143,7 +143,7 @@ jobs:
         run: python -m unittest discover -s tests -p test_windows_scanner_integration.py -v
       - name: Measure synthetic refactor baseline (Windows)
         run: >
-          python scripts/refactor_benchmarks.py --runs 3
+          python scripts/refactor_benchmarks.py --runs 5
           --check-thresholds scripts/benchmark_thresholds.json
           --output refactor-benchmark.json
       - name: Upload synthetic Windows baseline

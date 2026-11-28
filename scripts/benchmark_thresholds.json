@@ -1,9 +1,10 @@
 {
   "schema": "penx-benchmark-thresholds-v1",
-  "calibrated": "2026-10-15, Windows 10 / CPython 3.13, 40-finding synthetic fixture: launcher_version median 29 ms, synthetic_projection median 1 ms, html_export median 1 ms, pdf_export median 28 ms. Limits carry more than 10x headroom for CI runners; they are regression smoke bounds, not performance promises.",
+  "calibrated": "2026-10-15, Windows 10 / CPython 3.13, 40-finding synthetic fixture: launcher_version median 29 ms, synthetic_projection median 1 ms, html_export median 1 ms, pdf_export median 28 ms. history_paging (10000-row temporary history) added 2026-11-28: median 0.5 ms on Windows 10 / CPython 3.15. Limits carry more than 10x headroom for CI runners; they are regression smoke bounds, not performance promises.",
   "limits": {
     "launcher_version": 15000,
     "synthetic_projection": 1000,
+    "history_paging": 1000,
     "html_export": 30000,
     "pdf_export": 60000
   }
