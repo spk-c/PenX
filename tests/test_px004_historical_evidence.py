@@ -121,6 +121,37 @@ class HistoricalComparisonTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "duplicate evidence table"):
             self.compare()
 
+    def test_missing_record_and_table_fields_fail(self):
+        self.source_record.pop("tables")
+        self.save()
+        with self.assertRaisesRegex(ValueError, "Unexpected evidence record fields"):
+            self.compare()
+        self.source_record = self.fixture("source", "penx_ci_test")
+        self.scratch_record["tables"][0].pop("content_sha256")
+        self.save()
+        with self.assertRaisesRegex(ValueError, "Invalid evidence table fields"):
+            self.compare()
+
+    def test_malformed_digests_are_rejected(self):
+        self.source_record["dump_sha256"] = "not-a-hash"
+        self.save()
+        with self.assertRaisesRegex(ValueError, "Invalid evidence digest"):
+            self.compare()
+        self.source_record = self.fixture("source", "penx_ci_test")
+        self.scratch_record["tables"][0]["content_sha256"] = "not-a-hash"
+        self.save()
+        with self.assertRaisesRegex(ValueError, "Invalid content fingerprint"):
+            self.compare()
+
+    def test_total_row_budget_exceeded_fails(self):
+        self.scratch_record["tables"] = [
+            {"name": f"t{i}", "rows": 2000, "content_sha256": H(f"rows-{i}")}
+            for i in range(6)
+        ]
+        self.save()
+        with self.assertRaisesRegex(ValueError, "row budget exceeded"):
+            self.compare()
+
     def test_wrong_dump_digest_and_source_role_fail(self):
         self.scratch_record["dump_sha256"] = H("unrelated-dump")
         self.save()
