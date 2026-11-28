@@ -25,6 +25,7 @@ import os
 import re
 import shutil
 import sqlite3
+import stat
 import time
 import uuid
 from pathlib import Path
@@ -111,9 +112,25 @@ def _unique_backup_name(dest_dir: Path) -> str:
 
 
 def _resolve_backup(path: Path) -> tuple[Path, Path]:
-    """Map a database file, manifest file or directory onto the (db, manifest) pair."""
+    """Map a database file, manifest file or directory onto the (db, manifest) pair.
+
+    The path is stat'ed explicitly rather than via ``Path.is_dir`` so that a
+    permission error on the backup path itself is propagated to the caller's
+    unreadable-backup handler on every supported Python version; a missing
+    path falls through to the suffix-based resolution so the caller reports
+    the specific missing file instead.
+    """
     path = Path(path)
-    if path.is_dir():
+    try:
+        entry = path.stat()
+    except FileNotFoundError:
+        # A missing path is not an unreadable-backup condition; fall through
+        # to the suffix-based resolution so the caller reports the specific
+        # missing file instead.
+        is_dir = False
+    else:
+        is_dir = stat.S_ISDIR(entry.st_mode)
+    if is_dir:
         candidates = sorted(path.glob("penx-backup-*.sqlite"))
         if not candidates:
             candidates = sorted(path.glob("*.sqlite"))
