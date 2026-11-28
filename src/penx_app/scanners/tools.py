@@ -1113,6 +1113,44 @@ def run_endpoint_mapping(target: str, *, cancel_event=None) -> ScannerOutput:
                              reason="error")
 
 
+def _cert_name(cert, field):
+    """Render a certificate RDN (subject/issuer) as a readable string.
+
+    The value is a tuple of RDNs, each a tuple of (attribute, value) pairs.
+    Non-string values are omitted rather than guessed; absent fields report
+    "unknown" so the output shape stays stable for downstream parsing.
+    """
+    name = cert.get(field) if isinstance(cert, dict) else None
+    if not name:
+        return "unknown"
+    parts = []
+    for rdn in name:
+        for attr, value in rdn:
+            if isinstance(value, str) and value:
+                parts.append(f"{attr}={value}")
+    return ", ".join(parts) if parts else "unknown"
+
+
+def _tls_failure_reason(exc):
+    """Categorize a TLS verification failure while preserving the raw detail.
+
+    The category is a best-effort read of the OpenSSL message; the raw error
+    is always appended so no diagnostic information is lost to the operator.
+    """
+    message = str(exc).lower()
+    if "hostname mismatch" in message or "ip address mismatch" in message:
+        return f"hostname mismatch: {exc}"
+    if "certificate has expired" in message:
+        return f"certificate expired: {exc}"
+    if "self-signed certificate" in message:
+        return f"untrusted or self-signed certificate: {exc}"
+    if "certificate verify failed" in message:
+        return f"certificate verification failed: {exc}"
+    if isinstance(exc, TimeoutError) or "timed out" in message:
+        return f"handshake timeout: {exc}"
+    return str(exc)
+
+
 def run_tls_check(target: str, *, cancel_event=None) -> ScannerOutput:
     """Check verified HTTPS handshake, certificate expiry and negotiated TLS."""
     cancelled = _cancelled_before_start(cancel_event)
@@ -1173,6 +1211,9 @@ def run_tls_check(target: str, *, cancel_event=None) -> ScannerOutput:
             f"[VERIFIED TLS HANDSHAKE] {host}:{port}",
             f"Protocol: {protocol}",
             f"Cipher: {cipher[0] if cipher else 'unknown'}",
+            f"Certificate subject: {_cert_name(cert, 'subject')}",
+            f"Certificate issuer: {_cert_name(cert, 'issuer')}",
+            f"Certificate chain: verified against the system trust store",
             f"Certificate expires: {expires.isoformat() if expires else 'unknown'}",
             f"Days remaining: {days_left if days_left is not None else 'unknown'}",
         ]
@@ -1188,7 +1229,7 @@ def run_tls_check(target: str, *, cancel_event=None) -> ScannerOutput:
         cancelled = _cancelled_after_io(cancel_event)
         if cancelled is not None:
             return cancelled
-        return ScannerOutput(f"[!] TLS verification failed: {exc}",
+        return ScannerOutput(f"[!] TLS verification failed: {_tls_failure_reason(exc)}",
                              status="FAILED", evidence=False,
                              reason="error")
 
