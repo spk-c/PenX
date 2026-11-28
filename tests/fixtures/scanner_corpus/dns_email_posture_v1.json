@@ -1,0 +1,312 @@
+{
+  "schema": "penx-dns-email-posture-v1",
+  "provenance": {
+    "kind": "hand-authored-synthetic",
+    "source": "Synthetic resolver answers rendered through dnspython; no live resolver traffic."
+  },
+  "cases": [
+    {
+      "id": "posture-complete",
+      "answers": {
+        "MX@example.test": [
+          "10 mail.example.test."
+        ],
+        "TXT@example.test": [
+          {
+            "txt": [
+              "v=spf1 include:_spf.example.test ~all"
+            ]
+          }
+        ],
+        "TXT@_dmarc.example.test": [
+          {
+            "txt": [
+              "v=DMARC1; p=quarantine;"
+            ]
+          }
+        ],
+        "TXT@_mta-sts.example.test": [
+          {
+            "txt": [
+              "v=MTA-STS st=1 max=3600"
+            ]
+          }
+        ],
+        "CAA@example.test": [
+          "128 issue \"letsencrypt.org\""
+        ],
+        "TXT@default._domainkey.example.test": [
+          {
+            "txt": [
+              "v=DKIM1; k=rsa; p=abc123"
+            ]
+          }
+        ],
+        "DNSKEY@example.test": [
+          "256 3 3 MDEyMzQ1Njc4OQ=="
+        ]
+      },
+      "dkim_selectors": [
+        "default"
+      ],
+      "expected": {
+        "states": {
+          "mx": "configured-but-unverified",
+          "spf": "configured-but-unverified",
+          "dmarc": "configured-but-unverified",
+          "mta_sts": "configured-but-unverified",
+          "caa": "configured-but-unverified",
+          "dkim": "configured-but-unverified",
+          "dnssec": "configured-but-unverified"
+        },
+        "summary": {
+          "missing": 0,
+          "configured-but-unverified": 7,
+          "observed-misconfiguration": 0,
+          "evidence": true,
+          "unknown": 0
+        },
+        "values": {
+          "spf": [
+            "v=spf1 include:_spf.example.test ~all"
+          ],
+          "mx": [
+            "10 mail.example.test."
+          ]
+        },
+        "reasons": {
+          "spf": "softfail policy (~all)"
+        },
+        "diagnostics": ""
+      },
+      "sha256": "b67299f7824bb00efc9e24157ca15810bcde8d5b96c745dba63ba915dff3f8b2"
+    },
+    {
+      "id": "posture-misconfig",
+      "answers": {
+        "MX@example.test": [
+          "10 mail.example.test."
+        ],
+        "TXT@example.test": [
+          {
+            "txt": [
+              "v=spf1 include:_spf.example.test"
+            ]
+          }
+        ],
+        "TXT@_dmarc.example.test": [
+          {
+            "txt": [
+              "v=DMARC1; p=none;"
+            ]
+          }
+        ]
+      },
+      "dkim_selectors": [],
+      "expected": {
+        "states": {
+          "mx": "configured-but-unverified",
+          "spf": "observed-misconfiguration",
+          "dmarc": "observed-misconfiguration",
+          "mta_sts": "missing",
+          "caa": "missing",
+          "dkim": "unknown",
+          "dnssec": "missing"
+        },
+        "summary": {
+          "missing": 3,
+          "configured-but-unverified": 1,
+          "observed-misconfiguration": 2,
+          "evidence": true,
+          "unknown": 1
+        },
+        "values": {
+          "spf": [
+            "v=spf1 include:_spf.example.test"
+          ],
+          "dmarc": [
+            "v=DMARC1; p=none;"
+          ]
+        },
+        "reasons": {
+          "spf": "no default-refuse mechanism",
+          "dmarc": "no policy enforcement (p=none)",
+          "mta_sts": "no MTA-STS record",
+          "caa": "no record",
+          "dkim": "no DKIM selectors provided",
+          "dnssec": "no DNSKEY record"
+        },
+        "diagnostics": ""
+      },
+      "sha256": "00836e23a7b9f86a97997b226795807e883c03a0c656589efadffa7e87f97b74"
+    },
+    {
+      "id": "posture-all-missing",
+      "answers": {},
+      "dkim_selectors": [],
+      "expected": {
+        "states": {
+          "mx": "missing",
+          "spf": "missing",
+          "dmarc": "missing",
+          "mta_sts": "missing",
+          "caa": "missing",
+          "dkim": "unknown",
+          "dnssec": "missing"
+        },
+        "summary": {
+          "missing": 6,
+          "configured-but-unverified": 0,
+          "observed-misconfiguration": 0,
+          "evidence": false,
+          "unknown": 1
+        },
+        "values": {},
+        "reasons": {
+          "mx": "no record",
+          "spf": "no SPF record",
+          "dmarc": "no DMARC record",
+          "mta_sts": "no MTA-STS record",
+          "caa": "no record",
+          "dkim": "no DKIM selectors provided",
+          "dnssec": "no DNSKEY record"
+        },
+        "diagnostics": ""
+      },
+      "sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
+    },
+    {
+      "id": "posture-split-txt",
+      "answers": {
+        "TXT@example.test": [
+          {
+            "txt": [
+              "v=spf1 include:_spf.example.te",
+              "st ~all"
+            ]
+          }
+        ]
+      },
+      "dkim_selectors": [],
+      "expected": {
+        "states": {
+          "mx": "missing",
+          "spf": "configured-but-unverified",
+          "dmarc": "missing",
+          "mta_sts": "missing",
+          "caa": "missing",
+          "dkim": "unknown",
+          "dnssec": "missing"
+        },
+        "summary": {
+          "missing": 5,
+          "configured-but-unverified": 1,
+          "observed-misconfiguration": 0,
+          "evidence": true,
+          "unknown": 1
+        },
+        "values": {
+          "spf": [
+            "v=spf1 include:_spf.example.test ~all"
+          ]
+        },
+        "reasons": {
+          "mx": "no record",
+          "dmarc": "no DMARC record",
+          "mta_sts": "no MTA-STS record",
+          "caa": "no record",
+          "dkim": "no DKIM selectors provided",
+          "dnssec": "no DNSKEY record",
+          "spf": "softfail policy (~all)"
+        },
+        "diagnostics": ""
+      },
+      "sha256": "81b2a24dd2c0c911a3d50da8e253a6fa6d54e56b4e2d565dc7d22cf7bd50f9a2"
+    },
+    {
+      "id": "posture-dkim-no-record",
+      "answers": {},
+      "dkim_selectors": [
+        "default"
+      ],
+      "expected": {
+        "states": {
+          "mx": "missing",
+          "spf": "missing",
+          "dmarc": "missing",
+          "mta_sts": "missing",
+          "caa": "missing",
+          "dkim": "missing",
+          "dnssec": "missing"
+        },
+        "summary": {
+          "missing": 7,
+          "configured-but-unverified": 0,
+          "observed-misconfiguration": 0,
+          "evidence": false,
+          "unknown": 0
+        },
+        "values": {},
+        "reasons": {
+          "mx": "no record",
+          "spf": "no SPF record",
+          "dmarc": "no DMARC record",
+          "mta_sts": "no MTA-STS record",
+          "caa": "no record",
+          "dkim": "no DKIM record",
+          "dnssec": "no DNSKEY record"
+        },
+        "diagnostics": ""
+      },
+      "sha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
+    },
+    {
+      "id": "posture-truncated",
+      "answers": {
+        "TXT@example.test": [
+          {
+            "txt": [
+              "v=spf1 kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk",
+              "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk ~all"
+            ]
+          }
+        ]
+      },
+      "dkim_selectors": [],
+      "expected": {
+        "states": {
+          "mx": "missing",
+          "spf": "configured-but-unverified",
+          "dmarc": "missing",
+          "mta_sts": "missing",
+          "caa": "missing",
+          "dkim": "unknown",
+          "dnssec": "missing"
+        },
+        "summary": {
+          "missing": 5,
+          "configured-but-unverified": 1,
+          "observed-misconfiguration": 0,
+          "evidence": true,
+          "unknown": 1
+        },
+        "values": {
+          "spf": [
+            "v=spf1 kkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk"
+          ]
+        },
+        "reasons": {
+          "mx": "no record",
+          "dmarc": "no DMARC record",
+          "mta_sts": "no MTA-STS record",
+          "caa": "no record",
+          "dkim": "no DKIM selectors provided",
+          "dnssec": "no DNSKEY record",
+          "spf": "softfail policy (~all)"
+        },
+        "diagnostics": "1 SPF value(s) truncated to 350 chars"
+      },
+      "sha256": "2350eade6b95c9eefef89fd731f04c40905f1049df9cdba480fb238fb1626001"
+    }
+  ]
+}
